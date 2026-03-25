@@ -1,25 +1,16 @@
-using Microsoft.VisualStudio.Shell;
-using Microsoft.VisualStudio.Shell.Interop;
-using Microsoft.VisualStudio.PlatformUI;   // VSColorTheme
 using System;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
+using Microsoft.VisualStudio.PlatformUI;
+using Microsoft.VisualStudio.Shell;
+using Microsoft.VisualStudio.Shell.Interop;
 using Task = System.Threading.Tasks.Task;
 
 namespace RenderDocComments
 {
-    /// <summary>
-    /// Extension package.
-    ///
-    /// Responsibilities added beyond the original stub:
-    ///  • Loads persisted <see cref="RenderDocOptions"/> at startup.
-    ///  • Subscribes to <see cref="VSColorTheme.ThemeChanged"/> to auto-refresh
-    ///    adornments when the VS colour theme changes (Premium feature 1).
-    ///  • Registers the "Extensions > RenderDocOptions" menu command.
-    /// </summary>
     [PackageRegistration(UseManagedResourcesOnly = true, AllowsBackgroundLoading = true)]
     [Guid(PackageGuidString)]
-    // Tells VS to load this package when a CSharp/Basic/FSharp/C++ document is opened
     [ProvideMenuResource("Menus.ctmenu", 1)]
     [ProvideAutoLoad(UIContextGuids.NoSolution, PackageAutoLoadFlags.BackgroundLoad)]
     [ProvideAutoLoad(UIContextGuids.SolutionExists, PackageAutoLoadFlags.BackgroundLoad)]
@@ -27,44 +18,92 @@ namespace RenderDocComments
     {
         public const string PackageGuidString = "6381b007-68f8-48f1-9db5-f450f3a1a6b0";
 
-        // ── Package initialisation ────────────────────────────────────────────────
-
         protected override async Task InitializeAsync(
             CancellationToken cancellationToken,
             IProgress<ServiceProgressData> progress)
         {
-            // Background-thread work first
             await base.InitializeAsync(cancellationToken, progress);
-
-            // Switch to the UI thread for everything that needs it
             await JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
 
             // 1. Load persisted settings
             RenderDocOptions.Instance.Load(this);
 
-            // 2. Register the Extensions > RenderDocOptions menu command
+            // 2. Register menu command
             await RenderDocOptionsCommand.InitializeAsync(this);
 
-            // 3. Subscribe to VS theme changes (Premium 1 — auto-refresh)
+            // 3. Register renderdoccomments:// URI scheme in HKCU (no admin needed)
+            LicenseManager.EnsureUriSchemeRegistered();
+
+            // 4. Silently re-validate stored licence key
+            await LicenseManager.RevalidateOnStartupAsync(this).ConfigureAwait(true);
+
+            // 5. Start 12-hour background revalidation
+            LicenseManager.StartPeriodicValidation(this);
+
+            // 6. If this VS instance was launched by the OS URI handler (browser redirect),
+            //    write the license key to a temp file for the existing VS instance's
+            //    PurchaseActivationWindow to pick up, then do nothing else.
+            //    The existing instance's window polls the file every second.
+            HandleUriRedirectIfPresent();
+
+            // 7. Subscribe to VS theme changes
             VSColorTheme.ThemeChanged += OnVsThemeChanged;
+        }
+
+        // ── URI redirect handler ──────────────────────────────────────────────────
+
+        private static void HandleUriRedirectIfPresent()
+        {
+            try
+            {
+                var url = Environment.GetCommandLineArgs()
+                    .FirstOrDefault(a => a.StartsWith("renderdoccomments://",
+                        StringComparison.OrdinalIgnoreCase));
+
+                if (string.IsNullOrEmpty(url)) return;
+
+                var licenseKey = ParseQueryParam(url, "license_key");
+                if (string.IsNullOrEmpty(licenseKey)) return;
+
+                // Write to temp file — PurchaseActivationWindow polls this every second
+                LicenseManager.WritePendingLicenseKey(licenseKey);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"[RenderDocComments] URI redirect handling failed: {ex.Message}");
+            }
+        }
+
+        private static string ParseQueryParam(string url, string param)
+        {
+            int q = url.IndexOf('?');
+            if (q < 0) return null;
+
+            string result = null;
+            foreach (var pair in url.Substring(q + 1).Split('&'))
+            {
+                int eq = pair.IndexOf('=');
+                if (eq < 0) continue;
+
+                var key = Uri.UnescapeDataString(pair.Substring(0, eq).Trim());
+                var value = Uri.UnescapeDataString(pair.Substring(eq + 1).Trim());
+
+                if (string.Equals(key, param, StringComparison.OrdinalIgnoreCase)
+                    && !string.IsNullOrEmpty(value)
+                    && !value.StartsWith("{"))
+                    result = value; // keep last match, skip unreplaced placeholders
+            }
+
+            return result;
         }
 
         // ── Theme change handler ──────────────────────────────────────────────────
 
-        /// <summary>
-        /// Fired by VS when the user switches colour theme (e.g. Dark → Light).
-        ///
-        /// FREE behaviour  : do nothing — the user must reopen the file to see
-        ///                   updated adornment colours (original behaviour).
-        /// Premium behaviour   : broadcast <see cref="SettingsChangedBroadcast.RaiseSettingsChanged"/>
-        ///                   so every live <see cref="DocCommentRenderer.DocCommentAdornmentTagger"/>
-        ///                   invalidates its cache and rebuilds tags with the new theme colours.
-        /// </summary>
         private void OnVsThemeChanged(ThemeChangedEventArgs e)
         {
             if (!RenderDocOptions.Instance.EffectiveAutoRefresh) return;
 
-            // Must be on UI thread to raise the broadcast safely
             _ = JoinableTaskFactory.RunAsync(async () =>
             {
                 await JoinableTaskFactory.SwitchToMainThreadAsync();

@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -42,6 +44,7 @@ namespace RenderDocComments
             LoadFromOptions();
             RefreshLicenceBadge();
             RefreshPremiumPanelEnabled();
+            RefreshActiveExtensions();
 
             _loading = false;
         }
@@ -81,13 +84,15 @@ namespace RenderDocComments
 
         private void RefreshLicenceBadge()
         {
-            bool Premium = LicenseManager.PremiumUnlocked;
-            PremiumStatusBadge.Background = Premium
-                ? new SolidColorBrush(Color.FromRgb(0x3C, 0xB3, 0x71))   // green
-                : new SolidColorBrush(Color.FromRgb(0x80, 0x80, 0x80));   // grey
-            PremiumStatusText.Text = Premium ? "✔ Premium Activated" : "Free";
+            bool premium = LicenseManager.PremiumUnlocked;
+            PremiumStatusBadge.Background = premium
+                ? new SolidColorBrush(Color.FromRgb(0x3C, 0xB3, 0x71))
+                : new SolidColorBrush(Color.FromRgb(0x80, 0x80, 0x80));
+            PremiumStatusText.Text = premium ? "✔ Premium Activated" : "Free";
             PremiumStatusText.Foreground = Brushes.White;
-            DeactivateButton.IsEnabled = Premium;
+
+            GetPremiumButton.Visibility = premium ? Visibility.Collapsed : Visibility.Visible;
+            DeactivateButton.Visibility  = premium ? Visibility.Visible   : Visibility.Collapsed;
         }
 
         private void RefreshPremiumPanelEnabled()
@@ -99,27 +104,17 @@ namespace RenderDocComments
 
         // ── Licence actions ───────────────────────────────────────────────────────
 
-        private void OnActivateClicked(object sender, RoutedEventArgs e)
+        private void OnGetPremiumClicked(object sender, RoutedEventArgs e)
         {
-            var key = LicenseKeyBox.Text?.Trim() ?? string.Empty;
-            if (string.IsNullOrEmpty(key))
+            var win = new PurchaseActivationWindow(_serviceProvider) { Owner = this };
+            win.LicenseActivated += (s, args) =>
             {
-                ShowLicenseMessage("Please enter a licence key.", isError: true);
-                return;
-            }
-
-            var (success, message) = LicenseManager.Activate(key);
-            if (success)
-            {
-                RenderDocOptions.Instance.Save(_serviceProvider);
                 RefreshLicenceBadge();
                 RefreshPremiumPanelEnabled();
-                ShowLicenseMessage(message, isError: false);
-            }
-            else
-            {
-                ShowLicenseMessage(message, isError: true);
-            }
+                RefreshActiveExtensions();
+                ShowLicenseMessage("Premium activated — thank you for your purchase!", isError: false);
+            };
+            win.ShowDialog();
         }
 
         private void OnDeactivateClicked(object sender, RoutedEventArgs e)
@@ -128,6 +123,7 @@ namespace RenderDocComments
             RenderDocOptions.Instance.Save(_serviceProvider);
             RefreshLicenceBadge();
             RefreshPremiumPanelEnabled();
+            RefreshActiveExtensions();
             ShowLicenseMessage("Premium licence deactivated.", isError: false);
         }
 
@@ -140,6 +136,79 @@ namespace RenderDocComments
             LicenseMessageText.Visibility = Visibility.Visible;
         }
 
+        // ── Active Extensions list ────────────────────────────────────────────────
+
+        private void RefreshActiveExtensions()
+        {
+            ActiveExtensionsPanel.Children.Clear();
+
+            bool premium = LicenseManager.PremiumUnlocked;
+            var o = RenderDocOptions.Instance;
+
+            // Build the list of all features with their current state
+            var features = new List<(string Name, string Description, bool Active)>
+            {
+                ("Doc Comment Rendering",     "Core rendering of XML doc comments as adornments",          o.RenderEnabled),
+                ("Theme Auto-Refresh",        "Colours update automatically on VS theme change",           o.EffectiveAutoRefresh),
+                ("Margin Glyph Toggle",       "Click the margin glyph to toggle a comment",                o.EffectiveGlyphToggle),
+                ("Custom Font Family",        $"Font: {o.EffectiveFontFamily}",                           premium && o.CustomFontFamily != "Segoe UI"),
+                ("Custom Accent Bar Sides",   BuildBorderDesc(o),                                          premium && (o.BorderTop || o.BorderRight || o.BorderBottom)),
+                ("Custom Colours",            "User-defined text and gradient colours",                    premium),
+            };
+
+            foreach (var (name, desc, active) in features)
+            {
+                var row = new StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal, Margin = new Thickness(0, 3, 0, 3) };
+
+                var dot = new TextBlock
+                {
+                    Text = active ? "●" : "○",
+                    FontSize = 11,
+                    Width = 18,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Foreground = active
+                        ? new SolidColorBrush(Color.FromRgb(0x3C, 0xB3, 0x71))
+                        : new SolidColorBrush(Color.FromRgb(0x60, 0x60, 0x60))
+                };
+
+                var label = new TextBlock
+                {
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Width = 180
+                };
+                label.Inlines.Add(new System.Windows.Documents.Run(name)
+                {
+                    FontWeight = FontWeights.SemiBold,
+                    Foreground = active
+                        ? new SolidColorBrush(Color.FromRgb(0xD4, 0xD4, 0xD4))
+                        : new SolidColorBrush(Color.FromRgb(0x70, 0x70, 0x70))
+                });
+
+                var detail = new TextBlock
+                {
+                    Text = desc,
+                    FontSize = 11,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Foreground = new SolidColorBrush(Color.FromRgb(0x88, 0x88, 0x88))
+                };
+
+                row.Children.Add(dot);
+                row.Children.Add(label);
+                row.Children.Add(detail);
+                ActiveExtensionsPanel.Children.Add(row);
+            }
+        }
+
+        private static string BuildBorderDesc(RenderDocOptions o)
+        {
+            var sides = new List<string>();
+            if (o.EffectiveBorderLeft)   sides.Add("Left");
+            if (o.EffectiveBorderTop)    sides.Add("Top");
+            if (o.EffectiveBorderRight)  sides.Add("Right");
+            if (o.EffectiveBorderBottom) sides.Add("Bottom");
+            return sides.Count > 0 ? $"Sides: {string.Join(", ", sides)}" : "No accent bar";
+        }
+
         // ── Generic setting change ────────────────────────────────────────────────
 
         private void OnSettingChanged(object sender, RoutedEventArgs e)
@@ -147,6 +216,7 @@ namespace RenderDocComments
             if (_loading) return;
             // Live-apply so the user can see the effect immediately
             ApplyToOptions();
+            RefreshActiveExtensions();
         }
 
         private void ApplyToOptions()

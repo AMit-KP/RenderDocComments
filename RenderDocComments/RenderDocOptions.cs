@@ -34,6 +34,14 @@ namespace RenderDocComments
         /// </summary>
         public bool PremiumUnlocked { get; private set; } = false;
 
+        // ── Licence key storage (persisted, not used for gating) ─────────────────
+
+        /// <summary>The raw licence key entered by the user.</summary>
+        public string LicenseKey { get; set; } = null;
+
+        /// <summary>The Dodo Payments instance ID returned at activation (used for deactivation and precise validation).</summary>
+        public string LicenseInstanceId { get; set; } = null;
+
         // -- Theme auto-refresh (Premium 1) --
         /// <summary>
         /// Auto-refresh adornment colours when the VS colour theme changes,
@@ -111,6 +119,13 @@ namespace RenderDocComments
                 var store = sm.GetReadOnlySettingsStore(SettingsScope.UserSettings);
                 if (!store.CollectionExists(CollectionPath)) return;
 
+                // Licence fields
+                PremiumUnlocked = ReadBool(store, nameof(PremiumUnlocked), PremiumUnlocked);
+                LicenseKey = store.PropertyExists(CollectionPath, nameof(LicenseKey))
+                                ? store.GetString(CollectionPath, nameof(LicenseKey)) : LicenseKey;
+                LicenseInstanceId = store.PropertyExists(CollectionPath, nameof(LicenseInstanceId))
+                                ? store.GetString(CollectionPath, nameof(LicenseInstanceId)) : LicenseInstanceId;
+
                 RenderEnabled = ReadBool(store, nameof(RenderEnabled), RenderEnabled);
                 AutoRefreshOnThemeChange = ReadBool(store, nameof(AutoRefreshOnThemeChange), AutoRefreshOnThemeChange);
                 GlyphToggleEnabled = ReadBool(store, nameof(GlyphToggleEnabled), GlyphToggleEnabled);
@@ -142,6 +157,11 @@ namespace RenderDocComments
                 var store = sm.GetWritableSettingsStore(SettingsScope.UserSettings);
                 if (!store.CollectionExists(CollectionPath))
                     store.CreateCollection(CollectionPath);
+
+                // Licence fields
+                store.SetBoolean(CollectionPath, nameof(PremiumUnlocked), PremiumUnlocked);
+                store.SetString(CollectionPath, nameof(LicenseKey), LicenseKey ?? string.Empty);
+                store.SetString(CollectionPath, nameof(LicenseInstanceId), LicenseInstanceId ?? string.Empty);
 
                 store.SetBoolean(CollectionPath, nameof(RenderEnabled), RenderEnabled);
                 store.SetBoolean(CollectionPath, nameof(AutoRefreshOnThemeChange), AutoRefreshOnThemeChange);
