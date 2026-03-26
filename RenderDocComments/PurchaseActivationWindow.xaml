@@ -4,6 +4,7 @@
 	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
 	Title="Get Premium — Render Doc Comments"
 	Width="500"
+	Height="499"
 	Background="#1E1E1E"
 	FontFamily="Segoe UI"
 	FontSize="13"
@@ -68,7 +69,7 @@
 		</Style>
 	</Window.Resources>
 
-	<StackPanel Margin="24,16,24,20">
+	<StackPanel Margin="24,16,22,9">
 
 		<!--  Title  -->
 		<TextBlock
@@ -87,6 +88,7 @@
 		<!--  Feature list  -->
 		<TextBlock Style="{StaticResource SectionHeader}" Text="What you get" />
 		<StackPanel Margin="2,2,0,6">
+			<TextBlock Margin="0,2" Text="✔  No Suscription — one-time purchase and activate on 2 machines" />
 			<TextBlock Margin="0,2" Text="✔  Theme auto-refresh — colours update instantly on VS theme change" />
 			<TextBlock Margin="0,2" Text="✔  Margin glyph button — toggle any comment with a single click" />
 			<TextBlock Margin="0,2" Text="✔  Custom font family for the rendered view" />
@@ -97,17 +99,33 @@
 		<!--  Buy button  -->
 		<Button
 			x:Name="BuyNowButton"
+			HorizontalAlignment="Left"
 			Click="OnBuyNowClicked"
 			Content="Buy Premium — Open Checkout ↗"
-			HorizontalAlignment="Left"
 			Style="{StaticResource BuyButton}" />
+
+		<TextBlock
+			Height="20"
+			Margin="0,6,0,0"
+			FontSize="11"
+			FontWeight="Bold"
+			Foreground="WhiteSmoke"
+			Text="DO NOT CLOSE THIS WINDOW UNTIL PAYMENT IS DONE."
+			TextWrapping="Wrap" />
 
 		<TextBlock
 			Margin="0,0,0,6"
 			FontSize="11"
-			Foreground="#888"
-			TextWrapping="Wrap"
-			Text="After purchase, your browser will return you here with your licence key pre-filled. You can also paste it manually below." />
+			Foreground="WhiteSmoke"
+			Text="After purchase, your licence key pre-filled here."
+			TextWrapping="Wrap" />
+
+		<TextBlock
+			Margin="0,0,0,6"
+			FontSize="11"
+			Foreground="WhiteSmoke"
+			Text="if closed, you can still activate your licence by pasting the key from your email. (Make sure to provide correct email address)."
+			TextWrapping="Wrap" />
 
 		<Separator Margin="0,2,0,2" Background="#444" />
 
@@ -118,11 +136,56 @@
 			Margin="0,0,0,4"
 			FontSize="11"
 			Foreground="#888"
-			Text="Licence key:" />
-		<TextBox
-			x:Name="KeyBox"
-			FontFamily="Consolas"
-			ToolTip="Your licence key — paste it here or complete the checkout above" />
+			Text="If you already have a Licence key enter here:" />
+		<Grid>
+			<TextBox
+				x:Name="KeyBox"
+				Margin="0,3,0,3"
+				FontFamily="Consolas"
+				ToolTip="Your licence key — paste it here or complete the checkout above" />
+
+			<Button
+				x:Name="CopyBtn"
+				Width="20"
+				Height="20"
+				Margin="0,0,6,0"
+				Padding="0"
+				HorizontalAlignment="Right"
+				VerticalAlignment="Center"
+				Background="Transparent"
+				BorderThickness="0"
+				Click="OnCopyClicked"
+				Cursor="Hand"
+				ToolTip="Copy the licence key to clipboard">
+				<Canvas Width="16" Height="16">
+					<!--  Back square (top-right)  -->
+					<Rectangle
+						Canvas.Top="0"
+						Width="10"
+						Height="10"
+						HorizontalAlignment="Left"
+						VerticalAlignment="Center"
+						Fill="Transparent"
+						RadiusX="1.5"
+						RadiusY="1.5"
+						Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+						StrokeThickness="1.5" />
+					<!--  Front square (bottom-left)  -->
+					<Rectangle
+						Canvas.Left="3"
+						Canvas.Top="3"
+						Width="10"
+						Height="10"
+						HorizontalAlignment="Center"
+						VerticalAlignment="Top"
+						Fill="Transparent"
+						RadiusX="1.5"
+						RadiusY="1.5"
+						Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+						StrokeThickness="1.5" />
+				</Canvas>
+			</Button>
+		</Grid>
 
 		<!--  Status message  -->
 		<TextBlock
@@ -133,13 +196,17 @@
 			Visibility="Collapsed" />
 
 		<!--  Buttons  -->
-		<StackPanel Margin="0,6,0,0" HorizontalAlignment="Right" Orientation="Horizontal">
+		<StackPanel
+			Margin="0,6,0,0"
+			HorizontalAlignment="Right"
+			Orientation="Horizontal">
 			<Button
 				x:Name="ActivateBtn"
 				Click="OnActivateClicked"
 				Content="Activate"
 				Style="{StaticResource PrimaryButton}" />
 			<Button
+				Width="58"
 				Click="OnCloseClicked"
 				Content="Close"
 				Style="{StaticResource SecondaryButton}" />

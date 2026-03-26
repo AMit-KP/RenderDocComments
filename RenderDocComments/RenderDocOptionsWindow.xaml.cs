@@ -112,7 +112,7 @@ namespace RenderDocComments
                 RefreshLicenceBadge();
                 RefreshPremiumPanelEnabled();
                 RefreshActiveExtensions();
-                ShowLicenseMessage("Premium activated — thank you for your purchase!", isError: false);
+                ShowLicenseMessage("Premium activated — Thank you ❤️ for your purchase!", isError: false);
             };
             win.ShowDialog();
         }

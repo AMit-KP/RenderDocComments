@@ -53,6 +53,7 @@
     <Compile Include="DocCommentRenderer\DocCommentAdornmentTaggerProvider.cs" />
     <Compile Include="DocCommentRenderer\DocCommentControl.cs" />
     <Compile Include="DocCommentRenderer\DocCommentParser.cs" />
+    <Compile Include="LicenseHttpListener.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="PurchaseActivationWindow.xaml.cs">
       <DependentUpon>PurchaseActivationWindow.xaml</DependentUpon>

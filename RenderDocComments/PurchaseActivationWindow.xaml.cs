@@ -1,7 +1,9 @@
 using System;
 using System.Diagnostics;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Shapes;
 using System.Windows.Threading;
 
 namespace RenderDocComments
@@ -9,7 +11,6 @@ namespace RenderDocComments
     public partial class PurchaseActivationWindow : Window
     {
         private readonly IServiceProvider _serviceProvider;
-        private readonly DispatcherTimer _pendingKeyTimer;
 
         /// <summary>Raised when a key is successfully activated.</summary>
         public event EventHandler LicenseActivated;
@@ -24,75 +25,46 @@ namespace RenderDocComments
             if (!string.IsNullOrEmpty(stored))
                 KeyBox.Text = stored;
 
-            // Poll for a pending license key written by the OS URI handler instance.
-            // When the browser redirects to renderdoccomments://, the OS launches a new
-            // VS instance which writes the key to a temp file and does nothing else.
-            // We pick it up here within 1 second and fill the key box automatically.
-            _pendingKeyTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
-            _pendingKeyTimer.Tick += OnPendingKeyTimerTick;
-            _pendingKeyTimer.Start();
+            // Subscribe to the HTTP listener instead of polling a temp file
+            LicenseHttpListener.LicenseKeyReceived += OnLicenseKeyReceived;
         }
 
-        private void OnPendingKeyTimerTick(object sender, EventArgs e)
+        private void OnLicenseKeyReceived(string key)
         {
-            var key = LicenseManager.ReadAndClearPendingLicenseKey();
-            if (string.IsNullOrEmpty(key)) return;
-
-            KeyBox.Text = key;
-            ShowStatus("Licence key received from checkout. Click Activate to complete.", isError: false);
-            _pendingKeyTimer.Stop();
-        }
-
-        // ── Called by the package when the custom URI scheme fires ────────────────
-
-        /// <summary>
-        /// Parse the redirect URI returned by Dodo after a successful purchase and
-        /// pre-fill the key box.
-        /// Expected format: renderdoccomments://activate?license_key=XXXX-XXXX-...
-        /// </summary>
-        public void PreFillFromRedirectUri(string uri)
-        {
-            try
+            // Jump back to the UI thread
+            Dispatcher.InvokeAsync(() =>
             {
-                var idx = uri.IndexOf('?');
-                if (idx < 0) return;
-
-                var query = uri.Substring(idx + 1);
-                var pairs = query.Split('&');
-                foreach (var pair in pairs)
-                {
-                    var kv = pair.Split(new char[] { '=' }, 2);
-                    if (kv.Length == 2 &&
-                        string.Equals(kv[0], "license_key", StringComparison.OrdinalIgnoreCase))
-                    {
-                        var value = Uri.UnescapeDataString(kv[1]);
-                        if (!string.IsNullOrEmpty(value) && !value.StartsWith("{"))
-                        {
-                            KeyBox.Text = value;
-                            ShowStatus("Licence key received from checkout. Click Activate to complete.", isError: false);
-                            _pendingKeyTimer.Stop();
-                        }
-                        return;
-                    }
-                }
-            }
-            catch { /* malformed URI — user can paste manually */ }
+                KeyBox.Text = key;
+                ShowStatus("Licence key received from checkout. Click Activate to complete.", isError: false);
+            });
         }
 
         // ── Buy ───────────────────────────────────────────────────────────────────
 
         private void OnBuyNowClicked(object sender, RoutedEventArgs e)
         {
-            try
+            LicenseHttpListener.Start();
+            LicenseHttpListener.ListenerStopped += OnListenerStopped;
+
+            BuyNowButton.IsEnabled = false;
+            BuyNowButton.Content = "Waiting for payment…";
+
+            var (success, message) = LicenseManager.OpenCheckoutPage();
+            if (!success)
             {
-                var (success, message) = LicenseManager.OpenCheckoutPage();
-                if (!success)
-                    ShowStatus($"Could not open browser: {message}", isError: true);
+                LicenseHttpListener.Stop();
+                ShowStatus($"Could not open browser: {message}", isError: true);
             }
-            catch (Exception ex)
+        }
+
+        private void OnListenerStopped()
+        {
+            Dispatcher.InvokeAsync(() =>
             {
-                ShowStatus($"Could not open browser: {ex.Message}", isError: true);
-            }
+                BuyNowButton.IsEnabled = true;
+                BuyNowButton.Content = "Buy Premium — Open Checkout ↗";
+                LicenseHttpListener.ListenerStopped -= OnListenerStopped;
+            });
         }
 
         // ── Activate ──────────────────────────────────────────────────────────────
@@ -117,7 +89,11 @@ namespace RenderDocComments
             {
                 RenderDocOptions.Instance.Save(_serviceProvider);
                 ShowStatus(message, isError: false);
-                _pendingKeyTimer.Stop();
+                LicenseHttpListener.Stop();
+
+                ActivateBtn.IsEnabled = false;
+                ActivateBtn.Content = "Activated ✓";
+
                 LicenseActivated?.Invoke(this, EventArgs.Empty);
             }
             else
@@ -130,7 +106,8 @@ namespace RenderDocComments
 
         private void OnCloseClicked(object sender, RoutedEventArgs e)
         {
-            _pendingKeyTimer.Stop();
+            LicenseHttpListener.LicenseKeyReceived -= OnLicenseKeyReceived;
+            base.OnClosed(e);
             Close();
         }
 
@@ -143,6 +120,68 @@ namespace RenderDocComments
                 ? new SolidColorBrush(Color.FromRgb(0xF4, 0x87, 0x71))
                 : new SolidColorBrush(Color.FromRgb(0x6A, 0x99, 0x55));
             StatusText.Visibility = Visibility.Visible;
+        }
+        private void OnCopyClicked(object sender, RoutedEventArgs e)
+        {
+            if (string.IsNullOrEmpty(KeyBox.Text)) return;
+
+            Clipboard.SetText(KeyBox.Text);
+
+            CopyBtn.IsEnabled = false;
+            // Swap icon to a checkmark
+            var check = new TextBlock
+            {
+                Text = "✓",
+                FontSize = 13,
+                VerticalAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Center
+            };
+            CopyBtn.Content = check;
+
+            var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+            timer.Tick += (s, _) =>
+            {
+                CopyBtn.Content = BuildCopyIcon(); // restore the icon
+                CopyBtn.IsEnabled = true;
+                timer.Stop();
+            };
+            timer.Start();
+        }
+
+        private static Canvas BuildCopyIcon()
+        {
+            var canvas = new Canvas { Width = 16, Height = 16 };
+
+            // Back square (top-left, no Left offset)
+            var back = new Rectangle
+            {
+                Width = 10,
+                Height = 10,
+                Stroke = SystemColors.GrayTextBrush,
+                StrokeThickness = 1.5,
+                Fill = Brushes.Transparent,
+                RadiusX = 1.5,
+                RadiusY = 1.5
+            };
+            Canvas.SetTop(back, 0);
+
+            // Front square (offset 3,3)
+            var front = new Rectangle
+            {
+                Width = 10,
+                Height = 10,
+                Stroke = SystemColors.GrayTextBrush,
+                StrokeThickness = 1.5,
+                Fill = Brushes.Transparent,
+                RadiusX = 1.5,
+                RadiusY = 1.5
+            };
+            Canvas.SetLeft(front, 3);
+            Canvas.SetTop(front, 3);
+
+            canvas.Children.Add(back);
+            canvas.Children.Add(front);
+            return canvas;
         }
     }
 }

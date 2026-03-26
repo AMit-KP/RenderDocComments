@@ -61,84 +61,6 @@ namespace RenderDocComments
             return (true, string.Empty);
         }
 
-        /// <summary>
-        /// Register renderdoccomments:// in HKCU — no admin rights needed.
-        /// No-op if already registered correctly.
-        /// </summary>
-        public static void EnsureUriSchemeRegistered()
-        {
-            try
-            {
-                var devenvPath = Process.GetCurrentProcess().MainModule?.FileName ?? "devenv.exe";
-                var expectedCommand = $"\"{devenvPath}\" \"%1\"";
-
-                const string rootKeyPath = @"SOFTWARE\Classes\" + UriScheme;
-                const string commandSubKey = rootKeyPath + @"\shell\open\command";
-
-                using (var existing = Registry.CurrentUser.OpenSubKey(commandSubKey))
-                {
-                    if (existing != null &&
-                        string.Equals(existing.GetValue("") as string, expectedCommand,
-                            StringComparison.OrdinalIgnoreCase))
-                        return;
-                }
-
-                using (var key = Registry.CurrentUser.CreateSubKey(rootKeyPath))
-                {
-                    key.SetValue("", "RenderDocComments URI Handler");
-                    key.SetValue("URL Protocol", "");
-                }
-
-                using (var cmd = Registry.CurrentUser.CreateSubKey(commandSubKey))
-                    cmd.SetValue("", expectedCommand);
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[LicenseManager] URI scheme registration failed: {ex.Message}");
-            }
-        }
-
-        // ── Pending key temp file ─────────────────────────────────────────────────
-        // The new VS instance (launched by the browser URI redirect) writes the
-        // license key here. The existing VS instance's PurchaseActivationWindow
-        // polls this file every second and fills the key box when it appears.
-
-        /// <summary>
-        /// Write the license key to a temp file so the existing VS instance can pick it up.
-        /// Called from the new (throwaway) VS instance launched by the OS URI handler.
-        /// </summary>
-        public static void WritePendingLicenseKey(string key)
-        {
-            try
-            {
-                System.IO.File.WriteAllText(GetPendingKeyPath(), key);
-            }
-            catch { }
-        }
-
-        /// <summary>
-        /// Read and delete the pending license key temp file.
-        /// Returns null if no pending key exists.
-        /// Called by PurchaseActivationWindow's poll timer.
-        /// </summary>
-        public static string ReadAndClearPendingLicenseKey()
-        {
-            try
-            {
-                var path = GetPendingKeyPath();
-                if (!System.IO.File.Exists(path)) return null;
-                var key = System.IO.File.ReadAllText(path).Trim();
-                System.IO.File.Delete(path);
-                return string.IsNullOrEmpty(key) ? null : key;
-            }
-            catch { return null; }
-        }
-
-        private static string GetPendingKeyPath() =>
-            System.IO.Path.Combine(
-                System.IO.Path.GetTempPath(),
-                "renderdoccomments_pending.tmp");
-
         // ── Activate / Deactivate / Validate ─────────────────────────────────────
 
         /// <summary>
@@ -257,7 +179,7 @@ namespace RenderDocComments
             RenderDocOptions.Instance.LicenseInstanceId = id;
             RenderDocOptions.Instance.SetPremiumUnlocked(true);
 
-            return (true, "Premium activated — thank you for your purchase!");
+            return (true, "Premium activated — Thank you ❤️ for your purchase!");
         }
 
         private static async Task<(bool Success, string Message)> DeactivateAsync()
