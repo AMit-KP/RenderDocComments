@@ -170,7 +170,7 @@ namespace RenderDocComments.DocCommentRenderer
             {
                 if (ln < 0 || ln >= snap.LineCount) return;
 
-                \if (cached != null)
+                if (cached != null)
                 {
                     foreach (var ts in cached)
                     {

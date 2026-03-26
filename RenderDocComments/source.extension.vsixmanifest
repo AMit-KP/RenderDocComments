@@ -3,14 +3,13 @@
                  xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
     <Metadata>
         <Identity Id="RenderDocComments.f3a2b1c0-1234-5678-abcd-ef0123456789"
-                  Version="1.1.21"
+                  Version="1.1.22"
                   Language="en-US"
-                  Publisher="AMit-KP" />
+                  Publisher="Amit Kumar Patra" />
         <DisplayName>Render Doc Comments</DisplayName>
         <Description xml:space="preserve">Render Doc Comments provides a beautiful, interactive preview of your documentation that respects your IDE theme. Choose between Caret-based auto-hiding or a Premium Margin Glyph toggle. Includes clickable cref links and customizable accent bars. Lightweight and native feel. Open Source GPLv3 Licensed.</Description>
         <License>Assets\LICENSE.txt</License>
         <Icon>Assets\icon.png</Icon>
-        <PreviewImage>Screenshot 2026-03-23 002602.png</PreviewImage>
         <Tags>doc comments, xml docs, documentation, method doc, jetbrains style, c#, .net, visualstudio, 2022, 2026, xml render, pretty doc</Tags>
         <Preview>true</Preview>
     </Metadata>

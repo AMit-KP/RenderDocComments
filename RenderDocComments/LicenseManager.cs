@@ -13,10 +13,10 @@ namespace RenderDocComments
         // ── Endpoints ─────────────────────────────────────────────────────────────
 
         // Switch to https://live.dodopayments.com before shipping.
-        private const string DodoBase = "https://test.dodopayments.com";
+        private const string DodoBase = "https://live.dodopayments.com";
 
         // Your Cloudflare Worker URL — replace before shipping.
-        private const string WorkerUrl = "https://dodo-test-checkout.amit-ku-p-2806.workers.dev";
+        private const string WorkerUrl = "https://dodo-live-checkout.amit-ku-p-2806.workers.dev";
 
         private const string UriScheme = "renderdoccomments";
 
