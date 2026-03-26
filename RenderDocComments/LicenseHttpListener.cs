@@ -11,7 +11,6 @@ namespace RenderDocComments
         private static HttpListener _listener;
         private static CancellationTokenSource _cts;
 
-        // Raised on the thread pool when a key arrives — subscriber marshals to UI thread
         public static event Action<string> LicenseKeyReceived;
 
         public static event Action ListenerStopped;
@@ -65,7 +64,7 @@ namespace RenderDocComments
                 {
                     html = "<html><body style='font-family:sans-serif;text-align:center;padding-top:60px'>"
                          + "<h2 style='color:#f44336'>&#10008; Payment failed</h2>"
-                         + "<p>Please try again or contact support.</p>"
+                         + "<p>Please try again or contact support after closing this tab</p>"
                          + "</body></html>";
                 }
                 else if (status.Equals("processing", StringComparison.OrdinalIgnoreCase))
@@ -73,6 +72,7 @@ namespace RenderDocComments
                     html = "<html><body style='font-family:sans-serif;text-align:center;padding-top:60px'>"
                          + "<h2 style='color:#2196f3'>&#8987; Payment processing</h2>"
                          + "<p>Your payment is being processed. Your licence key will arrive shortly via email.</p>"
+                         + "<p>You can close this tab.</p>"
                          + "</body></html>";
                 }
                 else if (status.Equals("cancelled", StringComparison.OrdinalIgnoreCase))
@@ -87,6 +87,7 @@ namespace RenderDocComments
                     html = "<html><body style='font-family:sans-serif;text-align:center;padding-top:60px'>"
                          + "<h2 style='color:#ff9800'>Something went wrong</h2>"
                          + "<p>No licence key was received. Please contact support.</p>"
+                         + "<p>You can close this tab.</p>"
                          + "</body></html>";
                 }
 
@@ -104,16 +105,13 @@ namespace RenderDocComments
                 }
                 else if (status.Equals("processing", StringComparison.OrdinalIgnoreCase))
                 {
-                    // Keep listener alive for up to 5 minutes in case Dodo sends a follow-up
                     _ = Task.Delay(TimeSpan.FromMinutes(5), ct).ContinueWith(_ =>
                     {
                         if (_listener != null) Stop();
                     });
-                    // Don't break — keep looping to catch the follow-up redirect
                 }
                 else
                 {
-                    // failed, cancelled, unknown — stop and re-enable Buy button
                     Stop();
                     break;
                 }

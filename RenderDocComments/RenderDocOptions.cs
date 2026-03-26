@@ -1,8 +1,7 @@
-using Microsoft.VisualStudio.Settings;
-using Microsoft.VisualStudio.Shell;
-using Microsoft.VisualStudio.Shell.Settings;
 using System;
 using System.Windows.Media;
+using Microsoft.VisualStudio.Settings;
+using Microsoft.VisualStudio.Shell.Settings;
 
 namespace RenderDocComments
 {
@@ -23,15 +22,10 @@ namespace RenderDocComments
 
         // ── FREE settings (always active) ─────────────────────────────────────────
 
-        /// <summary>Master switch — renders doc comments as adornments.</summary>
         public bool RenderEnabled { get; set; } = true;
 
         // ── Premium settings (disabled / ignored when PremiumUnlocked == false) ───────────
 
-        /// <summary>
-        /// When true the extension has a valid Premium licence and Premium features are active.
-        /// Set this via <see cref="LicenseManager.Activate"/> — do not set directly.
-        /// </summary>
         public bool PremiumUnlocked { get; private set; } = false;
 
         // ── Licence key storage (persisted, not used for gating) ─────────────────
@@ -73,7 +67,6 @@ namespace RenderDocComments
         public bool BorderBottom { get; set; } = false;
 
         // -- Colours (Premium 5) --
-        // Stored as ARGB int for easy serialisation.
         public int ColorCodeFg { get; set; } = unchecked((int)0xFFCE9178); // orange-ish
         public int ColorSummaryFg { get; set; } = unchecked((int)0xFFD4D4D4); // light grey
         public int ColorParamName { get; set; } = unchecked((int)0xFF9CDCFE); // light blue
@@ -87,9 +80,6 @@ namespace RenderDocComments
 
         // ── Helper: effective values (falls back to defaults when Premium is locked) ──
 
-        // NOTE: All Effective* properties read LicenseManager.PremiumUnlocked — the single
-        // source of truth for the licence state. RenderDocOptions.PremiumUnlocked is kept
-        // only for persistence; the gate logic lives entirely in LicenseManager.
         private static bool Premium => LicenseManager.PremiumUnlocked;
 
         public bool EffectiveAutoRefresh => Premium && AutoRefreshOnThemeChange;

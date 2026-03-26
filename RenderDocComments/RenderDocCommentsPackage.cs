@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
 using Microsoft.VisualStudio.PlatformUI;
@@ -36,7 +35,7 @@ namespace RenderDocComments
             VSColorTheme.ThemeChanged += OnVsThemeChanged;
         }
 
-        
+
         // ── Theme change handler ──────────────────────────────────────────────────
 
         private void OnVsThemeChanged(ThemeChangedEventArgs e)

@@ -1,6 +1,6 @@
-using Microsoft.VisualStudio.Shell;
 using System;
 using System.ComponentModel.Design;
+using Microsoft.VisualStudio.Shell;
 
 namespace RenderDocComments
 {
@@ -43,7 +43,10 @@ namespace RenderDocComments
             commandService.AddCommand(cmd);
         }
 
-        public static RenderDocOptionsCommand Instance { get; private set; }
+        public static RenderDocOptionsCommand Instance
+        {
+            get; private set;
+        }
 
         public static async System.Threading.Tasks.Task InitializeAsync(AsyncPackage package)
         {

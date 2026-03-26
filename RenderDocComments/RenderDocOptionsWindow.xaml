@@ -103,7 +103,7 @@
 		<StackPanel Margin="20,12,20,16">
 
 			<!--  ══ Title  -->
-			<StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+			<StackPanel VerticalAlignment="Center" Orientation="Horizontal">
 				<TextBlock
 					FontSize="16"
 					FontWeight="Bold"
@@ -122,7 +122,10 @@
 			<!--  ══ Licence  -->
 			<TextBlock Style="{StaticResource SectionHeader}" Text="Licence" />
 
-			<StackPanel Margin="0,2,0,6" Orientation="Horizontal" VerticalAlignment="Center">
+			<StackPanel
+				Margin="0,2,0,6"
+				VerticalAlignment="Center"
+				Orientation="Horizontal">
 				<Border
 					x:Name="PremiumStatusBadge"
 					Margin="0,0,10,0"
@@ -199,7 +202,7 @@
 				Text="Requires a Premium licence. Options are shown but disabled without one."
 				TextWrapping="Wrap" />
 
-			<StackPanel x:Name="PremiumOptionsPanel">
+			<StackPanel x:Name="PremiumOptionsPanel" Margin="0,0,0,6">
 
 				<!--  Auto theme refresh  -->
 				<TextBlock Style="{StaticResource SectionHeader}" Text="Theme Auto-Refresh" />
@@ -211,7 +214,7 @@
 
 				<!--  Glyph toggle  -->
 				<TextBlock Style="{StaticResource SectionHeader}" Text="Margin Glyph Toggle" />
-				<StackPanel Margin="6,4,6,4">
+				<StackPanel Margin="6,4,6,6">
 					<RadioButton
 						x:Name="CaretModeRadio"
 						Margin="0,0,0,4"
@@ -289,28 +292,82 @@
 						<RowDefinition Height="Auto" />
 					</Grid.RowDefinitions>
 
-					<StackPanel Grid.Row="0" Grid.Column="0" Margin="0,2" Orientation="Horizontal">
-						<Button x:Name="SwatchCodeFg" Click="OnSwatchClicked" Style="{StaticResource SwatchButton}" Tag="CodeFg" />
-						<TextBlock Margin="5,0,0,0" Style="{StaticResource OptionLabel}" Text="Inline code / quoted" />
+					<StackPanel
+						Grid.Row="0"
+						Grid.Column="0"
+						Margin="0,2"
+						Orientation="Horizontal">
+						<Button
+							x:Name="SwatchCodeFg"
+							Click="OnSwatchClicked"
+							Style="{StaticResource SwatchButton}"
+							Tag="CodeFg" />
+						<TextBlock
+							Margin="5,0,0,0"
+							Style="{StaticResource OptionLabel}"
+							Text="Inline code / quoted" />
 					</StackPanel>
-					<StackPanel Grid.Row="0" Grid.Column="1" Margin="0,2" Orientation="Horizontal">
-						<Button x:Name="SwatchSummaryFg" Click="OnSwatchClicked" Style="{StaticResource SwatchButton}" Tag="SummaryFg" />
-						<TextBlock Margin="5,0,0,0" Style="{StaticResource OptionLabel}" Text="Summary text" />
+					<StackPanel
+						Grid.Row="0"
+						Grid.Column="1"
+						Margin="0,2"
+						Orientation="Horizontal">
+						<Button
+							x:Name="SwatchSummaryFg"
+							Click="OnSwatchClicked"
+							Style="{StaticResource SwatchButton}"
+							Tag="SummaryFg" />
+						<TextBlock
+							Margin="5,0,0,0"
+							Style="{StaticResource OptionLabel}"
+							Text="Summary text" />
 					</StackPanel>
-					<StackPanel Grid.Row="1" Grid.Column="0" Margin="0,2" Orientation="Horizontal">
-						<Button x:Name="SwatchParamName" Click="OnSwatchClicked" Style="{StaticResource SwatchButton}" Tag="ParamName" />
-						<TextBlock Margin="5,0,0,0" Style="{StaticResource OptionLabel}" Text="Parameter names" />
+					<StackPanel
+						Grid.Row="1"
+						Grid.Column="0"
+						Margin="0,2"
+						Orientation="Horizontal">
+						<Button
+							x:Name="SwatchParamName"
+							Click="OnSwatchClicked"
+							Style="{StaticResource SwatchButton}"
+							Tag="ParamName" />
+						<TextBlock
+							Margin="5,0,0,0"
+							Style="{StaticResource OptionLabel}"
+							Text="Parameter names" />
 					</StackPanel>
-					<StackPanel Grid.Row="1" Grid.Column="1" Margin="0,2" Orientation="Horizontal">
-						<Button x:Name="SwatchLink" Click="OnSwatchClicked" Style="{StaticResource SwatchButton}" Tag="Link" />
-						<TextBlock Margin="5,0,0,0" Style="{StaticResource OptionLabel}" Text="Links / crefs" />
+					<StackPanel
+						Grid.Row="1"
+						Grid.Column="1"
+						Margin="0,2"
+						Orientation="Horizontal">
+						<Button
+							x:Name="SwatchLink"
+							Click="OnSwatchClicked"
+							Style="{StaticResource SwatchButton}"
+							Tag="Link" />
+						<TextBlock
+							Margin="5,0,0,0"
+							Style="{StaticResource OptionLabel}"
+							Text="Links / crefs" />
 					</StackPanel>
-					<StackPanel Grid.Row="2" Grid.Column="0" Margin="0,2" Orientation="Horizontal">
-						<Button x:Name="SwatchSectionLabel" Click="OnSwatchClicked" Style="{StaticResource SwatchButton}" Tag="SectionLabel" />
-						<TextBlock Margin="5,0,0,0" Style="{StaticResource OptionLabel}" Text="Section headings" />
+					<StackPanel
+						Grid.Row="2"
+						Grid.Column="0"
+						Margin="0,2"
+						Orientation="Horizontal">
+						<Button
+							x:Name="SwatchSectionLabel"
+							Click="OnSwatchClicked"
+							Style="{StaticResource SwatchButton}"
+							Tag="SectionLabel" />
+						<TextBlock
+							Margin="5,0,0,0"
+							Style="{StaticResource OptionLabel}"
+							Text="Section headings" />
 					</StackPanel>
 				</Grid>
-
 				<!--  Gradient  -->
 				<TextBlock
 					Margin="0,6,0,3"
@@ -321,48 +378,101 @@
 
 				<StackPanel Margin="0,0,0,4" Orientation="Horizontal">
 					<TextBlock Style="{StaticResource OptionLabel}" Text="Presets:" />
-					<Button Padding="6,3" Click="OnGradientPresetClicked" Content="Purple" Style="{StaticResource SecondaryButton}" Tag="Purple" />
-					<Button Padding="6,3" Click="OnGradientPresetClicked" Content="Ocean" Style="{StaticResource SecondaryButton}" Tag="Ocean" />
-					<Button Padding="6,3" Click="OnGradientPresetClicked" Content="Sunset" Style="{StaticResource SecondaryButton}" Tag="Sunset" />
-					<Button Padding="6,3" Click="OnGradientPresetClicked" Content="Forest" Style="{StaticResource SecondaryButton}" Tag="Forest" />
-					<Button Padding="6,3" Click="OnGradientPresetClicked" Content="Rose Gold" Style="{StaticResource SecondaryButton}" Tag="RoseGold" />
+					<Button
+						Padding="6,3"
+						Click="OnGradientPresetClicked"
+						Content="Purple"
+						Style="{StaticResource SecondaryButton}"
+						Tag="Purple" />
+					<Button
+						Padding="6,3"
+						Click="OnGradientPresetClicked"
+						Content="Ocean"
+						Style="{StaticResource SecondaryButton}"
+						Tag="Ocean" />
+					<Button
+						Padding="6,3"
+						Click="OnGradientPresetClicked"
+						Content="Sunset"
+						Style="{StaticResource SecondaryButton}"
+						Tag="Sunset" />
+					<Button
+						Padding="6,3"
+						Click="OnGradientPresetClicked"
+						Content="Forest"
+						Style="{StaticResource SecondaryButton}"
+						Tag="Forest" />
+					<Button
+						Padding="6,3"
+						Click="OnGradientPresetClicked"
+						Content="Rose Gold"
+						Style="{StaticResource SecondaryButton}"
+						Tag="RoseGold" />
 				</StackPanel>
 
 				<StackPanel Margin="0,2,0,6" Orientation="Horizontal">
-					<Button x:Name="SwatchGrad0" Width="32" Click="OnSwatchClicked" Style="{StaticResource SwatchButton}" Tag="Grad0" />
-					<TextBlock Margin="3,0,12,0" VerticalAlignment="Center" FontSize="11" Foreground="#888" Text="Stop 1" />
-					<Button x:Name="SwatchGrad1" Width="32" Click="OnSwatchClicked" Style="{StaticResource SwatchButton}" Tag="Grad1" />
-					<TextBlock Margin="3,0,12,0" VerticalAlignment="Center" FontSize="11" Foreground="#888" Text="Stop 2" />
-					<Button x:Name="SwatchGrad2" Width="32" Click="OnSwatchClicked" Style="{StaticResource SwatchButton}" Tag="Grad2" />
-					<TextBlock Margin="3,0,12,0" VerticalAlignment="Center" FontSize="11" Foreground="#888" Text="Stop 3" />
-					<Border x:Name="GradientPreviewBar" Width="220" Height="20" Margin="8,0,0,0" CornerRadius="3" />
+					<Button
+						x:Name="SwatchGrad0"
+						Width="32"
+						Click="OnSwatchClicked"
+						Style="{StaticResource SwatchButton}"
+						Tag="Grad0" />
+					<TextBlock
+						Margin="3,0,12,0"
+						VerticalAlignment="Center"
+						FontSize="11"
+						Foreground="#888"
+						Text="Stop 1" />
+					<Button
+						x:Name="SwatchGrad1"
+						Width="32"
+						Click="OnSwatchClicked"
+						Style="{StaticResource SwatchButton}"
+						Tag="Grad1" />
+					<TextBlock
+						Margin="3,0,12,0"
+						VerticalAlignment="Center"
+						FontSize="11"
+						Foreground="#888"
+						Text="Stop 2" />
+					<Button
+						x:Name="SwatchGrad2"
+						Width="32"
+						Click="OnSwatchClicked"
+						Style="{StaticResource SwatchButton}"
+						Tag="Grad2" />
+					<TextBlock
+						Margin="3,0,12,0"
+						VerticalAlignment="Center"
+						FontSize="11"
+						Foreground="#888"
+						Text="Stop 3" />
+					<Border
+						x:Name="GradientPreviewBar"
+						Width="220"
+						Height="20"
+						Margin="8,0,0,0"
+						CornerRadius="3" />
 				</StackPanel>
 
 			</StackPanel>
 			<!--  /PremiumOptionsPanel  -->
 
-			<Separator Margin="0,6,0,0" Background="#444" />
-
-			<!--  ══ Active Extension Features  -->
-			<TextBlock Style="{StaticResource SectionHeader}" Text="Active Features" />
-
-			<Border
-				Margin="0,4,0,4"
-				Padding="8,6"
-				Background="#252526"
-				BorderBrush="#444"
-				BorderThickness="1"
-				CornerRadius="3">
-				<StackPanel x:Name="ActiveExtensionsPanel" />
-			</Border>
-
-			<Separator Margin="0,6,0,6" Background="#444" />
 
 			<!--  ── Footer  -->
 			<StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
-				<Button Click="OnResetClicked" Content="Reset to Defaults" Style="{StaticResource SecondaryButton}" />
-				<Button Click="OnSaveClicked" Content="Save" Style="{StaticResource PrimaryButton}" />
-				<Button Click="OnCloseClicked" Content="Close" Style="{StaticResource SecondaryButton}" />
+				<Button
+					Click="OnResetClicked"
+					Content="Reset to Defaults"
+					Style="{StaticResource SecondaryButton}" />
+				<Button
+					Click="OnSaveClicked"
+					Content="Save"
+					Style="{StaticResource PrimaryButton}" />
+				<Button
+					Click="OnCloseClicked"
+					Content="Close"
+					Style="{StaticResource SecondaryButton}" />
 			</StackPanel>
 
 		</StackPanel>

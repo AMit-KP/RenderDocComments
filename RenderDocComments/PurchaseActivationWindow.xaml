@@ -157,7 +157,7 @@
 				Click="OnCopyClicked"
 				Cursor="Hand"
 				ToolTip="Copy the licence key to clipboard">
-				<Canvas Width="16" Height="16">
+				<Canvas Width="16" Height="12">
 					<!--  Back square (top-right)  -->
 					<Rectangle
 						Canvas.Top="0"
@@ -168,7 +168,7 @@
 						Fill="Transparent"
 						RadiusX="1.5"
 						RadiusY="1.5"
-						Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+						Stroke="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}"
 						StrokeThickness="1.5" />
 					<!--  Front square (bottom-left)  -->
 					<Rectangle
@@ -181,7 +181,7 @@
 						Fill="Transparent"
 						RadiusX="1.5"
 						RadiusY="1.5"
-						Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+						Stroke="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}"
 						StrokeThickness="1.5" />
 				</Canvas>
 			</Button>

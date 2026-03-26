@@ -6,23 +6,22 @@ using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Media;
 using System.Windows.Media.Effects;
-using System.Windows.Shapes;
 
 namespace RenderDocComments.DocCommentRenderer
 {
     public class DocCommentControl : StackPanel
     {
         // ── All brushes injected — NO static fields ───────────────────────────────
-        private readonly Brush _fg;             // theme foreground
-        private readonly Brush _fgDim;          // dimmed remarks
-        private readonly Brush _bg;             // theme background
-        private readonly Brush _summaryFg;      // summary text (Premium: customisable)
-        private readonly Brush _linkBrush;      // links / crefs
-        private readonly Brush _codeBg;         // inline/block code background
-        private readonly Brush _codeFg;         // inline/block code foreground
-        private readonly Brush _paramNameBrush; // parameter names
+        private readonly Brush _fg;
+        private readonly Brush _fgDim;
+        private readonly Brush _bg;
+        private readonly Brush _summaryFg;
+        private readonly Brush _linkBrush;
+        private readonly Brush _codeBg;
+        private readonly Brush _codeFg;
+        private readonly Brush _paramNameBrush;
         private readonly Brush _sectionLabelBrush;
-        private readonly Brush _gradientBarBrush; // accent bar(s)
+        private readonly Brush _gradientBarBrush;
 
         private readonly FontFamily _editorFont;
         private readonly FontFamily _monoFont;
@@ -89,10 +88,6 @@ namespace RenderDocComments.DocCommentRenderer
             double right = opts.EffectiveBorderRight ? 4 : 0;
             double bottom = opts.EffectiveBorderBottom ? 4 : 0;
 
-            // ── Outer grid: glow-bar(s) + content ────────────────────────────────
-            // The glow effect lives ONLY on the thin bar elements, never on the
-            // content container — prevents the purple glow from bleeding into
-            // inline code block backgrounds.
             var outerGrid = new Grid
             {
                 MaxWidth = _contentMaxWidth,
@@ -114,13 +109,8 @@ namespace RenderDocComments.DocCommentRenderer
             outerGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(bottom > 0 ? bottom : 0) });
 
             // Helper: create a glowing bar rectangle.
-            // vertical=true  → left/right bars  → gradient runs top-to-bottom
-            // vertical=false → top/bottom bars  → gradient runs left-to-right
             System.Windows.Shapes.Rectangle MakeBar(bool vertical)
             {
-                // Build a fresh brush with the correct direction each time —
-                // a single LinearGradientBrush can only have one direction,
-                // so we can't share the same instance between vertical and horizontal bars.
                 var stops = new GradientStopCollection
                 {
                     new GradientStop(opts.EffectiveGradientStop0, 0.0),
@@ -187,7 +177,6 @@ namespace RenderDocComments.DocCommentRenderer
             Grid.SetRow(content, 2);
             outerGrid.Children.Add(content);
 
-            // Keep a local alias so the rest of the method can use outerBorder-style Children.Add
             var outerBorder = outerGrid;
 
             // ── Sections ──────────────────────────────────────────────────────────

@@ -1,5 +1,4 @@
 using System;
-using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -25,7 +24,6 @@ namespace RenderDocComments
             if (!string.IsNullOrEmpty(stored))
                 KeyBox.Text = stored;
 
-            // Subscribe to the HTTP listener instead of polling a temp file
             LicenseHttpListener.LicenseKeyReceived += OnLicenseKeyReceived;
         }
 
@@ -128,7 +126,7 @@ namespace RenderDocComments
             Clipboard.SetText(KeyBox.Text);
 
             CopyBtn.IsEnabled = false;
-            // Swap icon to a checkmark
+
             var check = new TextBlock
             {
                 Text = "✓",
@@ -141,7 +139,7 @@ namespace RenderDocComments
             var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
             timer.Tick += (s, _) =>
             {
-                CopyBtn.Content = BuildCopyIcon(); // restore the icon
+                CopyBtn.Content = BuildCopyIcon();
                 CopyBtn.IsEnabled = true;
                 timer.Stop();
             };
@@ -152,7 +150,6 @@ namespace RenderDocComments
         {
             var canvas = new Canvas { Width = 16, Height = 16 };
 
-            // Back square (top-left, no Left offset)
             var back = new Rectangle
             {
                 Width = 10,
@@ -165,7 +162,6 @@ namespace RenderDocComments
             };
             Canvas.SetTop(back, 0);
 
-            // Front square (offset 3,3)
             var front = new Rectangle
             {
                 Width = 10,

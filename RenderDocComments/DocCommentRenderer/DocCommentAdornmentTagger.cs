@@ -1,10 +1,10 @@
-using Microsoft.VisualStudio.Text;
-using Microsoft.VisualStudio.Text.Editor;
-using Microsoft.VisualStudio.Text.Tagging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using Microsoft.VisualStudio.Text;
+using Microsoft.VisualStudio.Text.Editor;
+using Microsoft.VisualStudio.Text.Tagging;
 
 namespace RenderDocComments.DocCommentRenderer
 {
@@ -14,17 +14,13 @@ namespace RenderDocComments.DocCommentRenderer
         private readonly ITextBuffer _buffer;
         private readonly IWpfTextView _view;
 
-        // Cache key = snapshot + settings generation counter.
-        // When settings change we bump _settingsGeneration so the old cache is
-        // considered stale even if the snapshot hasn't changed.
         private ITextSnapshot _cachedSnapshot;
         private int _cachedSettingsGen = -1;
         private IReadOnlyList<TagSpan<IntraTextAdornmentTag>> _cachedTags;
 
-        private static int _settingsGeneration = 0;   // incremented on every settings change
-        private bool _forceEmpty = false;              // true during the forced-eviction round-trip
+        private static int _settingsGeneration = 0;
+        private bool _forceEmpty = false;
 
-        // Caret-based hide (free mode only)
         private int _caretLine = -1;
 
         public event EventHandler<SnapshotSpanEventArgs> TagsChanged;
@@ -45,7 +41,7 @@ namespace RenderDocComments.DocCommentRenderer
             NormalizedSnapshotSpanCollection spans)
         {
             if (spans.Count == 0) yield break;
-            if (_forceEmpty) yield break;                   // eviction pass — emit nothing
+            if (_forceEmpty) yield break;
             if (!RenderDocOptions.Instance.RenderEnabled) yield break;
 
             var snapshot = spans[0].Snapshot;
@@ -55,14 +51,12 @@ namespace RenderDocComments.DocCommentRenderer
             {
                 if (RenderDocOptions.Instance.EffectiveGlyphToggle)
                 {
-                    // Glyph mode: hide blocks explicitly toggled off
                     if (DocCommentToggleState.IsHidden(
                             new SnapshotSpan(snapshot, tag.Span)))
                         continue;
                 }
                 else
                 {
-                    // Free / default mode: hide block the caret is inside
                     if (_caretLine >= 0)
                     {
                         int s = snapshot.GetLineNumberFromPosition(tag.Span.Start);
@@ -76,7 +70,6 @@ namespace RenderDocComments.DocCommentRenderer
             }
         }
 
-        // ── Tag cache — invalidated by snapshot change OR settings change ─────────
 
         private IReadOnlyList<TagSpan<IntraTextAdornmentTag>> GetOrBuildTags(
             ITextSnapshot snapshot)
@@ -163,7 +156,6 @@ namespace RenderDocComments.DocCommentRenderer
 
         private void OnCaretPositionChanged(object sender, CaretPositionChangedEventArgs e)
         {
-            // In glyph mode the caret doesn't control visibility
             if (RenderDocOptions.Instance.EffectiveGlyphToggle) return;
 
             int newLine = e.NewPosition.BufferPosition.GetContainingLine().LineNumber;
@@ -178,9 +170,7 @@ namespace RenderDocComments.DocCommentRenderer
             {
                 if (ln < 0 || ln >= snap.LineCount) return;
 
-                // Invalidate the whole block containing this line, not just one line.
-                // This fixes partial-refresh when the caret enters/leaves a multi-line block.
-                if (cached != null)
+                \if (cached != null)
                 {
                     foreach (var ts in cached)
                     {
@@ -194,7 +184,6 @@ namespace RenderDocComments.DocCommentRenderer
                         }
                     }
                 }
-                // Fallback: single line
                 var l = snap.GetLineFromLineNumber(ln);
                 TagsChanged?.Invoke(this, new SnapshotSpanEventArgs(
                     new SnapshotSpan(snap, l.Start, l.LengthIncludingLineBreak)));
@@ -218,21 +207,9 @@ namespace RenderDocComments.DocCommentRenderer
             var snap = _buffer.CurrentSnapshot;
             var fullSpan = new SnapshotSpan(snap, 0, snap.Length);
 
-            // The IntraTextAdornmentTag infrastructure caches UIElements by span and
-            // will NOT recreate them just because TagsChanged fired — it reuses the
-            // old WPF element even though we built a new tag with updated settings.
-            //
-            // The only reliable way to force a full visual rebuild is to make VS
-            // believe the adornment spans were removed and then re-added.
-            // We do this by switching the tagger into a "no tags" state for one
-            // round-trip, then immediately restoring it.
-            //
-            // Step 1: tell VS there are zero tags → it removes all adornments.
             _forceEmpty = true;
             TagsChanged?.Invoke(this, new SnapshotSpanEventArgs(fullSpan));
 
-            // Step 2: on the next dispatcher tick, restore normal tag emission
-            // → VS calls GetTags again, gets fresh tags, creates new UIElements.
             _view.VisualElement.Dispatcher.BeginInvoke(
                 System.Windows.Threading.DispatcherPriority.Normal,
                 new Action(() =>

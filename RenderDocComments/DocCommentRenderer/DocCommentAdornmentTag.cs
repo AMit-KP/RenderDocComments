@@ -1,10 +1,8 @@
+using System.Windows;
+using System.Windows.Media;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Classification;
 using Microsoft.VisualStudio.Text.Editor;
-using Microsoft.VisualStudio.Text.Tagging;
-using System;
-using System.Windows;
-using System.Windows.Media;
 
 namespace RenderDocComments.DocCommentRenderer
 {
@@ -44,7 +42,6 @@ namespace RenderDocComments.DocCommentRenderer
             catch { }
 
             // ── Font ─────────────────────────────────────────────────────────────
-            // Premium: use whatever font the user chose.  Free: always Segoe UI.
             var ff = new FontFamily(opts.EffectiveFontFamily);
 
             var fontProps = view.FormattedLineSource?.DefaultTextProperties;
@@ -53,31 +50,19 @@ namespace RenderDocComments.DocCommentRenderer
                 : 13.0;
 
             // ── Colour brushes ───────────────────────────────────────────────────
-            // For every colour: Premium uses the user-chosen value, free uses the
-            // original hardcoded default (exactly as the extension shipped).
-
-            // Summary / plain text — free: use theme foreground (same as before)
             Brush summaryBrush = LicenseManager.PremiumUnlocked
                 ? new SolidColorBrush(opts.EffectiveColorSummaryFg)
                 : themeFg;
 
-            // Link — free default: #569CD6 (VS blue)
             Brush linkBrush = new SolidColorBrush(opts.EffectiveColorLink);
 
-            // Inline code fg — FREE DEFAULT: #CE9178 (the original orange-tan, NOT purple)
-            // This is restored to the original value; it only changes if the user
-            // explicitly picks a different colour in the Premium options.
             Brush codeFgBrush = new SolidColorBrush(opts.EffectiveColorCodeFg);
 
-            // Param names — free default: #9CDCFE (light blue)
             Brush paramBrush = new SolidColorBrush(opts.EffectiveColorParamName);
 
-            // Section labels — free default: #969696 (dim grey)
             Brush sectionBrush = new SolidColorBrush(opts.EffectiveColorSectionLabel);
 
             // Gradient bar brush
-            // Free default: the original purple gradient exactly as before.
-            // Premium: uses user-chosen stop colours.
             Brush gradBrush = new LinearGradientBrush(
                 new GradientStopCollection
                 {
