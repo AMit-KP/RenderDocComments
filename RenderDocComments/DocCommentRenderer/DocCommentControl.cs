@@ -1,48 +1,47 @@
 using System;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Media;
 using System.Windows.Media.Effects;
-using System.Windows.Shapes;
 
 namespace RenderDocComments.DocCommentRenderer
 {
     public class DocCommentControl : StackPanel
     {
+        // ── All brushes injected — NO static fields ───────────────────────────────
         private readonly Brush _fg;
         private readonly Brush _fgDim;
         private readonly Brush _bg;
+        private readonly Brush _summaryFg;
         private readonly Brush _linkBrush;
         private readonly Brush _codeBg;
         private readonly Brush _codeFg;
         private readonly Brush _paramNameBrush;
         private readonly Brush _sectionLabelBrush;
-        private readonly FontFamily _editorFont;   // Segoe UI — set by caller
+        private readonly Brush _gradientBarBrush;
+
+        private readonly FontFamily _editorFont;
         private readonly FontFamily _monoFont;
         private readonly double _fontSize;
         private readonly double _contentMaxWidth;
 
         private const double SectionContentIndent = 12.0;
 
-        private static readonly Brush AccentBarBrush = new LinearGradientBrush(
-            new GradientStopCollection
-            {
-                new GradientStop(Color.FromArgb(255, 190, 110, 240), 0.0),
-                new GradientStop(Color.FromArgb(200, 120,  70, 200), 0.4),
-                new GradientStop(Color.FromArgb( 80,  80,  40, 150), 1.0),
-            },
-            new Point(0, 0), new Point(0, 1));
+        // ── Constructor ───────────────────────────────────────────────────────────
 
         public DocCommentControl(
             ParsedDocComment doc,
             Brush foreground,
             Brush background,
+            Brush summaryFg,
             Brush linkColor,
+            Brush codeFg,
+            Brush paramNameBrush,
+            Brush sectionLabelBrush,
+            Brush gradientBarBrush,
             FontFamily editorFont,
             double fontSize,
             double viewportWidth,
@@ -50,8 +49,13 @@ namespace RenderDocComments.DocCommentRenderer
         {
             _fg = foreground;
             _bg = background;
+            _summaryFg = summaryFg;
             _linkBrush = linkColor;
-            _editorFont = editorFont;  // already Segoe UI from the tag
+            _codeFg = codeFg;
+            _paramNameBrush = paramNameBrush;
+            _sectionLabelBrush = sectionLabelBrush;
+            _gradientBarBrush = gradientBarBrush;
+            _editorFont = editorFont;
             _monoFont = new FontFamily("Cascadia Mono, Consolas, Courier New");
             _fontSize = fontSize;
             _contentMaxWidth = (viewportWidth - indentWidth - 32) * 0.60;
@@ -66,18 +70,6 @@ namespace RenderDocComments.DocCommentRenderer
                 ? Color.FromArgb(50, 255, 255, 255)
                 : Color.FromArgb(30, 0, 0, 0));
 
-            _codeFg = new SolidColorBrush(isDark
-                ? Color.FromRgb(206, 145, 120)
-                : Color.FromRgb(160, 70, 0));
-
-            _paramNameBrush = new SolidColorBrush(isDark
-                ? Color.FromRgb(156, 220, 254)
-                : Color.FromRgb(0, 90, 170));
-
-            _sectionLabelBrush = new SolidColorBrush(isDark
-                ? Color.FromRgb(150, 150, 150)
-                : Color.FromRgb(110, 110, 110));
-
             Background = background;
             Orientation = Orientation.Vertical;
             Margin = new Thickness(indentWidth, 2, 0, 6);
@@ -85,38 +77,109 @@ namespace RenderDocComments.DocCommentRenderer
             Build(doc);
         }
 
+        // ── Build ─────────────────────────────────────────────────────────────────
+
         private void Build(ParsedDocComment doc)
         {
+            var opts = RenderDocOptions.Instance;
+
+            double left = opts.EffectiveBorderLeft ? 4 : 0;
+            double top = opts.EffectiveBorderTop ? 4 : 0;
+            double right = opts.EffectiveBorderRight ? 4 : 0;
+            double bottom = opts.EffectiveBorderBottom ? 4 : 0;
+
             var outerGrid = new Grid
             {
                 MaxWidth = _contentMaxWidth,
                 HorizontalAlignment = HorizontalAlignment.Left
             };
-            outerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(5) });
-            outerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(10) });
+
+            // Column layout: left-bar | gap | content | gap | right-bar
+            outerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(left > 0 ? left : 0) });
+            outerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(left > 0 ? 8 : 0) });
             outerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            outerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(right > 0 ? 8 : 0) });
+            outerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(right > 0 ? right : 0) });
 
-            var bar = new Rectangle
+            // Row layout: top-bar | gap | content | gap | bottom-bar
+            outerGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(top > 0 ? top : 0) });
+            outerGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(top > 0 ? 4 : 0) });
+            outerGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Auto) });
+            outerGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(bottom > 0 ? 4 : 0) });
+            outerGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(bottom > 0 ? bottom : 0) });
+
+            // Helper: create a glowing bar rectangle.
+            System.Windows.Shapes.Rectangle MakeBar(bool vertical)
             {
-                Fill = AccentBarBrush,
-                Width = 5,
-                RadiusX = 2,
-                RadiusY = 2,
-                VerticalAlignment = VerticalAlignment.Stretch,
-                Effect = new DropShadowEffect
+                var stops = new GradientStopCollection
                 {
-                    Color = Color.FromArgb(140, 180, 90, 240),
-                    BlurRadius = 8,
-                    ShadowDepth = 0,
-                    Direction = 0
-                }
-            };
-            Grid.SetColumn(bar, 0);
-            outerGrid.Children.Add(bar);
+                    new GradientStop(opts.EffectiveGradientStop0, 0.0),
+                    new GradientStop(opts.EffectiveGradientStop1, 0.4),
+                    new GradientStop(opts.EffectiveGradientStop2, 1.0),
+                };
+                var brush = vertical
+                    ? new LinearGradientBrush(stops, new Point(0, 0), new Point(0, 1))  // top→bottom
+                    : new LinearGradientBrush(stops, new Point(0, 0), new Point(1, 0)); // left→right
 
-            var content = new StackPanel { Orientation = Orientation.Vertical };
+                return new System.Windows.Shapes.Rectangle
+                {
+                    Fill = brush,
+                    RadiusX = 2,
+                    RadiusY = 2,
+                    VerticalAlignment = VerticalAlignment.Stretch,
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
+                    Effect = new DropShadowEffect
+                    {
+                        Color = Color.FromArgb(140, 180, 90, 240),
+                        BlurRadius = 8,
+                        ShadowDepth = 0,
+                        Direction = 0
+                    }
+                };
+            }
+
+            if (left > 0)
+            {
+                var bar = MakeBar(true);
+                Grid.SetColumn(bar, 0); Grid.SetRow(bar, 0);
+                Grid.SetRowSpan(bar, 5);
+                outerGrid.Children.Add(bar);
+            }
+            if (right > 0)
+            {
+                var bar = MakeBar(true);
+                Grid.SetColumn(bar, 4); Grid.SetRow(bar, 0);
+                Grid.SetRowSpan(bar, 5);
+                outerGrid.Children.Add(bar);
+            }
+            if (top > 0)
+            {
+                var bar = MakeBar(false);
+                Grid.SetColumn(bar, 0); Grid.SetRow(bar, 0);
+                Grid.SetColumnSpan(bar, 5);
+                outerGrid.Children.Add(bar);
+            }
+            if (bottom > 0)
+            {
+                var bar = MakeBar(false);
+                Grid.SetColumn(bar, 0); Grid.SetRow(bar, 4);
+                Grid.SetColumnSpan(bar, 5);
+                outerGrid.Children.Add(bar);
+            }
+
+            // Content panel — no Effect here, so code blocks stay clean
+            var content = new StackPanel
+            {
+                Orientation = Orientation.Vertical,
+                Margin = new Thickness(0, 2, 0, 2)
+            };
             Grid.SetColumn(content, 2);
+            Grid.SetRow(content, 2);
             outerGrid.Children.Add(content);
+
+            var outerBorder = outerGrid;
+
+            // ── Sections ──────────────────────────────────────────────────────────
 
             if (doc.InheritDoc != null)
             {
@@ -131,7 +194,7 @@ namespace RenderDocComments.DocCommentRenderer
                     $"(documentation included from {doc.Include.File})", _fgDim, marginBottom: 4));
 
             if (!string.IsNullOrWhiteSpace(doc.Summary))
-                content.Children.Add(BuildRichBlock(doc.Summary, _fg, marginBottom: 4));
+                content.Children.Add(BuildRichBlock(doc.Summary, _summaryFg, marginBottom: 4));
 
             if (!string.IsNullOrWhiteSpace(doc.Remarks))
                 content.Children.Add(BuildRichBlock(doc.Remarks, _fgDim, marginBottom: 4));
@@ -157,7 +220,8 @@ namespace RenderDocComments.DocCommentRenderer
             if (!string.IsNullOrWhiteSpace(doc.Returns))
             {
                 content.Children.Add(BuildSectionLabel("Returns:"));
-                content.Children.Add(BuildRichBlock(doc.Returns, _fg, marginLeft: SectionContentIndent));
+                content.Children.Add(BuildRichBlock(
+                    doc.Returns, _fg, marginLeft: SectionContentIndent));
             }
 
             if (doc.Exceptions.Count > 0)
@@ -176,14 +240,16 @@ namespace RenderDocComments.DocCommentRenderer
                     ? "Permission:"
                     : $"Permission ({doc.PermissionCref}):";
                 content.Children.Add(BuildSectionLabel(permLabel));
-                content.Children.Add(BuildRichBlock(doc.Permission, _fg, marginLeft: SectionContentIndent));
+                content.Children.Add(BuildRichBlock(
+                    doc.Permission, _fg, marginLeft: SectionContentIndent));
             }
 
             if (doc.CompletionList.Count > 0)
             {
                 content.Children.Add(BuildSectionLabel("Completion List:"));
                 foreach (var cl in doc.CompletionList)
-                    content.Children.Add(BuildRichBlock(cl, _paramNameBrush, marginLeft: SectionContentIndent));
+                    content.Children.Add(BuildRichBlock(
+                        cl, _paramNameBrush, marginLeft: SectionContentIndent));
             }
 
             if (doc.SeeAlsos.Count > 0)
@@ -208,9 +274,8 @@ namespace RenderDocComments.DocCommentRenderer
 
         // ── Section label ─────────────────────────────────────────────────────────
 
-        private UIElement BuildSectionLabel(string text)
-        {
-            return new TextBlock
+        private UIElement BuildSectionLabel(string text) =>
+            new TextBlock
             {
                 Text = text,
                 Foreground = _sectionLabelBrush,
@@ -219,7 +284,6 @@ namespace RenderDocComments.DocCommentRenderer
                 Margin = new Thickness(0, 6, 0, 2),
                 FontStyle = FontStyles.Italic
             };
-        }
 
         // ── Rich text block ───────────────────────────────────────────────────────
 
@@ -239,14 +303,7 @@ namespace RenderDocComments.DocCommentRenderer
         }
 
         // ── Inline builder ────────────────────────────────────────────────────────
-        public async Task<TResult> ProcessAsync<TResult>(
-            object request,
-            CancellationToken cancellationToken,
-            object options = null,
-            string emptyParam = null)
-        {
-            throw new NotImplementedException();
-        }
+
         private void BuildInlines(string text, InlineCollection inlines, Brush fg)
         {
             foreach (var seg in Tokenise(text))
@@ -254,10 +311,15 @@ namespace RenderDocComments.DocCommentRenderer
                 switch (seg.Kind)
                 {
                     case SegKind.Text:
-                        var paras = seg.Value.Split(new[] { "\n\n" }, StringSplitOptions.None);
+                        var paras = seg.Value.Split(
+                            new[] { "\n\n" }, StringSplitOptions.None);
                         for (int i = 0; i < paras.Length; i++)
                         {
-                            if (i > 0) { inlines.Add(new LineBreak()); inlines.Add(new LineBreak()); }
+                            if (i > 0)
+                            {
+                                inlines.Add(new LineBreak());
+                                inlines.Add(new LineBreak());
+                            }
                             var lines = paras[i].Split('\n');
                             for (int j = 0; j < lines.Length; j++)
                             {
@@ -268,7 +330,7 @@ namespace RenderDocComments.DocCommentRenderer
                         break;
 
                     case SegKind.InlineCode:
-                        var codeContainer = new InlineUIContainer(new Border
+                        inlines.Add(new InlineUIContainer(new Border
                         {
                             Background = _codeBg,
                             CornerRadius = new CornerRadius(2),
@@ -286,8 +348,7 @@ namespace RenderDocComments.DocCommentRenderer
                         })
                         {
                             BaselineAlignment = BaselineAlignment.TextBottom
-                        };
-                        inlines.Add(codeContainer);
+                        });
                         break;
 
                     case SegKind.Link:
@@ -304,94 +365,19 @@ namespace RenderDocComments.DocCommentRenderer
                         break;
 
                     case SegKind.CodeBlock:
-                        inlines.Add(new InlineUIContainer(BuildCodeBlock(seg.Value)) { BaselineAlignment = BaselineAlignment.Center });
+                        inlines.Add(new InlineUIContainer(BuildCodeBlock(seg.Value))
+                        {
+                            BaselineAlignment = BaselineAlignment.Center
+                        });
                         break;
                 }
             }
         }
 
-        // ── Link / cref builder ───────────────────────────────────────────────────
-
-        private Inline BuildLink(string label, string cref, string href)
-        {
-            var hl = new Hyperlink(new Run(label))
-            {
-                Foreground = _linkBrush,
-                TextDecorations = TextDecorations.Underline
-            };
-
-            if (!string.IsNullOrEmpty(href))
-            {
-                // External URL — open browser
-                try
-                {
-                    hl.NavigateUri = new Uri(href);
-                    hl.RequestNavigate += (s, e) =>
-                    {
-                        try { System.Diagnostics.Process.Start(e.Uri.AbsoluteUri); }
-                        catch { }
-                        e.Handled = true;
-                    };
-                }
-                catch { }
-            }
-            else if (!string.IsNullOrEmpty(cref))
-            {
-                // #2 — cref navigation: copy symbol to clipboard then GoToDefinition
-                // This is the most reliable approach in VS full IDE without complex APIs
-                var symbolName = DocCommentParser.SimplifyCref(cref);
-                hl.Click += (s, e) =>
-                {
-                    try
-                    {
-                        var dte = Microsoft.VisualStudio.Shell.Package
-                            .GetGlobalService(typeof(EnvDTE.DTE)) as EnvDTE80.DTE2;
-                        if (dte == null) return;
-
-                        // Get the active text view and insert symbol temporarily
-                        var doc = dte.ActiveDocument;
-                        var sel = doc?.Selection as EnvDTE.TextSelection;
-                        if (sel == null) return;
-
-                        // Save current position
-                        var savedLine = sel.ActivePoint.Line;
-                        var savedColumn = sel.ActivePoint.DisplayColumn;
-
-                        // Find an occurrence of the symbol name in the file and GoToDefinition on it
-                        // Fallback: use the Find/Navigate To box
-                        var find = dte.Find;
-                        find.FindWhat = symbolName;
-                        find.MatchCase = true;
-                        find.MatchWholeWord = true;
-                        find.Target = EnvDTE.vsFindTarget.vsFindTargetCurrentDocument;
-                        find.Action = EnvDTE.vsFindAction.vsFindActionFind;
-                        var result = find.Execute();
-
-                        if (result == EnvDTE.vsFindResult.vsFindResultFound)
-                        {
-                            // Symbol found in file — GoToDefinition on it
-                            dte.ExecuteCommand("Edit.GoToDefinition");
-                            // Restore — GoToDefinition may have opened a new file, that's fine
-                        }
-                        else
-                        {
-                            // Not in current file — open Navigate To dialog pre-filled
-                            // Ctrl+, / Edit.NavigateTo
-                            dte.ExecuteCommand("Edit.NavigateTo");
-                        }
-                    }
-                    catch { }
-                };
-            }
-
-            return hl;
-        }
-
         // ── Code block ────────────────────────────────────────────────────────────
 
-        private UIElement BuildCodeBlock(string code, double marginLeft = 0)
-        {
-            return new Border
+        private UIElement BuildCodeBlock(string code, double marginLeft = 0) =>
+            new Border
             {
                 Background = _codeBg,
                 CornerRadius = new CornerRadius(3),
@@ -406,7 +392,6 @@ namespace RenderDocComments.DocCommentRenderer
                     TextWrapping = TextWrapping.Wrap
                 }
             };
-        }
 
         // ── Param grid ────────────────────────────────────────────────────────────
 
@@ -415,7 +400,10 @@ namespace RenderDocComments.DocCommentRenderer
             var grid = new Grid { Margin = new Thickness(marginLeft, 0, 0, 2) };
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition
+            {
+                Width = new GridLength(1, GridUnitType.Star)
+            });
             return grid;
         }
 
@@ -480,6 +468,65 @@ namespace RenderDocComments.DocCommentRenderer
             row++;
         }
 
+        // ── Link / cref ───────────────────────────────────────────────────────────
+
+        private Inline BuildLink(string label, string cref, string href)
+        {
+            var hl = new Hyperlink(new Run(label))
+            {
+                Foreground = _linkBrush,
+                TextDecorations = TextDecorations.Underline
+            };
+
+            if (!string.IsNullOrEmpty(href))
+            {
+                try
+                {
+                    hl.NavigateUri = new Uri(href);
+                    hl.RequestNavigate += (s, e) =>
+                    {
+                        try { System.Diagnostics.Process.Start(e.Uri.AbsoluteUri); }
+                        catch { }
+                        e.Handled = true;
+                    };
+                }
+                catch { }
+            }
+            else if (!string.IsNullOrEmpty(cref))
+            {
+                var symbolName = DocCommentParser.SimplifyCref(cref);
+                hl.Click += (s, e) =>
+                {
+                    try
+                    {
+                        var dte = Microsoft.VisualStudio.Shell.Package
+                            .GetGlobalService(typeof(EnvDTE.DTE)) as EnvDTE80.DTE2;
+                        if (dte == null) return;
+
+                        var doc = dte.ActiveDocument;
+                        var sel = doc?.Selection as EnvDTE.TextSelection;
+                        if (sel == null) return;
+
+                        var find = dte.Find;
+                        find.FindWhat = symbolName;
+                        find.MatchCase = true;
+                        find.MatchWholeWord = true;
+                        find.Target = EnvDTE.vsFindTarget.vsFindTargetCurrentDocument;
+                        find.Action = EnvDTE.vsFindAction.vsFindActionFind;
+                        var result = find.Execute();
+
+                        dte.ExecuteCommand(
+                            result == EnvDTE.vsFindResult.vsFindResultFound
+                                ? "Edit.GoToDefinition"
+                                : "Edit.NavigateTo");
+                    }
+                    catch { }
+                };
+            }
+
+            return hl;
+        }
+
         // ── Tokeniser ─────────────────────────────────────────────────────────────
 
         private enum SegKind
@@ -509,27 +556,59 @@ namespace RenderDocComments.DocCommentRenderer
             var result = new List<Seg>();
             int lastIndex = 0;
 
-            foreach (Match m in TokenRegex.Matches(input))
+            foreach (System.Text.RegularExpressions.Match m in TokenRegex.Matches(input))
             {
                 if (m.Index > lastIndex)
-                    result.Add(new Seg { Kind = SegKind.Text, Value = input.Substring(lastIndex, m.Index - lastIndex) });
+                    result.Add(new Seg
+                    {
+                        Kind = SegKind.Text,
+                        Value = input.Substring(lastIndex, m.Index - lastIndex)
+                    });
 
                 if (m.Groups["code"].Success)
-                    result.Add(new Seg { Kind = SegKind.InlineCode, Value = m.Groups["code"].Value });
+                    result.Add(new Seg
+                    {
+                        Kind = SegKind.InlineCode,
+                        Value = m.Groups["code"].Value
+                    });
                 else if (m.Groups["hlabel"].Success)
-                    result.Add(new Seg { Kind = SegKind.Link, Label = m.Groups["hlabel"].Value, Value = m.Groups["hlabel"].Value, Href = m.Groups["href"].Value });
+                    result.Add(new Seg
+                    {
+                        Kind = SegKind.Link,
+                        Label = m.Groups["hlabel"].Value,
+                        Value = m.Groups["hlabel"].Value,
+                        Href = m.Groups["href"].Value
+                    });
                 else if (m.Groups["clabel"].Success)
-                    result.Add(new Seg { Kind = SegKind.Link, Label = m.Groups["clabel"].Value, Value = m.Groups["clabel"].Value, Cref = m.Groups["cref"].Value });
+                    result.Add(new Seg
+                    {
+                        Kind = SegKind.Link,
+                        Label = m.Groups["clabel"].Value,
+                        Value = m.Groups["clabel"].Value,
+                        Cref = m.Groups["cref"].Value
+                    });
                 else if (m.Groups["paramref"].Success)
-                    result.Add(new Seg { Kind = SegKind.ParamRef, Value = m.Groups["paramref"].Value });
+                    result.Add(new Seg
+                    {
+                        Kind = SegKind.ParamRef,
+                        Value = m.Groups["paramref"].Value
+                    });
                 else if (m.Groups["codeblock"].Success)
-                    result.Add(new Seg { Kind = SegKind.CodeBlock, Value = m.Groups["codeblock"].Value });
+                    result.Add(new Seg
+                    {
+                        Kind = SegKind.CodeBlock,
+                        Value = m.Groups["codeblock"].Value
+                    });
 
                 lastIndex = m.Index + m.Length;
             }
 
             if (lastIndex < input.Length)
-                result.Add(new Seg { Kind = SegKind.Text, Value = input.Substring(lastIndex) });
+                result.Add(new Seg
+                {
+                    Kind = SegKind.Text,
+                    Value = input.Substring(lastIndex)
+                });
 
             return result;
         }

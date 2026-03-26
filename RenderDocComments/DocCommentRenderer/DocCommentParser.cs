@@ -41,27 +41,27 @@ namespace RenderDocComments.DocCommentRenderer
 
     public class ExceptionEntry
     {
-        public string Type { get; set; } = string.Empty; // from cref
-        public string FullCref { get; set; } = string.Empty; // raw cref for navigation
+        public string Type { get; set; } = string.Empty;
+        public string FullCref { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
     }
 
     public class SeeAlsoEntry
     {
         public string Label { get; set; } = string.Empty;
-        public string Cref { get; set; } = string.Empty; // raw, e.g. T:Foo.Bar
+        public string Cref { get; set; } = string.Empty;
         public string Href { get; set; } = string.Empty;
     }
 
     public class InheritDocEntry
     {
-        public string Cref { get; set; } = string.Empty; // optional — specific base to inherit from
+        public string Cref { get; set; } = string.Empty;
     }
 
     public class IncludeEntry
     {
-        public string File { get; set; } = string.Empty; // file="path/to/file.xml"
-        public string Path { get; set; } = string.Empty; // path="xpath expression"
+        public string File { get; set; } = string.Empty;
+        public string Path { get; set; } = string.Empty;
     }
 
     public static class DocCommentParser
@@ -83,13 +83,11 @@ namespace RenderDocComments.DocCommentRenderer
                 var root = xml.Root;
                 var result = new ParsedDocComment { IsValid = true };
 
-                // ── Simple text sections ──────────────────────────────────────────
                 result.Summary = ReadInnerMixed(root?.Element("summary")) ?? string.Empty;
                 result.Remarks = ReadInnerMixed(root?.Element("remarks")) ?? string.Empty;
                 result.Returns = ReadInnerMixed(root?.Element("returns")) ?? string.Empty;
                 result.Example = ReadInnerMixed(root?.Element("example")) ?? string.Empty;
 
-                // permission — has cref attribute indicating which callers are allowed
                 var permEl = root?.Element("permission");
                 if (permEl != null)
                 {
@@ -97,7 +95,6 @@ namespace RenderDocComments.DocCommentRenderer
                     result.Permission = ReadInnerMixed(permEl) ?? string.Empty;
                 }
 
-                // inheritdoc — optional cref to a specific base member
                 var idEl = root?.Element("inheritdoc");
                 if (idEl != null)
                     result.InheritDoc = new InheritDocEntry
@@ -105,7 +102,6 @@ namespace RenderDocComments.DocCommentRenderer
                         Cref = idEl.Attribute("cref")?.Value ?? string.Empty
                     };
 
-                // include — file + path (XPath) attributes
                 var inclEl = root?.Element("include");
                 if (inclEl != null)
                     result.Include = new IncludeEntry
@@ -114,7 +110,6 @@ namespace RenderDocComments.DocCommentRenderer
                         Path = inclEl.Attribute("path")?.Value ?? string.Empty
                     };
 
-                // ── param — name attribute ────────────────────────────────────────
                 foreach (var p in SafeElements(root, "param"))
                     result.Params.Add(new ParamEntry
                     {
@@ -122,7 +117,6 @@ namespace RenderDocComments.DocCommentRenderer
                         Description = ReadInnerMixed(p) ?? string.Empty
                     });
 
-                // ── typeparam — name attribute ────────────────────────────────────
                 foreach (var tp in SafeElements(root, "typeparam"))
                     result.TypeParams.Add(new ParamEntry
                     {
@@ -130,7 +124,6 @@ namespace RenderDocComments.DocCommentRenderer
                         Description = ReadInnerMixed(tp) ?? string.Empty
                     });
 
-                // ── exception — cref attribute ────────────────────────────────────
                 foreach (var ex in SafeElements(root, "exception"))
                 {
                     var raw = ex.Attribute("cref")?.Value ?? string.Empty;
@@ -142,7 +135,6 @@ namespace RenderDocComments.DocCommentRenderer
                     });
                 }
 
-                // ── seealso — cref or href attribute ─────────────────────────────
                 foreach (var sa in SafeElements(root, "seealso"))
                 {
                     var cref = sa.Attribute("cref")?.Value ?? string.Empty;
@@ -153,12 +145,11 @@ namespace RenderDocComments.DocCommentRenderer
                     result.SeeAlsos.Add(new SeeAlsoEntry
                     {
                         Label = label,
-                        Cref = cref,   // keep raw cref (T:Namespace.Type) for navigation
+                        Cref = cref,
                         Href = href
                     });
                 }
 
-                // ── completionlist — cref attribute ───────────────────────────────
                 var clEl = root?.Element("completionlist");
                 if (clEl != null)
                 {
@@ -176,7 +167,6 @@ namespace RenderDocComments.DocCommentRenderer
         }
 
         // ── Inner mixed-content reader ────────────────────────────────────────────
-        // Handles every attribute variant of every inline tag.
 
         internal static string ReadInnerMixed(XElement el)
         {
@@ -188,7 +178,6 @@ namespace RenderDocComments.DocCommentRenderer
                 switch (node)
                 {
                     case XText text:
-                        // Covers both plain text and CDATA sections transparently
                         sb.Append(CollapseWhitespace(text.Value));
                         break;
 
@@ -312,21 +301,17 @@ namespace RenderDocComments.DocCommentRenderer
         private static string CollapseWhitespace(string s)
             => Regex.Replace(s.Replace("\r\n", " ").Replace("\n", " "), @"\s{2,}", " ");
 
-        // Strips type prefix: "T:Foo.Bar" → "Foo.Bar", "M:Foo.Bar.Method" → "Foo.Bar.Method"
         internal static string StripPrefix(string cref)
         {
             if (string.IsNullOrEmpty(cref)) return string.Empty;
             return cref.Length > 2 && cref[1] == ':' ? cref.Substring(2) : cref;
         }
 
-        // Returns just the last segment: "Foo.Bar.Baz" → "Baz"
         public static string SimplifyCref(string cref)
         {
             if (string.IsNullOrEmpty(cref)) return string.Empty;
             var name = StripPrefix(cref);
-            // Strip generic arity: "List`1" → "List"
             name = Regex.Replace(name, @"`\d+", string.Empty);
-            // Strip method parameters: "Foo.Bar(System.Int32)" → "Foo.Bar"
             var paren = name.IndexOf('(');
             if (paren >= 0) name = name.Substring(0, paren);
             var dot = name.LastIndexOf('.');

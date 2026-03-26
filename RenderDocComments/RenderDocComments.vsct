@@ -1,0 +1,32 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<CommandTable xmlns="http://schemas.microsoft.com/VisualStudio/2005-10-18/CommandTable"
+              xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+  <Extern href="stdidcmd.h"/>
+  <Extern href="vsshlids.h"/>
+
+  <Commands package="guidRenderDocPackage">
+    <Buttons>
+      <Button guid="guidRenderDocCommandSet" id="cmdidRenderDocOptions"
+              priority="0x0100" type="Button">
+        <Parent guid="guidSHLMainMenu" id="IDG_VS_MM_TOOLSADDINS"/>
+        <Strings>
+          <ButtonText>Render Doc Options</ButtonText>
+        </Strings>
+      </Button>
+    </Buttons>
+  </Commands>
+
+  <Symbols>
+    <!-- This GUID must match PackageGuidString in RenderDocCommentsPackage.cs -->
+    <GuidSymbol name="guidRenderDocPackage"
+                value="{6381b007-68f8-48f1-9db5-f450f3a1a6b0}"/>
+
+    <!-- This GUID must match CommandSet in RenderDocOptionsCommand.cs -->
+    <GuidSymbol name="guidRenderDocCommandSet"
+                value="{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}">
+      <IDSymbol name="cmdidRenderDocOptions" value="0x0100"/>
+    </GuidSymbol>
+  </Symbols>
+
+</CommandTable>
