@@ -181,17 +181,20 @@ namespace RenderDocComments.DocCommentRenderer
 
             // ── Sections ──────────────────────────────────────────────────────────
 
+            // InheritDoc / Include are only set here when the tagger failed to resolve
+            // them (target is in a different assembly, or the XML file is missing).
             if (doc.InheritDoc != null)
             {
                 var idText = string.IsNullOrEmpty(doc.InheritDoc.Cref)
-                    ? "(inherits documentation)"
-                    : $"(inherits documentation from {DocCommentParser.SimplifyCref(doc.InheritDoc.Cref)})";
+                    ? "(inherits documentation — source not found)"
+                    : $"(inherits documentation from {DocCommentParser.SimplifyCref(doc.InheritDoc.Cref)} — source not found)";
                 content.Children.Add(BuildRichBlock(idText, _fgDim, marginBottom: 4));
             }
 
             if (doc.Include != null)
                 content.Children.Add(BuildRichBlock(
-                    $"(documentation included from {doc.Include.File})", _fgDim, marginBottom: 4));
+                    $"(documentation included from {doc.Include.File} — file not found or path unmatched)",
+                    _fgDim, marginBottom: 4));
 
             if (!string.IsNullOrWhiteSpace(doc.Summary))
                 content.Children.Add(BuildRichBlock(doc.Summary, _summaryFg, marginBottom: 4));
@@ -202,7 +205,7 @@ namespace RenderDocComments.DocCommentRenderer
             if (!string.IsNullOrWhiteSpace(doc.Example))
             {
                 content.Children.Add(BuildSectionLabel("Example:"));
-                content.Children.Add(BuildCodeBlock(doc.Example, SectionContentIndent));
+                content.Children.Add(BuildMixedPanel(doc.Example, _fg, SectionContentIndent));
             }
 
             if (doc.Params.Count > 0 || doc.TypeParams.Count > 0)
@@ -300,6 +303,125 @@ namespace RenderDocComments.DocCommentRenderer
             };
             BuildInlines(text, tb.Inlines, fg);
             return tb;
+        }
+
+        // ── Mixed prose + code panel ──────────────────────────────────────────────
+        //
+        // Renders content that can contain both prose and <code> blocks (i.e. the
+        // <example> section).  WPF does not correctly lay out a block-level Border
+        // embedded as an InlineUIContainer inside a TextBlock — it silently collapses
+        // the layout.  We avoid that by tokenising the content, accumulating prose
+        // tokens into a TextBlock, and flushing a new Border-based code block as a
+        // separate direct child of a vertical StackPanel whenever a CodeBlock token
+        // is encountered.
+
+        private UIElement BuildMixedPanel(string text, Brush fg, double marginLeft = 0)
+        {
+            var panel = new StackPanel
+            {
+                Orientation = Orientation.Vertical,
+                Margin = new Thickness(marginLeft, 0, 0, 0)
+            };
+
+            // Current prose TextBlock being accumulated.  Null until the first
+            // non-code token arrives.
+            TextBlock currentTb = null;
+
+            void FlushTb()
+            {
+                if (currentTb != null && currentTb.Inlines.Count > 0)
+                    panel.Children.Add(currentTb);
+                currentTb = null;
+            }
+
+            void EnsureTb()
+            {
+                if (currentTb == null)
+                    currentTb = new TextBlock
+                    {
+                        Foreground = fg,
+                        FontFamily = _editorFont,
+                        FontSize = _fontSize,
+                        TextWrapping = TextWrapping.Wrap,
+                        Margin = new Thickness(0, 0, 0, 2)
+                    };
+            }
+
+            foreach (var seg in Tokenise(text))
+            {
+                switch (seg.Kind)
+                {
+                    case SegKind.CodeBlock:
+                        // Flush any accumulated prose, then add the code block as its
+                        // own Border panel child — never inside TextBlock.Inlines.
+                        FlushTb();
+                        panel.Children.Add(BuildCodeBlock(seg.Value));
+                        break;
+
+                    case SegKind.Text:
+                        EnsureTb();
+                        // Split on paragraph breaks so \n\n produces two LineBreaks.
+                        var paras = seg.Value.Split(new[] { "\n\n" }, StringSplitOptions.None);
+                        for (int p = 0; p < paras.Length; p++)
+                        {
+                            if (p > 0)
+                            {
+                                currentTb.Inlines.Add(new System.Windows.Documents.LineBreak());
+                                currentTb.Inlines.Add(new System.Windows.Documents.LineBreak());
+                            }
+                            var lines = paras[p].Split('\n');
+                            for (int l = 0; l < lines.Length; l++)
+                            {
+                                if (l > 0)
+                                    currentTb.Inlines.Add(new System.Windows.Documents.LineBreak());
+                                currentTb.Inlines.Add(
+                                    new System.Windows.Documents.Run(lines[l]) { Foreground = fg });
+                            }
+                        }
+                        break;
+
+                    case SegKind.InlineCode:
+                        EnsureTb();
+                        currentTb.Inlines.Add(new System.Windows.Documents.InlineUIContainer(new Border
+                        {
+                            Background = _codeBg,
+                            CornerRadius = new CornerRadius(2),
+                            Padding = new Thickness(3, 1, 3, 1),
+                            VerticalAlignment = VerticalAlignment.Bottom,
+                            Child = new TextBlock
+                            {
+                                Text = seg.Value,
+                                FontFamily = _monoFont,
+                                FontSize = _fontSize - 1,
+                                Foreground = _codeFg,
+                                VerticalAlignment = VerticalAlignment.Bottom,
+                                Padding = new Thickness(0)
+                            }
+                        })
+                        {
+                            BaselineAlignment = System.Windows.BaselineAlignment.TextBottom
+                        });
+                        break;
+
+                    case SegKind.Link:
+                        EnsureTb();
+                        currentTb.Inlines.Add(BuildLink(seg.Label, seg.Cref, seg.Href));
+                        break;
+
+                    case SegKind.ParamRef:
+                        EnsureTb();
+                        currentTb.Inlines.Add(new System.Windows.Documents.Run(seg.Value)
+                        {
+                            Foreground = _paramNameBrush,
+                            FontFamily = _monoFont,
+                            FontSize = _fontSize - 1
+                        });
+                        break;
+                }
+            }
+
+            FlushTb();
+            return panel;
         }
 
         // ── Inline builder ────────────────────────────────────────────────────────
