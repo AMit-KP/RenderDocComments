@@ -1,3 +1,12 @@
+<div align="center">
+  
+[<img src="https://visualstudio.microsoft.com/wp-content/uploads/2019/06/BrandVisualStudioWin2019-3.svg" width="150"/>]([https://visualstudio.microsoft.com/](https://marketplace.visualstudio.com/items?itemName=AMit-KP.RenderDocComments))
+
+[![Visual Studio](https://img.shields.io/badge/Visual%20Studio-5C2D91.svg?style=for-the-badge&logo=visual-studio&logoColor=white)]([https://visualstudio.microsoft.com/](https://marketplace.visualstudio.com/items?itemName=AMit-KP.RenderDocComments))
+
+</div>
+
+
 # 💎 Render Doc Comments: Modernize Your Workspace
 
 **Stop reading raw XML. Start seeing your documentation.**
@@ -6,25 +15,29 @@
 
 ---
 
+<div align="center">
+
 *Before*
 
-<img width="1217" height="805" alt="image" src="https://github.com/user-attachments/assets/3ef64a0b-d994-49a8-bc0e-00e1ce7a2cbc" />
+> <img width="1217" height="805" alt="image" src="https://github.com/user-attachments/assets/3ef64a0b-d994-49a8-bc0e-00e1ce7a2cbc" />
 
 
 *After*
 
-<img width="941" height="806" alt="Screenshot 2026-03-23 002602" src="https://github.com/user-attachments/assets/77b13955-c7c8-4e98-a385-505ae009323c" />
+> <img width="941" height="806" alt="Screenshot 2026-03-23 002602" src="https://github.com/user-attachments/assets/77b13955-c7c8-4e98-a385-505ae009323c" />
 
 
-<img width="934" height="812" alt="Screenshot 2026-03-23 002632" src="https://github.com/user-attachments/assets/89490eaa-f4b8-4e9a-b98e-fbeb4ff53ae3" />
+> <img width="934" height="812" alt="Screenshot 2026-03-23 002632" src="https://github.com/user-attachments/assets/89490eaa-f4b8-4e9a-b98e-fbeb4ff53ae3" />
 
 
-<img width="946" height="800" alt="Screenshot 2026-03-23 002521" src="https://github.com/user-attachments/assets/4e120151-5e0b-45cc-935e-1d899dd6b677" />
+> <img width="946" height="800" alt="Screenshot 2026-03-23 002521" src="https://github.com/user-attachments/assets/4e120151-5e0b-45cc-935e-1d899dd6b677" />
 
 
-<img width="648" height="1080" alt="Screenshot 2026-03-23 003032" src="https://github.com/user-attachments/assets/a32e1bd3-eeb3-43c9-a958-0796edba353e" />
+> <img width="648" height="1080" alt="Screenshot 2026-03-23 003032" src="https://github.com/user-attachments/assets/a32e1bd3-eeb3-43c9-a958-0796edba353e" />
 
-<img width="1623" height="1143" alt="image" src="https://github.com/user-attachments/assets/c8f26866-8b7a-4bb1-83ef-479eaa2d1af8" />
+> <img width="1623" height="1143" alt="image" src="https://github.com/user-attachments/assets/c8f26866-8b7a-4bb1-83ef-479eaa2d1af8" />
+
+</div>
 
 ---
 
