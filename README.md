@@ -1,8 +1,8 @@
 <div align="center">
   
-[<img src="https://visualstudio.microsoft.com/wp-content/uploads/2019/06/BrandVisualStudioWin2019-3.svg" width="150"/>]([https://visualstudio.microsoft.com/](https://marketplace.visualstudio.com/items?itemName=AMit-KP.RenderDocComments))
+[<img src="https://visualstudio.microsoft.com/wp-content/uploads/2019/06/BrandVisualStudioWin2019-3.svg" width="150"/>](https://marketplace.visualstudio.com/items?itemName=AMit-KP.RenderDocComments)
 
-[![Visual Studio](https://img.shields.io/badge/Visual%20Studio-5C2D91.svg?style=for-the-badge&logo=visual-studio&logoColor=white)]([https://visualstudio.microsoft.com/](https://marketplace.visualstudio.com/items?itemName=AMit-KP.RenderDocComments))
+[![Visual Studio](https://img.shields.io/badge/Visual%20Studio-5C2D91.svg?style=for-the-badge&logo=visual-studio&logoColor=white)](https://marketplace.visualstudio.com/items?itemName=AMit-KP.RenderDocComments)
 
 </div>
 
