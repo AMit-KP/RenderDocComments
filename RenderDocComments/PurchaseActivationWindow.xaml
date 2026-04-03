@@ -124,7 +124,7 @@
 			Margin="0,0,0,6"
 			FontSize="11"
 			Foreground="WhiteSmoke"
-			Text="if closed, you can still activate your licence by pasting the key from your email. (Make sure to provide correct email address)."
+			Text="if closed, you can still activate your licence by pasting the key from your emails from DODO Payments. (Make sure to provide correct email address)."
 			TextWrapping="Wrap" />
 
 		<Separator Margin="0,2,0,2" Background="#444" />

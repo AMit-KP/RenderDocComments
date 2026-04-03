@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -249,6 +250,15 @@ namespace RenderDocComments
             SetSwatchColor(SwatchGrad1, _colorGrad1);
             SetSwatchColor(SwatchGrad2, _colorGrad2);
             RefreshGradientPreview();
+        }
+
+        private void RatingButton_Click(object sender, RoutedEventArgs e)
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "https://marketplace.visualstudio.com/items?itemName=AMit-KP.RenderDocComments&ssr=false#review-details",
+                UseShellExecute = true
+            });
         }
 
         private static void SetSwatchColor(System.Windows.Controls.Button btn, int argb)

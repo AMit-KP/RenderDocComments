@@ -24,7 +24,7 @@ namespace RenderDocComments.DocCommentRenderer
 
         private static int _settingsGeneration = 0;
         private bool _forceEmpty = false;
-        private int _caretLine = -1;
+        private volatile int _caretLine = -1;
 
         public event EventHandler<SnapshotSpanEventArgs> TagsChanged;
 
@@ -35,6 +35,8 @@ namespace RenderDocComments.DocCommentRenderer
 
             _buffer.Changed += OnBufferChanged;
             _view.Caret.PositionChanged += OnCaretPositionChanged;
+            _view.LayoutChanged += OnLayoutChanged;
+            _view.Closed += OnViewClosed;
             SettingsChangedBroadcast.SettingsChanged += OnSettingsChanged;
         }
 
@@ -1014,6 +1016,26 @@ namespace RenderDocComments.DocCommentRenderer
                 new SnapshotSpanEventArgs(new SnapshotSpan(snap, 0, snap.Length)));
         }
 
+        private void OnLayoutChanged(object sender, Microsoft.VisualStudio.Text.Editor.TextViewLayoutChangedEventArgs e)
+        {
+            if (e.NewViewState.ViewportWidth != e.OldViewState.ViewportWidth
+                || e.NewViewState.ViewportHeight != e.OldViewState.ViewportHeight)
+            {
+                _cachedSnapshot = null;
+                _cachedTags = null;
+                var snap = _buffer.CurrentSnapshot;
+                TagsChanged?.Invoke(this,
+                    new SnapshotSpanEventArgs(new SnapshotSpan(snap, 0, snap.Length)));
+            }
+        }
+
+        private void OnViewClosed(object sender, EventArgs e)
+        {
+            _caretLine = -1;
+            _cachedSnapshot = null;
+            _cachedTags = null;
+        }
+
         private void OnCaretPositionChanged(object sender, CaretPositionChangedEventArgs e)
         {
             if (RenderDocOptions.Instance.EffectiveGlyphToggle) return;
@@ -1084,6 +1106,8 @@ namespace RenderDocComments.DocCommentRenderer
         {
             _buffer.Changed -= OnBufferChanged;
             _view.Caret.PositionChanged -= OnCaretPositionChanged;
+            _view.LayoutChanged -= OnLayoutChanged;
+            _view.Closed -= OnViewClosed;
             SettingsChangedBroadcast.SettingsChanged -= OnSettingsChanged;
         }
     }

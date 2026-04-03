@@ -458,22 +458,31 @@
 			</StackPanel>
 			<!--  /PremiumOptionsPanel  -->
 
-
 			<!--  ── Footer  -->
-			<StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
-				<Button
-					Click="OnResetClicked"
-					Content="Reset to Defaults"
-					Style="{StaticResource SecondaryButton}" />
-				<Button
-					Click="OnSaveClicked"
-					Content="Save"
-					Style="{StaticResource PrimaryButton}" />
-				<Button
-					Click="OnCloseClicked"
-					Content="Close"
-					Style="{StaticResource SecondaryButton}" />
-			</StackPanel>
+			<Grid Margin="-4,6,0,0">
+				<StackPanel HorizontalAlignment="Left" Orientation="Horizontal">
+					<Button
+						Click="RatingButton_Click"
+						Content="Please, leave a review"
+						Foreground="#BE6EF0"
+						Style="{StaticResource SecondaryButton}" />
+
+				</StackPanel>
+				<StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+					<Button
+						Click="OnResetClicked"
+						Content="Reset to Defaults"
+						Style="{StaticResource SecondaryButton}" />
+					<Button
+						Click="OnSaveClicked"
+						Content="Save"
+						Style="{StaticResource PrimaryButton}" />
+					<Button
+						Click="OnCloseClicked"
+						Content="Close"
+						Style="{StaticResource SecondaryButton}" />
+				</StackPanel>
+			</Grid>
 
 		</StackPanel>
 	</ScrollViewer>
