@@ -43,13 +43,13 @@ namespace RenderDocComments.DocCommentRenderer
         public event EventHandler<SnapshotSpanEventArgs> TagsChanged;
 
         // Matches the first line of any recognised doc-comment style:
-        //   C# / F# / VB     ///  (triple slash)
-        //   C++ line          ///  or  //!
-        //   C++ block         /**  or  /*!  (block opener — the entire /** … */ block
-        //                     is tagged as a single glyph unit in the tagger)
+        //   C#, F#           ///  (triple slash)
+        //   VB.NET           '''  (triple apostrophe)
+        //   C++ line         ///  or  //!
+        //   C++ block        /**  or  /*!
         private static readonly System.Text.RegularExpressions.Regex DocLineRegex =
             new System.Text.RegularExpressions.Regex(
-                @"^\s*(?:///|//!|/\*[*!])",
+                @"^\s*(?:'''|///|//!|/\*[*!])",
                 System.Text.RegularExpressions.RegexOptions.Compiled);
 
         public DocCommentGlyphTagger(ITextBuffer buffer)
@@ -65,10 +65,10 @@ namespace RenderDocComments.DocCommentRenderer
                 @"^\s*/\*[*!]",
                 System.Text.RegularExpressions.RegexOptions.Compiled);
 
-        // Recognise C++ or C# line-doc comments: /// or //!
+        // Recognise all line-doc comment styles: /// (C#/F#/C++), //! (C++), ''' (VB.NET)
         private static readonly System.Text.RegularExpressions.Regex LineDocRegex =
             new System.Text.RegularExpressions.Regex(
-                @"^\s*(?:///|//!)",
+                @"^\s*(?:'''|///|//!)",
                 System.Text.RegularExpressions.RegexOptions.Compiled);
 
         public IEnumerable<ITagSpan<DocCommentGlyphTag>> GetTags(NormalizedSnapshotSpanCollection spans)
@@ -104,7 +104,7 @@ namespace RenderDocComments.DocCommentRenderer
                 }
                 else if (LineDocRegex.IsMatch(lineText))
                 {
-                    // ── Line-doc comment  ///  or  //! ───────────────────────────
+                    // ── Line-doc comment  ///  //!  or  ''' ─────────────────────
                     firstLine = line;
                     int blockStart = i;
                     while (i < lineCount &&
@@ -149,6 +149,7 @@ namespace RenderDocComments.DocCommentRenderer
     [ContentType("CSharp")]
     [ContentType("Basic")]
     [ContentType("FSharp")]
+    [ContentType("F#")]
     [ContentType("C/C++")]
     [TagType(typeof(DocCommentGlyphTag))]
     internal sealed class DocCommentGlyphTaggerProvider : ITaggerProvider
@@ -267,6 +268,7 @@ namespace RenderDocComments.DocCommentRenderer
     [ContentType("CSharp")]
     [ContentType("Basic")]
     [ContentType("FSharp")]
+    [ContentType("F#")]
     [ContentType("C/C++")]
     [TagType(typeof(DocCommentGlyphTag))]
     [TextViewRole(PredefinedTextViewRoles.Document)]

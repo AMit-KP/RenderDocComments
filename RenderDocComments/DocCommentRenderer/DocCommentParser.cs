@@ -232,7 +232,11 @@ namespace RenderDocComments.DocCommentRenderer
             var lines = rawCommentBlock.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
             var sb = new StringBuilder("<root>");
             foreach (var line in lines)
-                sb.AppendLine(Regex.Replace(line, @"^\s*///\s?", ""));
+            {
+                // Strip /// (C#/F#/C++) or ''' (VB.NET) prefixes.
+                var stripped = Regex.Replace(line, @"^\s*(?:'''|///)\s?", "");
+                sb.AppendLine(stripped);
+            }
             sb.Append("</root>");
 
             // Fix C++ operators and stray angle brackets that are legal in doc-comment

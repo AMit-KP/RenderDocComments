@@ -87,31 +87,31 @@ namespace RenderDocComments.DocCommentRenderer
 
         // ── Doc-comment line detection ─────────────────────────────────────────────
         //
-        // Recognises all three C# / VB / F# styles and all C++ Doxygen styles:
-        //   C# / F# / VB:   ///  (three slashes)
-        //   C++ line:        ///  (same)  or  //!  (QDoc / Doxygen alternative)
-        //   C++ block open:  /**  or  /*!  on its own line (or with text on the same line)
-        //   C++ block body:  lines starting with optional whitespace + *  (but not */)
-        //   C++ block close: */ — marks the END of a block; included in the block
-        //
-        // The regex matches the FIRST line of a block and every interior/continuation line.
-        // The block collector below drives the outer loop so it can span /** … */ across
-        // multiple lines.
+        // Language       Comment style          Prefix
+        // ─────────────  ─────────────────────  ──────────────────────────────────────
+        // C#             XML-doc                ///
+        // F#             XML-doc                ///  (identical to C#)
+        // VB.NET         XML-doc                '''  (triple apostrophe)
+        // C++ (line)     Doxygen / XML-doc      ///  or  //!
+        // C++ (block)    Doxygen / XML-doc      /** … */  or  /*! … */
 
-        // C# / F# — simple  ///
+        // C# / F# — triple slash
         private static readonly Regex CsDocLineRegex =
             new Regex(@"^\s*///", RegexOptions.Compiled);
+
+        // VB.NET — triple apostrophe  '''
+        private static readonly Regex VbDocLineRegex =
+            new Regex(@"^\s*'''", RegexOptions.Compiled);
 
         // C++ line-comment variant: ///  or  //!
         private static readonly Regex CppLineDocRegex =
             new Regex(@"^\s*(?:///|//!)", RegexOptions.Compiled);
 
-        // C++ block opener: line containing  /**  or  /*!
+        // C++ block opener: line starting with  /**  or  /*!
         private static readonly Regex CppBlockOpenRegex =
             new Regex(@"^\s*/\*[*!]", RegexOptions.Compiled);
 
-        // C++ block body / closer:  optional whitespace, then * (may include leading spaces)
-        // This also matches */, which signals the block end.
+        // C++ block body / closer:  optional whitespace then *
         private static readonly Regex CppBlockBodyRegex =
             new Regex(@"^\s*\*", RegexOptions.Compiled);
 
@@ -123,40 +123,81 @@ namespace RenderDocComments.DocCommentRenderer
                 @"(?:[\w<>\[\],\s\*\?]+?\s+)?(?<mem>\w+)\s*(?:<[^>]*>)?\s*(?:\(|{|=>|;)",
                 RegexOptions.Compiled);
 
-        // ── C++ member-name extractor ──────────────────────────────────────────────
+        // ── VB.NET member-name extractor ───────────────────────────────────────────
         //
-        // Handles free functions, member functions, constructors/destructors,
-        // operators, class/struct/enum declarations, typedefs, using aliases,
-        // global variables, template declarations, and constexpr / inline / static.
+        // Handles:  Sub / Function / Property / Class / Interface / Structure /
+        //           Enum / Module / Event / Delegate / Operator / Constructor (New)
+        // Modifiers: Public/Private/Protected/Friend/Shared/Overridable/Overrides/
+        //            MustOverride/NotOverridable/Partial/Overloads/ReadOnly/WriteOnly/
+        //            Shadows/Async/Iterator/WithEvents/Default/MustInherit/NotInheritable
+        private static readonly Regex VbMemberNameRegex =
+            new Regex(
+                @"^\s*(?:(?:Public|Private|Protected|Friend|Shared|Overridable|Overrides|" +
+                @"MustOverride|NotOverridable|Partial|Overloads|ReadOnly|WriteOnly|Shadows|" +
+                @"Async|Iterator|WithEvents|Default|MustInherit|NotInheritable)\s+)*" +
+                @"(?:Sub|Function|Property|Class|Interface|Structure|Enum|Module|" +
+                @"Event|Delegate|Operator|ReadOnly|WriteOnly)\s+(?<mem>\w+)",
+                RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+        // ── F# member-name extractor ───────────────────────────────────────────────
+        //
+        // Handles:  let / let rec / let inline / member / type / val / module /
+        //           abstract member / static member / override / default
+        //           self-identifiers (this. / _.) and backtick names (``my fn``)
+        private static readonly Regex FsMemberNameRegex =
+            new Regex(
+                @"^\s*" +
+                // optional leading access modifier
+                @"(?:(?:private|internal|public)\s+)*" +
+                // primary keyword — compound forms must come before single forms
+                @"(?:(?:static\s+member|abstract\s+member|let\s+rec)" +
+                @"|(?:let|type|val|module|member|override|default))\s+" +
+                // optional secondary modifiers after the keyword
+                @"(?:(?:private|internal|public|mutable|inline|rec)\s+)*" +
+                // optional self-identifier   this.  _.  x.
+                @"(?:(?:\w+|_)\.)*" +
+                // the actual member name (backtick or plain identifier)
+                @"(?<mem>``[^`]+``|\w+)",
+                RegexOptions.Compiled);
+
+        // ── C++ member-name extractor ──────────────────────────────────────────────
         private static readonly Regex CppMemberNameRegex =
             new Regex(
-                // Optional template prefix
                 @"^\s*(?:template\s*<[^>]*>\s*)?" +
-                // Optional C++ specifiers (can appear in any order, multiple times)
                 @"(?:(?:inline|static|virtual|explicit|extern|constexpr|consteval|constinit|" +
                 @"override|final|__forceinline|__inline|__cdecl|__stdcall|__fastcall|" +
                 @"[[nodiscard]]|__attribute__\s*\([^)]*\)|noexcept(?:\([^)]*\))?)\s*)*" +
-                // Return type or keyword (class/struct/enum/typedef/using)
                 @"(?:" +
                 @"(?:class|struct|union|enum(?:\s+class)?|typedef|using)\s+" +
-                @"|(?:[\w:<>\[\]\*&,\s]+?\s+)?" +   // return type (optional)
+                @"|(?:[\w:<>\[\]\*&,\s]+?\s+)?" +
                 @")" +
-                // Destructor  ~Name
                 @"(?:~)?(?<mem>\w+)" +
-                // Function call / scope (to avoid matching closing braces as names)
                 @"\s*(?:<[^>]*>)?\s*(?:\(|:|;|{|=\s*(?:default|delete|\d|{))",
                 RegexOptions.Compiled);
 
         // ── Determine language for a buffer ───────────────────────────────────────
 
-        private static bool IsCppBuffer(ITextBuffer buffer)
+        private enum BufferLanguage
+        {
+            CSharp, VBNet, FSharp, Cpp
+        }
+
+        private static BufferLanguage GetLanguage(ITextBuffer buffer)
         {
             try
             {
-                return buffer.ContentType.IsOfType("C/C++");
+                var ct = buffer.ContentType;
+                if (ct.IsOfType("C/C++")) return BufferLanguage.Cpp;
+                if (ct.IsOfType("Basic")) return BufferLanguage.VBNet;
+                if (ct.IsOfType("F#") || ct.IsOfType("FSharp")) return BufferLanguage.FSharp;
+                return BufferLanguage.CSharp;
             }
-            catch { return false; }
+            catch { return BufferLanguage.CSharp; }
         }
+
+        // Keep for backward-compat with the cross-file helpers that use it.
+        private static bool IsCppBuffer(ITextBuffer buffer)
+            => GetLanguage(buffer) == BufferLanguage.Cpp;
 
         // ── BuildTags (three-pass) ────────────────────────────────────────────────
 
@@ -164,9 +205,11 @@ namespace RenderDocComments.DocCommentRenderer
         {
             var result = new List<TagSpan<IntraTextAdornmentTag>>();
             int lineCount = snapshot.LineCount;
-            bool isCpp = IsCppBuffer(_buffer);
+            var bufLang = GetLanguage(_buffer);
+            bool isCpp = bufLang == BufferLanguage.Cpp;
+            bool isVb = bufLang == BufferLanguage.VBNet;
 
-            // Resolve the source file path / directory for <include> and cross-file search.
+            // Resolve source file path for <include> and cross-file inheritdoc search.
             string filePath = null;
             string fileDir = null;
             try
@@ -179,7 +222,12 @@ namespace RenderDocComments.DocCommentRenderer
             }
             catch { }
 
-            // ── Pass 1: collect doc blocks + the member name after each ───────────
+            // Choose the correct line-doc regex for this language.
+            Regex lineDocRegex = isVb ? VbDocLineRegex
+                               : isCpp ? CppLineDocRegex
+                               : CsDocLineRegex;
+
+            // ── Pass 1: collect doc blocks + member name after each ───────────────
             var allBlocks = new List<(string raw, string memberName, SnapshotSpan span, string firstLine)>();
 
             int i = 0;
@@ -190,11 +238,10 @@ namespace RenderDocComments.DocCommentRenderer
 
                 if (isCpp)
                 {
-                    // ── C++ block comments  /** … */  or  /*! … */ ─────────────────
+                    // ── C++ block comments /** ... */ or /*! ... */ ─────────────────
                     if (CppBlockOpenRegex.IsMatch(lineText))
                     {
                         var blockLines = new List<ITextSnapshotLine> { line };
-                        // Collect until we find a line containing */
                         bool closed = lineText.Contains("*/");
                         i++;
                         while (!closed && i < lineCount)
@@ -205,8 +252,7 @@ namespace RenderDocComments.DocCommentRenderer
                                 closed = true;
                             i++;
                         }
-
-                        var memberName = PeekMemberName(snapshot, i, lineCount, isCpp);
+                        var memberName = PeekMemberName(snapshot, i, lineCount, bufLang);
                         var rawBlock = string.Join("\n", blockLines.Select(l => l.GetText()));
                         var blockSpan = new SnapshotSpan(snapshot,
                             Span.FromBounds(blockLines[0].Start,
@@ -215,15 +261,14 @@ namespace RenderDocComments.DocCommentRenderer
                         continue;
                     }
 
-                    // ── C++ line comments  ///  or  //! ───────────────────────────
+                    // ── C++ line comments /// or //! ───────────────────────────────
                     if (CppLineDocRegex.IsMatch(lineText))
                     {
                         var blockLines = new List<ITextSnapshotLine>();
                         while (i < lineCount && CppLineDocRegex.IsMatch(
                                    snapshot.GetLineFromLineNumber(i).GetText()))
                             blockLines.Add(snapshot.GetLineFromLineNumber(i++));
-
-                        var memberName = PeekMemberName(snapshot, i, lineCount, isCpp);
+                        var memberName = PeekMemberName(snapshot, i, lineCount, bufLang);
                         var rawBlock = string.Join("\n", blockLines.Select(l => l.GetText()));
                         var blockSpan = new SnapshotSpan(snapshot,
                             Span.FromBounds(blockLines[0].Start,
@@ -236,15 +281,15 @@ namespace RenderDocComments.DocCommentRenderer
                 }
                 else
                 {
-                    // ── C# / F# / VB line comments  /// ───────────────────────────
-                    if (!CsDocLineRegex.IsMatch(lineText)) { i++; continue; }
+                    // ── C# / F# (///) or VB.NET triple-apostrophe line comments ────
+                    if (!lineDocRegex.IsMatch(lineText)) { i++; continue; }
 
                     var blockLines = new List<ITextSnapshotLine>();
-                    while (i < lineCount && CsDocLineRegex.IsMatch(
+                    while (i < lineCount && lineDocRegex.IsMatch(
                                snapshot.GetLineFromLineNumber(i).GetText()))
                         blockLines.Add(snapshot.GetLineFromLineNumber(i++));
 
-                    var memberName = PeekMemberName(snapshot, i, lineCount, isCpp);
+                    var memberName = PeekMemberName(snapshot, i, lineCount, bufLang);
                     var rawBlock = string.Join("\n", blockLines.Select(l => l.GetText()));
                     var blockSpan = new SnapshotSpan(snapshot,
                         Span.FromBounds(blockLines[0].Start,
@@ -253,14 +298,15 @@ namespace RenderDocComments.DocCommentRenderer
                 }
             }
 
-            // ── Pass 2: parse every block; build name → doc lookup ────────────────
+            // ── Pass 2: parse every block; build name lookup ──────────────────────
             var parsedByName = new Dictionary<string, ParsedDocComment>(StringComparer.Ordinal);
             var parsedList = new List<ParsedDocComment>(allBlocks.Count);
-            var lang = isCpp ? DocCommentLanguage.Cpp : DocCommentLanguage.CSharp;
+            // VB / F# / C# all use the XML-doc parser. C++ auto-detects XML vs Doxygen.
+            var parseLang = isCpp ? DocCommentLanguage.Cpp : DocCommentLanguage.CSharp;
 
             foreach (var (raw, memberName, _, _) in allBlocks)
             {
-                var parsed = DocCommentParser.Parse(raw, lang);
+                var parsed = DocCommentParser.Parse(raw, parseLang);
                 parsedList.Add(parsed);
                 if (parsed != null && parsed.IsValid && !string.IsNullOrEmpty(memberName))
                     if (!parsedByName.ContainsKey(memberName))
@@ -274,7 +320,7 @@ namespace RenderDocComments.DocCommentRenderer
                 var parsed = parsedList[idx];
                 if (parsed == null || !parsed.IsValid) continue;
 
-                // inheritdoc is a C#-only concept; skip resolution for C++.
+                // <inheritdoc> / <include> are only meaningful for XML-doc languages.
                 if (!isCpp && parsed.InheritDoc != null)
                     parsed = ResolveInheritDoc(parsed, ownName, parsedByName, fileDir, depth: 0);
 
@@ -290,10 +336,10 @@ namespace RenderDocComments.DocCommentRenderer
             return result;
         }
 
-        // ── Peek past blank / attribute / decorator lines to find the member name ──
+        // ── Peek past blanks / attributes / decorators to find the member name ────
 
         private static string PeekMemberName(
-            ITextSnapshot snapshot, int startLine, int lineCount, bool isCpp)
+            ITextSnapshot snapshot, int startLine, int lineCount, BufferLanguage lang)
         {
             string memberName = string.Empty;
             for (int peek = startLine; peek < lineCount; peek++)
@@ -301,11 +347,17 @@ namespace RenderDocComments.DocCommentRenderer
                 var t = snapshot.GetLineFromLineNumber(peek).GetText();
                 if (string.IsNullOrWhiteSpace(t)) continue;
                 var trimmed = t.TrimStart();
-                // Skip C# attributes  [Attribute]  and C++ preprocessor  #define
+                // Skip C#/F# [Attribute], VB <Attribute>, C++ #preprocessor lines.
                 if (trimmed.StartsWith("[") || trimmed.StartsWith("#")) continue;
-                var m = isCpp
-                    ? CppMemberNameRegex.Match(t)
-                    : CsMemberNameRegex.Match(t);
+                if (lang == BufferLanguage.VBNet && trimmed.StartsWith("<")) continue;
+                Match m;
+                switch (lang)
+                {
+                    case BufferLanguage.Cpp: m = CppMemberNameRegex.Match(t); break;
+                    case BufferLanguage.VBNet: m = VbMemberNameRegex.Match(t); break;
+                    case BufferLanguage.FSharp: m = FsMemberNameRegex.Match(t); break;
+                    default: m = CsMemberNameRegex.Match(t); break;
+                }
                 if (m.Success) memberName = m.Groups["mem"].Value;
                 break;
             }
@@ -370,11 +422,47 @@ namespace RenderDocComments.DocCommentRenderer
         /// source file's directory tree (fallback) for a /// block whose following
         /// declaration has the given <paramref name="targetName"/>.
         /// </summary>
+        // ── Cross-file search through managed source files (.cs / .vb / .fs) ────────
+        //
+        // Used by <inheritdoc> resolution to find the target member's doc in other
+        // source files.  Handles C#, VB.NET and F# files; picks the right doc-line
+        // regex and member-name regex for each extension.
+
+        private static readonly HashSet<string> _managedExts =
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            { ".cs", ".vb", ".fs", ".fsi" };
+
+        // Doc-line regex by extension (used when scanning files from disk).
+        private static Regex DocLineRegexForExt(string ext)
+        {
+            switch (ext.ToLowerInvariant())
+            {
+                case ".vb": return new Regex(@"^\s*'''", RegexOptions.Compiled);
+                default: return new Regex(@"^\s*///", RegexOptions.Compiled);
+            }
+        }
+
+        // Member-name regex by extension.
+        private static Regex MemberRegexForExt(string ext)
+        {
+            switch (ext.ToLowerInvariant())
+            {
+                case ".vb": return VbMemberNameRegex;
+                case ".fs":
+                case ".fsi": return FsMemberNameRegex;
+                default: return CsMemberNameRegex;
+            }
+        }
+
+        // Prefix strip pattern by extension (for ParsedDocComment.Parse).
+        private static string StripPatternForExt(string ext)
+            => ext.ToLowerInvariant() == ".vb" ? @"^\s*'''\s?" : @"^\s*///\s?";
+
         private static ParsedDocComment FindInCsFiles(string fileDir, string targetName)
         {
-            var csFiles = GetSolutionCsFiles();
+            var files = GetSolutionManagedFiles();
 
-            if (csFiles == null || csFiles.Count == 0)
+            if (files == null || files.Count == 0)
             {
                 if (fileDir == null) return null;
                 try
@@ -383,23 +471,27 @@ namespace RenderDocComments.DocCommentRenderer
                     for (int up = 0; up < 5; up++)
                     {
                         if (Directory.GetFiles(root, "*.sln").Length > 0 ||
-                            Directory.GetFiles(root, "*.csproj").Length > 0)
+                            Directory.GetFiles(root, "*.csproj").Length > 0 ||
+                            Directory.GetFiles(root, "*.vbproj").Length > 0 ||
+                            Directory.GetFiles(root, "*.fsproj").Length > 0)
                             break;
                         var parent = Path.GetDirectoryName(root);
                         if (parent == null) break;
                         root = parent;
                     }
-                    csFiles = Directory.GetFiles(root, "*.cs", SearchOption.AllDirectories)
-                                       .ToList();
+                    files = new List<string>();
+                    foreach (var ext in new[] { "*.cs", "*.vb", "*.fs", "*.fsi" })
+                        try { files.AddRange(Directory.GetFiles(root, ext, SearchOption.AllDirectories)); }
+                        catch { }
                 }
                 catch { return null; }
             }
 
-            foreach (var csFile in csFiles)
+            foreach (var file in files)
             {
                 try
                 {
-                    var doc = ScanCsFileForMember(csFile, targetName);
+                    var doc = ScanManagedFileForMember(file, targetName);
                     if (doc != null) return doc;
                 }
                 catch { }
@@ -409,10 +501,10 @@ namespace RenderDocComments.DocCommentRenderer
         }
 
         /// <summary>
-        /// Returns the list of all .cs file paths open in the current VS solution,
-        /// using DTE.  Returns null if DTE is unavailable.
+        /// Returns all .cs / .vb / .fs / .fsi paths in the current VS solution via DTE.
+        /// Returns null when DTE is unavailable.
         /// </summary>
-        private static List<string> GetSolutionCsFiles()
+        private static List<string> GetSolutionManagedFiles()
         {
             try
             {
@@ -448,7 +540,7 @@ namespace RenderDocComments.DocCommentRenderer
                     {
                         var path = item.FileNames[f];
                         if (!string.IsNullOrEmpty(path) &&
-                            path.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
+                            _managedExts.Contains(Path.GetExtension(path)))
                             files.Add(path);
                     }
                     CollectItems(item.ProjectItems, files);
@@ -457,43 +549,43 @@ namespace RenderDocComments.DocCommentRenderer
             }
         }
 
-        private static readonly Regex _csDocLine =
-            new Regex(@"^\s*///", RegexOptions.Compiled);
-
-        private static readonly Regex _csMember =
-            new Regex(
-                @"^\s*(?:(?:public|private|protected|internal|static|virtual|override|" +
-                @"abstract|sealed|async|extern|readonly|new|partial|unsafe)\s+)*" +
-                @"(?:[\w<>\[\],\s\*\?]+?\s+)?(?<mem>\w+)\s*(?:<[^>]*>)?\s*(?:\(|{|=>|;)",
-                RegexOptions.Compiled);
-
         /// <summary>
-        /// Reads a .cs file from disk and returns the parsed doc comment of the
-        /// member named <paramref name="targetName"/>, or null if not found.
+        /// Reads a managed source file (.cs / .vb / .fs) and returns the parsed doc
+        /// comment for the member named <paramref name="targetName"/>, or null.
         /// </summary>
-        private static ParsedDocComment ScanCsFileForMember(string filePath, string targetName)
+        private static ParsedDocComment ScanManagedFileForMember(string filePath, string targetName)
         {
             string[] lines;
             try { lines = File.ReadAllLines(filePath); }
             catch { return null; }
+
+            var ext = Path.GetExtension(filePath);
+            var docRegex = DocLineRegexForExt(ext);
+            var memRegex = MemberRegexForExt(ext);
+            var stripPat = StripPatternForExt(ext);
 
             int lineCount = lines.Length;
             int i = 0;
 
             while (i < lineCount)
             {
-                if (!_csDocLine.IsMatch(lines[i])) { i++; continue; }
+                if (!docRegex.IsMatch(lines[i])) { i++; continue; }
 
                 var blockLines = new List<string>();
-                while (i < lineCount && _csDocLine.IsMatch(lines[i]))
+                while (i < lineCount && docRegex.IsMatch(lines[i]))
                     blockLines.Add(lines[i++]);
 
                 string memberName = string.Empty;
                 for (int peek = i; peek < lineCount; peek++)
                 {
                     var t = lines[peek];
-                    if (string.IsNullOrWhiteSpace(t) || t.TrimStart().StartsWith("[")) continue;
-                    var m = _csMember.Match(t);
+                    if (string.IsNullOrWhiteSpace(t)) continue;
+                    var tr = t.TrimStart();
+                    if (tr.StartsWith("[") || tr.StartsWith("#")) continue;
+                    // VB attribute lines start with <
+                    if (ext.Equals(".vb", StringComparison.OrdinalIgnoreCase)
+                        && tr.StartsWith("<")) continue;
+                    var m = memRegex.Match(t);
                     if (m.Success) memberName = m.Groups["mem"].Value;
                     break;
                 }
@@ -501,7 +593,10 @@ namespace RenderDocComments.DocCommentRenderer
                 if (!string.Equals(memberName, targetName, StringComparison.Ordinal))
                     continue;
 
-                var rawBlock = string.Join("\n", blockLines);
+                // Re-strip using the correct prefix for this language before parsing.
+                var stripped = blockLines.Select(l =>
+                    System.Text.RegularExpressions.Regex.Replace(l, stripPat, ""));
+                var rawBlock = string.Join("\n", stripped.Select(l => "/// " + l));
                 var parsed = DocCommentParser.Parse(rawBlock, DocCommentLanguage.CSharp);
                 if (parsed != null && parsed.IsValid &&
                     !string.IsNullOrWhiteSpace(parsed.Summary))
