@@ -11,7 +11,7 @@
 
 **Stop reading raw XML. Start seeing your documentation.**
 
-`Render Doc Comments` is a high-performance Visual Studio extension that transforms cluttered `///` tags into clean, beautifully formatted documentation blocks—instantly. It’s designed to stay out of your way when you're coding and provide total clarity when you're reviewing.
+`Render Doc Comments` is a high-performance Visual Studio extension that transforms cluttered documentation comment tags into clean, beautifully formatted documentation blocks—instantly. It's designed to stay out of your way when you're coding and provide total clarity when you're reviewing.
 
 ---
 
@@ -63,6 +63,7 @@ From here, you can toggle between **Caret-based hiding** and **Margin Glyph cont
 
 | Feature | Free Edition | Premium License |
 | :--- | :---: | :---: |
+| **Multi-Language Support (C#, F#, C++, VB.NET)** | ✅ | ✅ |
 | **High-Fidelity Rendering** | ✅ | ✅ |
 | **Interactive `cref` Links** | ✅ | ✅ |
 | **Caret-Based Auto-Hide** | ✅ (Always On) | **🔘 Selectable** |
@@ -84,8 +85,8 @@ Built to feel like a native part of the IDE, the extension uses a signature **Pu
 
 ## 🚀 Getting Started
 1. **Pre-requisite:** Download and install .net Framework v4.7.2 or above.
-2. **Install:** Download from the Marketplace and restart Visual Studio *(VS2022, VS2026)*.
-3. **Open:** Any C# or .NET file with standard `///` comments.
+2. **Install:** Download from the [Marketplace](https://marketplace.visualstudio.com/items?itemName=AMit-KP.RenderDocComments) and restart Visual Studio *(VS2022, VS2026)*.
+3. **Open:** Any C#, F#, C++, or VB.NET file with standard documentation comments.
 4. **Enjoy:** Your documentation will render automatically. 
 
 ---
@@ -95,4 +96,4 @@ This project is proudly licensed under **GNU GPL v3**. We believe in open-source
 
 ---
 
-**Elevate your code readability today.**
+**Elevate your code readability today — across every language in your solution.**
