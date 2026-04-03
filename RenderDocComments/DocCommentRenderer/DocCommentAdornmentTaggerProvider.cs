@@ -11,6 +11,7 @@ namespace RenderDocComments.DocCommentRenderer
     [ContentType("CSharp")]
     [ContentType("Basic")]
     [ContentType("FSharp")]
+    [ContentType("F#")]
     [ContentType("C/C++")]
     [TagType(typeof(IntraTextAdornmentTag))]
     [TextViewRole(PredefinedTextViewRoles.Document)]

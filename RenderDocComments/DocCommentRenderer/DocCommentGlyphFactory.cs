@@ -42,8 +42,15 @@ namespace RenderDocComments.DocCommentRenderer
         private readonly ITextBuffer _buffer;
         public event EventHandler<SnapshotSpanEventArgs> TagsChanged;
 
+        // Matches the first line of any recognised doc-comment style:
+        //   C#, F#           ///  (triple slash)
+        //   VB.NET           '''  (triple apostrophe)
+        //   C++ line         ///  or  //!
+        //   C++ block        /**  or  /*!
         private static readonly System.Text.RegularExpressions.Regex DocLineRegex =
-            new System.Text.RegularExpressions.Regex(@"^\s*///", System.Text.RegularExpressions.RegexOptions.Compiled);
+            new System.Text.RegularExpressions.Regex(
+                @"^\s*(?:'''|///|//!|/\*[*!])",
+                System.Text.RegularExpressions.RegexOptions.Compiled);
 
         public DocCommentGlyphTagger(ITextBuffer buffer)
         {
@@ -51,6 +58,18 @@ namespace RenderDocComments.DocCommentRenderer
             _buffer.Changed += OnBufferChanged;
             SettingsChangedBroadcast.SettingsChanged += OnSettingsChanged;
         }
+
+        // Recognise C++ block comment openers: /** or /*!
+        private static readonly System.Text.RegularExpressions.Regex CppBlockOpenRegex =
+            new System.Text.RegularExpressions.Regex(
+                @"^\s*/\*[*!]",
+                System.Text.RegularExpressions.RegexOptions.Compiled);
+
+        // Recognise all line-doc comment styles: /// (C#/F#/C++), //! (C++), ''' (VB.NET)
+        private static readonly System.Text.RegularExpressions.Regex LineDocRegex =
+            new System.Text.RegularExpressions.Regex(
+                @"^\s*(?:'''|///|//!)",
+                System.Text.RegularExpressions.RegexOptions.Compiled);
 
         public IEnumerable<ITagSpan<DocCommentGlyphTag>> GetTags(NormalizedSnapshotSpanCollection spans)
         {
@@ -63,20 +82,49 @@ namespace RenderDocComments.DocCommentRenderer
             while (i < lineCount)
             {
                 var line = snapshot.GetLineFromLineNumber(i);
-                if (!DocLineRegex.IsMatch(line.GetText())) { i++; continue; }
+                var lineText = line.GetText();
 
-                int blockStart = i;
-                while (i < lineCount && DocLineRegex.IsMatch(snapshot.GetLineFromLineNumber(i).GetText())) i++;
-                int blockEnd = i - 1;
+                ITextSnapshotLine firstLine;
+                ITextSnapshotLine lastLine;
 
-                var firstLine = snapshot.GetLineFromLineNumber(blockStart);
-                var lastLine = snapshot.GetLineFromLineNumber(blockEnd);
+                if (CppBlockOpenRegex.IsMatch(lineText))
+                {
+                    // ── C++ block comment  /** … */  or  /*! … */ ─────────────────
+                    firstLine = line;
+                    bool closed = lineText.Contains("*/");
+                    i++;
+                    while (!closed && i < lineCount)
+                    {
+                        var bodyLine = snapshot.GetLineFromLineNumber(i);
+                        if (bodyLine.GetText().Contains("*/"))
+                            closed = true;
+                        i++;
+                    }
+                    lastLine = snapshot.GetLineFromLineNumber(i - 1);
+                }
+                else if (LineDocRegex.IsMatch(lineText))
+                {
+                    // ── Line-doc comment  ///  //!  or  ''' ─────────────────────
+                    firstLine = line;
+                    int blockStart = i;
+                    while (i < lineCount &&
+                           LineDocRegex.IsMatch(snapshot.GetLineFromLineNumber(i).GetText()))
+                        i++;
+                    lastLine = snapshot.GetLineFromLineNumber(i - 1);
+                }
+                else
+                {
+                    i++;
+                    continue;
+                }
+
                 var blockSpan = new SnapshotSpan(snapshot,
                     Span.FromBounds(firstLine.Start, lastLine.End));
 
                 var tagSpan = new SnapshotSpan(snapshot, firstLine.Start, firstLine.Length);
                 if (spans.IntersectsWith(new NormalizedSnapshotSpanCollection(tagSpan)))
-                    yield return new TagSpan<DocCommentGlyphTag>(tagSpan, new DocCommentGlyphTag(blockSpan));
+                    yield return new TagSpan<DocCommentGlyphTag>(tagSpan,
+                        new DocCommentGlyphTag(blockSpan));
             }
         }
 
@@ -101,6 +149,7 @@ namespace RenderDocComments.DocCommentRenderer
     [ContentType("CSharp")]
     [ContentType("Basic")]
     [ContentType("FSharp")]
+    [ContentType("F#")]
     [ContentType("C/C++")]
     [TagType(typeof(DocCommentGlyphTag))]
     internal sealed class DocCommentGlyphTaggerProvider : ITaggerProvider
@@ -219,6 +268,7 @@ namespace RenderDocComments.DocCommentRenderer
     [ContentType("CSharp")]
     [ContentType("Basic")]
     [ContentType("FSharp")]
+    [ContentType("F#")]
     [ContentType("C/C++")]
     [TagType(typeof(DocCommentGlyphTag))]
     [TextViewRole(PredefinedTextViewRoles.Document)]
