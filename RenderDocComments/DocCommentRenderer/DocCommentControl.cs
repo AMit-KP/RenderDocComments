@@ -598,6 +598,14 @@ namespace RenderDocComments.DocCommentRenderer
                             FontSize = _fontSize - 1
                         });
                         break;
+
+                    case SegKind.Bold:
+                    case SegKind.Italic:
+                    case SegKind.Underline:
+                    case SegKind.Strike:
+                        EnsureTb();
+                        currentTb.Inlines.Add(BuildFormattedSpan(seg.Kind, seg.Value, fg));
+                        break;
                 }
             }
 
@@ -608,21 +616,41 @@ namespace RenderDocComments.DocCommentRenderer
         // ── Inline builder ────────────────────────────────────────────────────────
 
         private void BuildInlines(string text, InlineCollection inlines, Brush fg)
+            => BuildInlinesInto(text, inlines, fg);
+
+        // ── Formatted span (bold / italic / underline / strike) with nested support ──
+        //
+        // Tokenises inner content recursively so combinations like <b><i>x</i></b> work.
+
+        private Span BuildFormattedSpan(SegKind kind, string innerText, Brush fg)
+        {
+            Span span;
+            switch (kind)
+            {
+                case SegKind.Bold: span = new Bold(); break;
+                case SegKind.Italic: span = new Italic(); break;
+                case SegKind.Underline: span = new Underline(); break;
+                default: span = new Span(); break; // Strike handled separately
+            }
+            if (kind == SegKind.Strike)
+                span.TextDecorations = TextDecorations.Strikethrough;
+
+            BuildInlinesInto(innerText, span.Inlines, fg);
+            return span;
+        }
+
+        // Shared recursive inline builder — used by BuildInlines and BuildFormattedSpan.
+        private void BuildInlinesInto(string text, InlineCollection inlines, Brush fg)
         {
             foreach (var seg in Tokenise(text))
             {
                 switch (seg.Kind)
                 {
                     case SegKind.Text:
-                        var paras = seg.Value.Split(
-                            new[] { "\n\n" }, StringSplitOptions.None);
+                        var paras = seg.Value.Split(new[] { "\n\n" }, StringSplitOptions.None);
                         for (int i = 0; i < paras.Length; i++)
                         {
-                            if (i > 0)
-                            {
-                                inlines.Add(new LineBreak());
-                                inlines.Add(new LineBreak());
-                            }
+                            if (i > 0) { inlines.Add(new LineBreak()); inlines.Add(new LineBreak()); }
                             var lines = paras[i].Split('\n');
                             for (int j = 0; j < lines.Length; j++)
                             {
@@ -672,6 +700,13 @@ namespace RenderDocComments.DocCommentRenderer
                         {
                             BaselineAlignment = BaselineAlignment.Center
                         });
+                        break;
+
+                    case SegKind.Bold:
+                    case SegKind.Italic:
+                    case SegKind.Underline:
+                    case SegKind.Strike:
+                        inlines.Add(BuildFormattedSpan(seg.Kind, seg.Value, fg));
                         break;
                 }
             }
@@ -888,7 +923,8 @@ namespace RenderDocComments.DocCommentRenderer
 
         private enum SegKind
         {
-            Text, InlineCode, Link, ParamRef, CodeBlock
+            Text, InlineCode, Link, ParamRef, CodeBlock,
+            Bold, Italic, Underline, Strike
         }
 
         private class Seg
@@ -905,7 +941,11 @@ namespace RenderDocComments.DocCommentRenderer
             @"|\[LINK href=(?<href>[^\]]+)\](?<hlabel>[^\[]+)\[/LINK\]" +
             @"|\[LINK cref=(?<cref>[^\]]+)\](?<clabel>[^\[]+)\[/LINK\]" +
             @"|\[PARAMREF\](?<paramref>[^\[]+)\[/PARAMREF\]" +
-            @"|\[CODE\](?<codeblock>[\s\S]*?)\[/CODE\]",
+            @"|\[CODE\](?<codeblock>[\s\S]*?)\[/CODE\]" +
+            @"|\[BOLD\](?<bold>[\s\S]*?)\[/BOLD\]" +
+            @"|\[ITALIC\](?<italic>[\s\S]*?)\[/ITALIC\]" +
+            @"|\[UNDERLINE\](?<underline>[\s\S]*?)\[/UNDERLINE\]" +
+            @"|\[STRIKE\](?<strike>[\s\S]*?)\[/STRIKE\]",
             RegexOptions.Compiled);
 
         private List<Seg> Tokenise(string input)
@@ -956,6 +996,14 @@ namespace RenderDocComments.DocCommentRenderer
                         Kind = SegKind.CodeBlock,
                         Value = m.Groups["codeblock"].Value
                     });
+                else if (m.Groups["bold"].Success)
+                    result.Add(new Seg { Kind = SegKind.Bold, Value = m.Groups["bold"].Value });
+                else if (m.Groups["italic"].Success)
+                    result.Add(new Seg { Kind = SegKind.Italic, Value = m.Groups["italic"].Value });
+                else if (m.Groups["underline"].Success)
+                    result.Add(new Seg { Kind = SegKind.Underline, Value = m.Groups["underline"].Value });
+                else if (m.Groups["strike"].Success)
+                    result.Add(new Seg { Kind = SegKind.Strike, Value = m.Groups["strike"].Value });
 
                 lastIndex = m.Index + m.Length;
             }

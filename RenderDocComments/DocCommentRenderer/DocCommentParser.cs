@@ -140,7 +140,8 @@ namespace RenderDocComments.DocCommentRenderer
         // Detects an XML opening tag inside a stripped comment line.
         private static readonly Regex _xmlTagDetect = new Regex(
             @"<(?:summary|remarks|returns?|param|typeparam|exception|seealso|example|" +
-            @"inheritdoc|include|permission|completionlist|value|code|see|para|list|br)",
+            @"inheritdoc|include|permission|completionlist|value|code|see|para|list|br|pre|" +
+            @"b|strong|i|em|u|s|strike)",
             RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
         // Detects a Doxygen command anywhere in a comment line.
@@ -1136,6 +1137,34 @@ namespace RenderDocComments.DocCommentRenderer
                             // ── value ─────────────────────────────────────────────
                             case "value":
                                 sb.Append(ReadInnerMixed(child));
+                                break;
+
+                            // ── pre — preformatted block, recurse to honour inner tags ──
+                            case "pre":
+                                sb.Append(ReadInnerMixed(child));
+                                break;
+
+                            // ── bold ──────────────────────────────────────────────
+                            case "b":
+                            case "strong":
+                                sb.Append($"[BOLD]{ReadInnerMixed(child)}[/BOLD]");
+                                break;
+
+                            // ── italic ────────────────────────────────────────────
+                            case "i":
+                            case "em":
+                                sb.Append($"[ITALIC]{ReadInnerMixed(child)}[/ITALIC]");
+                                break;
+
+                            // ── underline ─────────────────────────────────────────
+                            case "u":
+                                sb.Append($"[UNDERLINE]{ReadInnerMixed(child)}[/UNDERLINE]");
+                                break;
+
+                            // ── strikethrough ─────────────────────────────────────
+                            case "s":
+                            case "strike":
+                                sb.Append($"[STRIKE]{ReadInnerMixed(child)}[/STRIKE]");
                                 break;
 
                             default:
