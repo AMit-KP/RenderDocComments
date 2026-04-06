@@ -1,30 +1,43 @@
+<div align="center">
+  
+[<img src="https://visualstudio.microsoft.com/wp-content/uploads/2019/06/BrandVisualStudioWin2019-3.svg" width="150"/>](https://marketplace.visualstudio.com/items?itemName=AMit-KP.RenderDocComments)
+
+[![Visual Studio](https://img.shields.io/badge/Visual%20Studio-5C2D91.svg?style=for-the-badge&logo=visual-studio&logoColor=white)](https://marketplace.visualstudio.com/items?itemName=AMit-KP.RenderDocComments)
+
+</div>
+
+
 # 💎 Render Doc Comments: Modernize Your Workspace
 
 **Stop reading raw XML. Start seeing your documentation.**
 
-`Render Doc Comments` is a high-performance Visual Studio extension that transforms cluttered `///` tags into clean, beautifully formatted documentation blocks—instantly. It’s designed to stay out of your way when you're coding and provide total clarity when you're reviewing.
+`Render Doc Comments` is a high-performance Visual Studio extension that transforms cluttered documentation comment tags into clean, beautifully formatted documentation blocks—instantly. It's designed to stay out of your way when you're coding and provide total clarity when you're reviewing.
 
 ---
 
+<div align="center">
+
 *Before*
 
-<img width="1217" height="805" alt="image" src="https://github.com/user-attachments/assets/3ef64a0b-d994-49a8-bc0e-00e1ce7a2cbc" />
+> <img width="1217" height="805" alt="image" src="https://github.com/user-attachments/assets/3ef64a0b-d994-49a8-bc0e-00e1ce7a2cbc" />
 
 
 *After*
 
-<img width="941" height="806" alt="Screenshot 2026-03-23 002602" src="https://github.com/user-attachments/assets/77b13955-c7c8-4e98-a385-505ae009323c" />
+> <img width="941" height="806" alt="Screenshot 2026-03-23 002602" src="https://github.com/user-attachments/assets/77b13955-c7c8-4e98-a385-505ae009323c" />
 
 
-<img width="934" height="812" alt="Screenshot 2026-03-23 002632" src="https://github.com/user-attachments/assets/89490eaa-f4b8-4e9a-b98e-fbeb4ff53ae3" />
+> <img width="934" height="812" alt="Screenshot 2026-03-23 002632" src="https://github.com/user-attachments/assets/89490eaa-f4b8-4e9a-b98e-fbeb4ff53ae3" />
 
 
-<img width="946" height="800" alt="Screenshot 2026-03-23 002521" src="https://github.com/user-attachments/assets/4e120151-5e0b-45cc-935e-1d899dd6b677" />
+> <img width="946" height="800" alt="Screenshot 2026-03-23 002521" src="https://github.com/user-attachments/assets/4e120151-5e0b-45cc-935e-1d899dd6b677" />
 
 
-<img width="648" height="1080" alt="Screenshot 2026-03-23 003032" src="https://github.com/user-attachments/assets/a32e1bd3-eeb3-43c9-a958-0796edba353e" />
+> <img width="648" height="1080" alt="Screenshot 2026-03-23 003032" src="https://github.com/user-attachments/assets/a32e1bd3-eeb3-43c9-a958-0796edba353e" />
 
-<img width="1623" height="1143" alt="image" src="https://github.com/user-attachments/assets/c8f26866-8b7a-4bb1-83ef-479eaa2d1af8" />
+> <img width="1623" height="1143" alt="image" src="https://github.com/user-attachments/assets/c8f26866-8b7a-4bb1-83ef-479eaa2d1af8" />
+
+</div>
 
 ---
 
@@ -50,6 +63,7 @@ From here, you can toggle between **Caret-based hiding** and **Margin Glyph cont
 
 | Feature | Free Edition | Premium License |
 | :--- | :---: | :---: |
+| **Multi-Language Support (C#, F#, C++, VB.NET)** | ✅ | ✅ |
 | **High-Fidelity Rendering** | ✅ | ✅ |
 | **Interactive `cref` Links** | ✅ | ✅ |
 | **Caret-Based Auto-Hide** | ✅ (Always On) | **🔘 Selectable** |
@@ -71,8 +85,8 @@ Built to feel like a native part of the IDE, the extension uses a signature **Pu
 
 ## 🚀 Getting Started
 1. **Pre-requisite:** Download and install .net Framework v4.7.2 or above.
-2. **Install:** Download from the Marketplace and restart Visual Studio *(VS2022, VS2026)*.
-3. **Open:** Any C# or .NET file with standard `///` comments.
+2. **Install:** Download from the [Marketplace](https://marketplace.visualstudio.com/items?itemName=AMit-KP.RenderDocComments) and restart Visual Studio *(VS2022, VS2026)*.
+3. **Open:** Any C#, F#, C++, or VB.NET file with standard documentation comments.
 4. **Enjoy:** Your documentation will render automatically. 
 
 ---
@@ -82,4 +96,4 @@ This project is proudly licensed under **GNU GPL v3**. We believe in open-source
 
 ---
 
-**Elevate your code readability today.**
+**Elevate your code readability today — across every language in your solution.**

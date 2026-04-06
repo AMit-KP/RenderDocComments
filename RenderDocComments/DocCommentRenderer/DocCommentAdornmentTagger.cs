@@ -608,6 +608,63 @@ namespace RenderDocComments.DocCommentRenderer
             return null;
         }
 
+        /// <summary>
+        /// Reads a managed source file (.cs / .vb / .fs) and returns the parsed doc
+        /// comment for the member named <paramref name="targetName"/>, or null.
+        /// </summary>
+        private static ParsedDocComment ScanManagedFileForMember(string filePath, string targetName)
+        {
+            string[] lines;
+            try { lines = File.ReadAllLines(filePath); }
+            catch { return null; }
+
+            var ext = Path.GetExtension(filePath);
+            var docRegex = DocLineRegexForExt(ext);
+            var memRegex = MemberRegexForExt(ext);
+            var stripPat = StripPatternForExt(ext);
+
+            int lineCount = lines.Length;
+            int i = 0;
+
+            while (i < lineCount)
+            {
+                if (!docRegex.IsMatch(lines[i])) { i++; continue; }
+
+                var blockLines = new List<string>();
+                while (i < lineCount && docRegex.IsMatch(lines[i]))
+                    blockLines.Add(lines[i++]);
+
+                string memberName = string.Empty;
+                for (int peek = i; peek < lineCount; peek++)
+                {
+                    var t = lines[peek];
+                    if (string.IsNullOrWhiteSpace(t)) continue;
+                    var tr = t.TrimStart();
+                    if (tr.StartsWith("[") || tr.StartsWith("#")) continue;
+                    // VB attribute lines start with <
+                    if (ext.Equals(".vb", StringComparison.OrdinalIgnoreCase)
+                        && tr.StartsWith("<")) continue;
+                    var m = memRegex.Match(t);
+                    if (m.Success) memberName = m.Groups["mem"].Value;
+                    break;
+                }
+
+                if (!string.Equals(memberName, targetName, StringComparison.Ordinal))
+                    continue;
+
+                // Re-strip using the correct prefix for this language before parsing.
+                var stripped = blockLines.Select(l =>
+                    System.Text.RegularExpressions.Regex.Replace(l, stripPat, ""));
+                var rawBlock = string.Join("\n", stripped.Select(l => "/// " + l));
+                var parsed = DocCommentParser.Parse(rawBlock, DocCommentLanguage.CSharp);
+                if (parsed != null && parsed.IsValid &&
+                    !string.IsNullOrWhiteSpace(parsed.Summary))
+                    return parsed;
+            }
+
+            return null;
+        }
+
         // ── Cross-file search through C++ source / header files ───────────────────
         //
         // Scans *.h, *.hpp, *.hxx, *.cpp, *.cxx, *.cc files reachable from the
