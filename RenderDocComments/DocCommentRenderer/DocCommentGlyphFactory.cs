@@ -16,15 +16,40 @@ namespace RenderDocComments.DocCommentRenderer
     // ── Tag ──────────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Margin glyph tag — one per doc-comment block first line.
-    /// Carries the block span so the glyph knows which block to toggle.
+    /// Margin glyph tag representing a single documentation comment block in the editor's glyph margin.<br/>
+    /// Implements <see cref="IGlyphTag"/> to integrate with Visual Studio's glyph margin infrastructure.<br/>
+    /// One instance is created per documentation block's first line, carrying the block's span<br/>
+    /// so the glyph knows which block to toggle when clicked.
     /// </summary>
+    /// <remarks>
+    /// This tag is produced by <see cref="DocCommentGlyphTagger"/> and consumed by<br/>
+    /// <see cref="DocCommentGlyphFactory"/> to render the toggle button in the editor's left margin.
+    /// </remarks>
     internal sealed class DocCommentGlyphTag : IGlyphTag
     {
+        /// <summary>
+        /// Gets the <see cref="SnapshotSpan"/> encompassing the entire documentation comment block.<br/>
+        /// This span is used to identify which block's visibility state to toggle when the<br/>
+        /// user clicks the glyph button in the margin.
+        /// </summary>
+        /// <value>
+        /// A <see cref="SnapshotSpan"/> from the start of the first documentation comment line<br/>
+        /// to the end of the last documentation comment line in the block.
+        /// </value>
         public SnapshotSpan BlockSpan
         {
             get;
         }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="DocCommentGlyphTag"/> class with the<br/>
+        /// specified documentation comment block span.
+        /// </summary>
+        /// <param name="blockSpan">
+        /// The <see cref="SnapshotSpan"/> representing the full extent of the documentation<br/>
+        /// comment block in the text buffer. This span is stored in <see cref="BlockSpan"/><br/>
+        /// and later used by <see cref="DocCommentToggleState"/> to track visibility state.
+        /// </param>
         public DocCommentGlyphTag(SnapshotSpan blockSpan)
         {
             BlockSpan = blockSpan;
@@ -34,24 +59,63 @@ namespace RenderDocComments.DocCommentRenderer
     // ── Tagger ───────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Emits <see cref="DocCommentGlyphTag"/> on the first line of each doc-comment
-    /// block when the Premium glyph toggle feature is enabled.
+    /// Tagger that emits <see cref="DocCommentGlyphTag"/> instances on the first line of each<br/>
+    /// documentation comment block when the Premium glyph toggle feature is enabled.<br/>
+    /// Implements <see cref="ITagger{T}"/> and <see cref="IDisposable"/> for lifecycle management.
     /// </summary>
+    /// <remarks>
+    /// <para>This tagger is responsible for:</para>
+    /// <list type="bullet">
+    /// <item><description>Detecting documentation comment blocks using language-specific regex patterns.</description></item>
+    /// <item><description>Creating <see cref="DocCommentGlyphTag"/> instances only for the first line of each block.</description></item>
+    /// <item><description>Responding to buffer changes and settings changes to invalidate cached tags.</description></item>
+    /// <item><description>Respecting the <see cref="RenderDocOptions.EffectiveGlyphToggle"/> setting — yields no tags when disabled.</description></item>
+    /// </list>
+    /// <para>The tagger supports all documentation comment styles:</para>
+    /// <list type="bullet">
+    /// <item><description><b>C#, F#:</b> Triple slash (<c>///</c>)</description></item>
+    /// <item><description><b>VB.NET:</b> Triple apostrophe (<c>'''</c>)</description></item>
+    /// <item><description><b>C++ line:</b> Triple slash (<c>///</c>) or double-slash-exclamation (<c>//!</c>)</description></item>
+    /// <item><description><b>C++ block:</b> <c>/** ... */</c> or <c>/*! ... */</c></description></item>
+    /// </list>
+    /// </remarks>
     internal sealed class DocCommentGlyphTagger : ITagger<DocCommentGlyphTag>, IDisposable
     {
+        /// <summary>The text buffer being monitored for documentation comment blocks.</summary>
         private readonly ITextBuffer _buffer;
+
+        /// <summary>
+        /// Event raised when the set of glyph tags has changed for a given snapshot span.<br/>
+        /// Part of the <see cref="ITagger{T}"/> contract, notifies the Visual Studio editor<br/>
+        /// to re-query tags for the affected regions.
+        /// </summary>
         public event EventHandler<SnapshotSpanEventArgs> TagsChanged;
 
-        // Matches the first line of any recognised doc-comment style:
-        //   C#, F#           ///  (triple slash)
-        //   VB.NET           '''  (triple apostrophe)
-        //   C++ line         ///  or  //!
-        //   C++ block        /**  or  /*!
+        /// <summary>
+        /// Compiled regular expression matching the first line of any recognized documentation comment style.<br/>
+        /// Used to identify potential documentation comment block start positions.
+        /// </summary>
+        /// <remarks>
+        /// <para>Pattern matches:</para>
+        /// <list type="bullet">
+        /// <item><description><c>'''</c> — VB.NET triple apostrophe.</description></item>
+        /// <item><description><c>///</c> — C#, F#, C++ triple slash.</description></item>
+        /// <item><description><c>//!</c> — C++ double-slash-exclamation.</description></item>
+        /// <item><description><c>/**</c> or <c>/*!</c> — C++ block comment openers.</description></item>
+        /// </list>
+        /// </remarks>
         private static readonly System.Text.RegularExpressions.Regex DocLineRegex =
             new System.Text.RegularExpressions.Regex(
                 @"^\s*(?:'''|///|//!|/\*[*!])",
                 System.Text.RegularExpressions.RegexOptions.Compiled);
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="DocCommentGlyphTagger"/> class.<br/>
+        /// Subscribes to buffer change and settings change events for tag cache invalidation.
+        /// </summary>
+        /// <param name="buffer">
+        /// The <see cref="ITextBuffer"/> to monitor for documentation comment blocks.
+        /// </param>
         public DocCommentGlyphTagger(ITextBuffer buffer)
         {
             _buffer = buffer;
@@ -59,18 +123,55 @@ namespace RenderDocComments.DocCommentRenderer
             SettingsChangedBroadcast.SettingsChanged += OnSettingsChanged;
         }
 
-        // Recognise C++ block comment openers: /** or /*!
+        /// <summary>
+        /// Regular expression recognizing C++ block comment openers (<c>/**</c> or <c>/*!</c>).<br/>
+        /// Used in <see cref="GetTags"/> to differentiate block comments from line comments.
+        /// </summary>
         private static readonly System.Text.RegularExpressions.Regex CppBlockOpenRegex =
             new System.Text.RegularExpressions.Regex(
                 @"^\s*/\*[*!]",
                 System.Text.RegularExpressions.RegexOptions.Compiled);
 
-        // Recognise all line-doc comment styles: /// (C#/F#/C++), //! (C++), ''' (VB.NET)
+        /// <summary>
+        /// Regular expression recognizing all line-based documentation comment styles.<br/>
+        /// Matches <c>///</c> (C#/F#/C++), <c>//!</c> (C++), and <c>'''</c> (VB.NET).
+        /// </summary>
         private static readonly System.Text.RegularExpressions.Regex LineDocRegex =
             new System.Text.RegularExpressions.Regex(
                 @"^\s*(?:'''|///|//!)",
                 System.Text.RegularExpressions.RegexOptions.Compiled);
 
+        /// <summary>
+        /// Retrieves documentation comment glyph tags for the specified snapshot spans.<br/>
+        /// Scans the buffer to identify documentation comment blocks and yields a<br/>
+        /// <see cref="DocCommentGlyphTag"/> for the first line of each block.
+        /// </summary>
+        /// <param name="spans">
+        /// A <see cref="NormalizedSnapshotSpanCollection"/> representing the regions of the<br/>
+        /// text buffer that need tag information. Typically corresponds to the visible viewport.
+        /// </param>
+        /// <returns>
+        /// An enumerable collection of <see cref="TagSpan{DocCommentGlyphTag}"/> instances<br/>
+        /// for the first line of each documentation comment block that intersects the requested spans.
+        /// </returns>
+        /// <remarks>
+        /// <para>The method immediately yields nothing if <see cref="RenderDocOptions.EffectiveGlyphToggle"/> is <c>false</c>.</para>
+        /// <para>For each line in the snapshot, the method:</para>
+        /// <list type="number">
+        /// <item>
+        /// <description><b>Block comment detection:</b> If the line matches <see cref="CppBlockOpenRegex"/>, scans forward to find the closing <c>*/</c>, creating a tag for the block's first line.
+        /// </description>
+        /// </item>
+        /// <item>
+        /// <description><b>Line comment detection:</b> If the line matches <see cref="LineDocRegex"/>, scans forward while consecutive lines match, creating a tag for the first line of the block.
+        /// </description>
+        /// </item>
+        /// <item><description><b>Skip non-doc lines:</b> Advances to the next line if neither pattern matches.</description></item>
+        /// </list>
+        /// <para>Each yielded tag contains a <see cref="DocCommentGlyphTag"/> with the full block span,<br/>
+        /// enabling the glyph factory to render a toggle button that controls the visibility<br/>
+        /// of the entire documentation comment rendering.</para>
+        /// </remarks>
         public IEnumerable<ITagSpan<DocCommentGlyphTag>> GetTags(NormalizedSnapshotSpanCollection spans)
         {
             if (!RenderDocOptions.Instance.EffectiveGlyphToggle) yield break;
@@ -128,14 +229,54 @@ namespace RenderDocComments.DocCommentRenderer
             }
         }
 
+        /// <summary>
+        /// Handles buffer content change events, invalidating all glyph tags and triggering<br/>
+        /// a full rebuild of tags for the entire updated snapshot.
+        /// </summary>
+        /// <param name="sender">
+        /// The <see cref="ITextBuffer"/> that raised the event (unused).
+        /// </param>
+        /// <param name="e">
+        /// A <see cref="TextContentChangedEventArgs"/> containing the before and after snapshots.<br/>
+        /// The <see cref="TextContentChangedEventArgs.After"/> snapshot is used for tag invalidation.
+        /// </param>
+        /// <remarks>
+        /// Raises <see cref="TagsChanged"/> for the entire buffer length to force the editor<br/>
+        /// to re-query glyph tags with the updated content.
+        /// </remarks>
         private void OnBufferChanged(object sender, TextContentChangedEventArgs e)
             => TagsChanged?.Invoke(this, new SnapshotSpanEventArgs(
                 new SnapshotSpan(e.After, 0, e.After.Length)));
 
+        /// <summary>
+        /// Handles settings change notifications, invalidating all glyph tags when the<br/>
+        /// glyph toggle feature setting changes.
+        /// </summary>
+        /// <param name="sender">
+        /// The source of the settings change event (unused).
+        /// </param>
+        /// <param name="e">
+        /// Event arguments (unused).
+        /// </param>
+        /// <remarks>
+        /// Raises <see cref="TagsChanged"/> for the entire buffer to trigger re-evaluation<br/>
+        /// of glyph tag visibility based on the updated <see cref="RenderDocOptions.EffectiveGlyphToggle"/> setting.
+        /// </remarks>
         private void OnSettingsChanged(object sender, EventArgs e)
             => TagsChanged?.Invoke(this, new SnapshotSpanEventArgs(
                 new SnapshotSpan(_buffer.CurrentSnapshot, 0, _buffer.CurrentSnapshot.Length)));
 
+        /// <summary>
+        /// Releases resources used by the tagger by unsubscribing from event handlers.<br/>
+        /// Called when the tagger is disposed (typically when the text buffer is closed).
+        /// </summary>
+        /// <remarks>
+        /// <para>Unsubscribes from the following events:</para>
+        /// <list type="bullet">
+        /// <item><description><see cref="ITextBuffer.Changed"/> — buffer content modification events.</description></item>
+        /// <item><description><see cref="SettingsChangedBroadcast.SettingsChanged"/> — global settings change broadcasts.</description></item>
+        /// </list>
+        /// </remarks>
         public void Dispose()
         {
             _buffer.Changed -= OnBufferChanged;
@@ -145,6 +286,19 @@ namespace RenderDocComments.DocCommentRenderer
 
     // ── Tagger provider ───────────────────────────────────────────────────────────
 
+    /// <summary>
+    /// MEF-exported factory that supplies <see cref="DocCommentGlyphTagger"/> instances<br/>
+    /// to Visual Studio text buffers for supported programming languages.
+    /// </summary>
+    /// <remarks>
+    /// <para>This provider is configured with the following attributes:</para>
+    /// <list type="bullet">
+    /// <item><description><see cref="ExportAttribute"/> — Exports as <see cref="ITaggerProvider"/> for MEF discovery.</description></item>
+    /// <item><description><see cref="ContentTypeAttribute"/> — Registers support for CSharp, Basic, FSharp, F#, and C/C++ content types.</description></item>
+    /// <item><description><see cref="TagTypeAttribute"/> — Specifies that this provider creates <see cref="DocCommentGlyphTag"/> instances.</description></item>
+    /// </list>
+    /// <para>The provider creates a singleton tagger per buffer using <see cref="PropertyCollectionExtensions.GetOrCreateSingletonProperty{T}"/>.</para>
+    /// </remarks>
     [Export(typeof(ITaggerProvider))]
     [ContentType("CSharp")]
     [ContentType("Basic")]
@@ -154,6 +308,20 @@ namespace RenderDocComments.DocCommentRenderer
     [TagType(typeof(DocCommentGlyphTag))]
     internal sealed class DocCommentGlyphTaggerProvider : ITaggerProvider
     {
+        /// <summary>
+        /// Creates a <see cref="DocCommentGlyphTagger"/> for the specified text buffer.<br/>
+        /// Implements a singleton pattern per buffer to ensure only one tagger instance exists.
+        /// </summary>
+        /// <typeparam name="T">
+        /// The type of tag being requested. Must implement <see cref="ITag"/>.
+        /// </typeparam>
+        /// <param name="buffer">
+        /// The <see cref="ITextBuffer"/> to create the tagger for.
+        /// </param>
+        /// <returns>
+        /// A <see cref="DocCommentGlyphTagger"/> instance as an <see cref="ITagger{T}"/>,<br/>
+        /// or <c>null</c> if the tag type is incompatible.
+        /// </returns>
         public ITagger<T> CreateTagger<T>(ITextBuffer buffer) where T : ITag
         {
             return buffer.Properties.GetOrCreateSingletonProperty(
@@ -165,14 +333,32 @@ namespace RenderDocComments.DocCommentRenderer
     // ── Glyph factory ─────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Produces the WPF toggle button shown in the left margin for each doc-comment block.
-    /// Clicking it calls <see cref="DocCommentToggleState.Toggle"/> for the block span,
-    /// then broadcasts a settings-changed event so the adornment tagger invalidates.
+    /// Factory that produces the WPF toggle button UI element shown in the editor's left margin<br/>
+    /// for each documentation comment block. Implements <see cref="IGlyphFactory"/> to integrate<br/>
+    /// with Visual Studio's glyph margin rendering infrastructure.
     /// </summary>
+    /// <remarks>
+    /// <para>When the user clicks the glyph button, it calls <see cref="DocCommentToggleState.Toggle"/><br/>
+    /// for the associated block span, then broadcasts a settings-changed event via<br/>
+    /// <see cref="SettingsChangedBroadcast.RaiseSettingsChanged"/> so the adornment tagger<br/>
+    /// invalidates and rebuilds the documentation rendering.</para>
+    /// <para>The glyph displays:</para>
+    /// <list type="bullet">
+    /// <item><description><b>Full opacity icon:</b> When the rendered comment is visible — tooltip "Hide rendered comment (click to edit XML)".</description></item>
+    /// <item><description><b>Dimmed icon (35% opacity):</b> When the rendered comment is hidden — tooltip "Show rendered comment".</description></item>
+    /// </list>
+    /// </remarks>
     internal sealed class DocCommentGlyphFactory : IGlyphFactory
     {
+        /// <summary>The WPF text view that hosts this glyph factory (unused but stored for potential future use).</summary>
         private readonly IWpfTextView _view;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="DocCommentGlyphFactory"/> class.
+        /// </summary>
+        /// <param name="view">
+        /// The <see cref="IWpfTextView"/> hosting the document. Stored for potential future use.
+        /// </param>
         public DocCommentGlyphFactory(IWpfTextView view)
         {
             _view = view;
@@ -182,6 +368,27 @@ namespace RenderDocComments.DocCommentRenderer
 
         private static System.Windows.Media.Imaging.BitmapImage _iconImage;
 
+        /// <summary>
+        /// Lazily loads and caches the glyph icon image from a Base64-encoded PNG string.<br/>
+        /// The image is decoded once, frozen for thread-safety, and reused across all glyph instances.
+        /// </summary>
+        /// <returns>
+        /// A frozen <see cref="System.Windows.Media.Imaging.BitmapImage"/> for use as the glyph icon,<br/>
+        /// or <c>null</c> if decoding fails (in which case a text fallback is used instead).
+        /// </returns>
+        /// <remarks>
+        /// <para>The method uses the following loading strategy:</para>
+        /// <list type="number">
+        /// <item><description>Checks if <see cref="_iconImage"/> is already cached — returns immediately if so.</description></item>
+        /// <item><description>Decodes the Base64 string <see cref="IconBase64"/> into a byte array.</description></item>
+        /// <item><description>Creates a <see cref="System.Windows.Media.Imaging.BitmapImage"/> from a <see cref="System.IO.MemoryStream"/>.</description></item>
+        /// <item><description>Sets <see cref="System.Windows.Media.Imaging.BitmapImage.CacheOption"/> to <see cref="System.Windows.Media.Imaging.BitmapCacheOption.OnLoad"/> to ensure the stream can be disposed immediately.</description></item>
+        /// <item><description>Calls <see cref="System.Windows.Freezable.Freeze"/> on the image to make it thread-safe and eligible for cross-thread sharing.</description></item>
+        /// <item><description>Caches the result in the static <see cref="_iconImage"/> field for reuse.</description></item>
+        /// </list>
+        /// <para>If any exception occurs during decoding (e.g., corrupted Base64 data), the method<br/>
+        /// silently returns <c>null</c>, allowing <see cref="GenerateGlyph"/> to fall back to text rendering.</para>
+        /// </remarks>
         private static System.Windows.Media.Imaging.BitmapImage GetIcon()
         {
             if (_iconImage != null) return _iconImage;
@@ -203,6 +410,52 @@ namespace RenderDocComments.DocCommentRenderer
             return _iconImage;
         }
 
+        /// <summary>
+        /// Generates the WPF UI element displayed in the editor's glyph margin for a documentation<br/>
+        /// comment block. Creates a clickable toggle button with an icon or text indicator.
+        /// </summary>
+        /// <param name="line">
+        /// The <see cref="IWpfTextViewLine"/> being rendered. This parameter is accepted but unused,<br/>
+        /// as the glyph is positioned based on the tag rather than the specific line.
+        /// </param>
+        /// <param name="tag">
+        /// The <see cref="IGlyphTag"/> associated with this glyph position. Expected to be a<br/>
+        /// <see cref="DocCommentGlyphTag"/> containing the documentation block span.
+        /// </param>
+        /// <returns>
+        /// A <see cref="Border"/> containing either an icon image or text indicator, configured as<br/>
+        /// a clickable toggle button. Returns <c>null</c> if the tag is not a <see cref="DocCommentGlyphTag"/><br/>
+        /// or if the glyph toggle feature is disabled.
+        /// </returns>
+        /// <remarks>
+        /// <para>The method returns <c>null</c> immediately if:</para>
+        /// <list type="bullet">
+        /// <item><description>The <paramref name="tag"/> is not a <see cref="DocCommentGlyphTag"/>.</description></item>
+        /// <item><description><see cref="RenderDocOptions.EffectiveGlyphToggle"/> is <c>false</c> (glyph toggle disabled).</description></item>
+        /// </list>
+        /// <para>When rendering, the method creates the following UI structure:</para>
+        /// <list type="bullet">
+        /// <item><description><b>Border:</b> 16×16 pixel container with rounded corners (3px radius), transparent background, and hand cursor.
+        ///   <list type="bullet">
+        ///   <item><description><b>Child (icon present):</b> <see cref="System.Windows.Controls.Image"/> — 14×14 pixels, uniform stretch, opacity 1.0 (visible) or 0.35 (hidden).</description></item>
+        ///   <item><description><b>Child (icon absent):</b> <see cref="TextBlock"/> — "●" (filled circle, visible) or "○" (hollow circle, hidden), 9pt font, white foreground.</description></item>
+        ///   </list>
+        /// </description></item>
+        /// </list>
+        /// <para>The tooltip reflects the current state:</para>
+        /// <list type="bullet">
+        /// <item><description><b>Visible:</b> "Hide rendered comment (click to edit XML)"</description></item>
+        /// <item><description><b>Hidden:</b> "Show rendered comment"</description></item>
+        /// </list>
+        /// <para>Click handling:</para>
+        /// <list type="number">
+        /// <item><description>Calls <see cref="DocCommentToggleState.Toggle"/> with the block span from the glyph tag.</description></item>
+        /// <item><description>Broadcasts a settings change via <see cref="SettingsChangedBroadcast.RaiseSettingsChanged"/>.</description></item>
+        /// <item><description>Marks the mouse event as handled to prevent propagation.</description></item>
+        /// </list>
+        /// <para>The settings change broadcast causes the <see cref="DocCommentAdornmentTagger"/> to invalidate<br/>
+        /// its cache and rebuild tags, which respects the updated toggle state during the next <see cref="DocCommentAdornmentTagger.GetTags"/> call.</para>
+        /// </remarks>
         public UIElement GenerateGlyph(IWpfTextViewLine line, IGlyphTag tag)
         {
             if (!(tag is DocCommentGlyphTag glyphTag)) return null;
@@ -263,6 +516,21 @@ namespace RenderDocComments.DocCommentRenderer
 
     // ── Glyph factory provider ────────────────────────────────────────────────────
 
+    /// <summary>
+    /// MEF-exported factory that supplies <see cref="DocCommentGlyphFactory"/> instances<br/>
+    /// to Visual Studio text views for supported programming languages.
+    /// </summary>
+    /// <remarks>
+    /// <para>This provider is configured with the following attributes:</para>
+    /// <list type="bullet">
+    /// <item><description><see cref="ExportAttribute"/> — Exports as <see cref="IGlyphFactoryProvider"/> for MEF discovery.</description></item>
+    /// <item><description><see cref="NameAttribute"/> — Names the factory "DocCommentGlyphFactory" for identification.</description></item>
+    /// <item><description><see cref="ContentTypeAttribute"/> — Registers support for CSharp, Basic, FSharp, F#, and C/C++ content types.</description></item>
+    /// <item><description><see cref="TagTypeAttribute"/> — Specifies that this factory operates on <see cref="DocCommentGlyphTag"/> instances.</description></item>
+    /// <item><description><see cref="TextViewRoleAttribute"/> — Restricts the factory to document views (<see cref="PredefinedTextViewRoles.Document"/>).</description></item>
+    /// <item><description><see cref="OrderAttribute"/> — Positions the glyph factory before "VsTextMarker" in the rendering pipeline.</description></item>
+    /// </list>
+    /// </remarks>
     [Export(typeof(IGlyphFactoryProvider))]
     [Name("DocCommentGlyphFactory")]
     [ContentType("CSharp")]
@@ -275,22 +543,84 @@ namespace RenderDocComments.DocCommentRenderer
     [Order(Before = "VsTextMarker")]
     internal sealed class DocCommentGlyphFactoryProvider : IGlyphFactoryProvider
     {
+        /// <summary>
+        /// Creates a new <see cref="DocCommentGlyphFactory"/> instance for the specified text view.
+        /// </summary>
+        /// <param name="view">
+        /// The <see cref="IWpfTextView"/> hosting the document where glyphs will be rendered.
+        /// </param>
+        /// <param name="margin">
+        /// The <see cref="IWpfTextViewMargin"/> (glyph margin) where the factory will place its UI elements.
+        /// </param>
+        /// <returns>
+        /// A new <see cref="DocCommentGlyphFactory"/> instance bound to the specified view.
+        /// </returns>
         public IGlyphFactory GetGlyphFactory(IWpfTextView view, IWpfTextViewMargin margin)
             => new DocCommentGlyphFactory(view);
     }
 
     // ── Per-block toggle state ────────────────────────────────────────────────────
+
     /// <summary>
-    /// Tracks which doc-comment blocks have been manually hidden via the glyph button.
-    /// Key: the text of the first line of the block (stable enough for a session).
+    /// Static utility class that tracks which documentation comment blocks have been manually<br/>
+    /// hidden via the glyph margin toggle button. Maintains a session-scoped set of hidden block positions.
     /// </summary>
+    /// <remarks>
+    /// <para>This class provides the visibility state management for the Premium glyph toggle feature.<br/>
+    /// Each documentation comment block is identified by the starting character position of its<br/>
+    /// first line in the text buffer's snapshot. This approach provides a stable identifier for<br/>
+    /// the duration of the editing session, even as the buffer content changes around the block.</para>
+    /// <para>The toggle state is session-scoped (static) and persists until:</para>
+    /// <list type="bullet">
+    /// <item><description>The user toggles the block back to visible via <see cref="Toggle"/>.</description></item>
+    /// <item><description><see cref="Clear"/> is called (e.g., on settings change or buffer reset).</description></item>
+    /// <item><description>The Visual Studio session ends (static state is not persisted across sessions).</description></item>
+    /// </list>
+    /// </remarks>
     public static class DocCommentToggleState
     {
+        /// <summary>
+        /// Hash set containing the starting character positions of all documentation comment<br/>
+        /// blocks that are currently hidden. A position is present in this set when the user<br/>
+        /// has clicked the glyph button to hide the rendered comment.
+        /// </summary>
         private static readonly HashSet<int> _hiddenStarts = new HashSet<int>();
 
+        /// <summary>
+        /// Determines whether the specified documentation comment block is currently hidden.
+        /// </summary>
+        /// <param name="blockSpan">
+        /// The <see cref="SnapshotSpan"/> representing the full extent of the documentation<br/>
+        /// comment block to check.
+        /// </param>
+        /// <returns>
+        /// <c>true</c> if the block's starting position is in the hidden set (user has toggled<br/>
+        /// it off); <c>false</c> if the block is visible and will be rendered.
+        /// </returns>
+        /// <seealso cref="Toggle"/>
         public static bool IsHidden(SnapshotSpan blockSpan)
             => _hiddenStarts.Contains(blockSpan.Start.Position);
 
+        /// <summary>
+        /// Toggles the visibility state of the specified documentation comment block.<br/>
+        /// If the block is currently hidden, this method makes it visible. If it is visible,<br/>
+        /// this method hides it.
+        /// </summary>
+        /// <param name="blockSpan">
+        /// The <see cref="SnapshotSpan"/> representing the full extent of the documentation<br/>
+        /// comment block to toggle. The block's starting position is used as the unique identifier.
+        /// </param>
+        /// <remarks>
+        /// <para>After calling this method, <see cref="SettingsChangedBroadcast.RaiseSettingsChanged"/><br/>
+        /// should be called to notify the adornment tagger to rebuild its tags with the updated<br/>
+        /// visibility state. The <see cref="DocCommentGlyphFactory.GenerateGlyph"/> click handler<br/>
+        /// performs this notification automatically.</para>
+        /// <para>The toggle operation is additive/removal-based:</para>
+        /// <list type="bullet">
+        /// <item><description><b>Hide:</b> Adds the block's starting position to <see cref="_hiddenStarts"/>.</description></item>
+        /// <item><description><b>Show:</b> Removes the block's starting position from <see cref="_hiddenStarts"/>.</description></item>
+        /// </list>
+        /// </remarks>
         public static void Toggle(SnapshotSpan blockSpan)
         {
             int pos = blockSpan.Start.Position;
@@ -298,6 +628,14 @@ namespace RenderDocComments.DocCommentRenderer
             else _hiddenStarts.Add(pos);
         }
 
+        /// <summary>
+        /// Clears all hidden block states, making all documentation comment blocks visible.<br/>
+        /// Called when settings change or when the session is reset, ensuring a clean slate.
+        /// </summary>
+        /// <remarks>
+        /// After calling this method, all documentation comment blocks will be rendered as visible<br/>
+        /// until the user manually hides them again via the glyph margin toggle buttons.
+        /// </remarks>
         public static void Clear() => _hiddenStarts.Clear();
     }
 }

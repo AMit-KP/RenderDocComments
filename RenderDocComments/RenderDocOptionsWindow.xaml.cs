@@ -9,18 +9,46 @@ using System.Windows.Media;
 namespace RenderDocComments
 {
     /// <summary>
-    /// Code-behind for the RenderDocComments options window.
-    /// Opened via Extensions > RenderDocOptions command.
+    /// Code-behind for the Render Doc Options window, opened via the<br/>
+    /// Extensions &gt; Render Doc Options menu command.<br/>
+    /// Manages settings UI binding, license management, and color picker interactions.
     /// </summary>
+    /// <remarks>
+    /// <para>This window provides the following functionality:</para>
+    /// <list type="bullet">
+    /// <item><description><b>Free settings:</b> Global render toggle.</description></item>
+    /// <item><description><b>Premium settings:</b> Theme auto-refresh, glyph toggle mode, custom font, border sides, and custom colors (disabled when Premium is locked).</description></item>
+    /// <item><description><b>License management:</b> Get Premium activation button and deactivation button.</description></item>
+    /// <item><description><b>Color customization:</b> Interactive color swatches with Windows color dialog, gradient presets, and live preview.</description></item>
+    /// <item><description><b>Reset:</b> Reset all settings to factory defaults.</description></item>
+    /// </list>
+    /// <para>Settings are applied to <see cref="RenderDocOptions.Instance"/> in real-time as the user<br/>
+    /// interacts with the UI, but are only persisted to disk when the user clicks "Save".</para>
+    /// </remarks>
     public partial class RenderDocOptionsWindow : Window
     {
+        /// <summary>
+        /// The service provider used to save settings to the Visual Studio settings store.
+        /// </summary>
         private readonly IServiceProvider _serviceProvider;
+
+        /// <summary>
+        /// Flag indicating whether the window is currently loading initial values.<br/>
+        /// Used to suppress <see cref="OnSettingChanged"/> during initialization.
+        /// </summary>
         private bool _loading = true;
 
+        /// <summary>Backing fields for the color swatch values (ARGB integers).</summary>
         private int _colorCodeFg, _colorSummaryFg, _colorParamName,
                     _colorLink, _colorSectionLabel,
                     _colorGrad0, _colorGrad1, _colorGrad2;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="RenderDocOptionsWindow"/> class.
+        /// </summary>
+        /// <param name="serviceProvider">
+        /// The <see cref="IServiceProvider"/> used to persist settings when the user saves.
+        /// </param>
         public RenderDocOptionsWindow(IServiceProvider serviceProvider)
         {
             _serviceProvider = serviceProvider;
@@ -30,6 +58,27 @@ namespace RenderDocComments
 
         // ── Initialisation ────────────────────────────────────────────────────────
 
+        /// <summary>
+        /// Handles the window's Loaded event, populating all UI controls with<br/>
+        /// the current settings values and configuring the license status display.
+        /// </summary>
+        /// <param name="sender">
+        /// The window that raised the event (unused).
+        /// </param>
+        /// <param name="e">
+        /// The event arguments (unused).
+        /// </param>
+        /// <remarks>
+        /// <para>The initialization sequence:</para>
+        /// <list type="number">
+        /// <item><description>Sets <see cref="_loading"/> to <c>true</c> to suppress setting change events.</description></item>
+        /// <item><description>Populates the font family combo box with all available system fonts (sorted alphabetically).</description></item>
+        /// <item><description>Calls <see cref="LoadFromOptions"/> to populate all controls from <see cref="RenderDocOptions.Instance"/>.</description></item>
+        /// <item><description>Calls <see cref="RefreshLicenceBadge"/> to update the license status indicator.</description></item>
+        /// <item><description>Calls <see cref="RefreshPremiumPanelEnabled"/> to disable/dim premium controls if not licensed.</description></item>
+        /// <item><description>Resets <see cref="_loading"/> to <c>false</c> to enable user interactions.</description></item>
+        /// </list>
+        /// </remarks>
         private void OnWindowLoaded(object sender, RoutedEventArgs e)
         {
             _loading = true;
@@ -45,6 +94,16 @@ namespace RenderDocComments
             _loading = false;
         }
 
+        /// <summary>
+        /// Populates all UI controls with the current values from <see cref="RenderDocOptions.Instance"/>.
+        /// </summary>
+        /// <remarks>
+        /// <para>This method synchronizes the UI with the stored settings without persisting<br/>
+        /// any changes. It is called during window initialization and is not triggered<br/>
+        /// by user interactions.</para>
+        /// <para>Color values are loaded into local backing fields (<c>_color*</c>) and<br/>
+        /// displayed via <see cref="RefreshAllSwatches"/>.</para>
+        /// </remarks>
         private void LoadFromOptions()
         {
             var o = RenderDocOptions.Instance;
@@ -75,6 +134,22 @@ namespace RenderDocComments
             RefreshAllSwatches();
         }
 
+        /// <summary>
+        /// Updates the license status badge (green "Activated" or grey "Free")<br/>
+        /// and shows/hides the Get Premium and Deactivate buttons accordingly.
+        /// </summary>
+        /// <remarks>
+        /// <para>The badge styling:</para>
+        /// <list type="bullet">
+        /// <item><description><b>Premium active:</b> Green background (<c>#3CB371</c>), white text "✔ Premium Activated".</description></item>
+        /// <item><description><b>Free tier:</b> Grey background (<c>#808080</c>), white text "Free".</description></item>
+        /// </list>
+        /// <para>Button visibility:</para>
+        /// <list type="bullet">
+        /// <item><description><b>Get Premium:</b> Visible only when Premium is NOT activated.</description></item>
+        /// <item><description><b>Deactivate:</b> Visible only when Premium IS activated.</description></item>
+        /// </list>
+        /// </remarks>
         private void RefreshLicenceBadge()
         {
             bool premium = LicenseManager.PremiumUnlocked;
@@ -88,6 +163,15 @@ namespace RenderDocComments
             DeactivateButton.Visibility = premium ? Visibility.Visible : Visibility.Collapsed;
         }
 
+        /// <summary>
+        /// Enables or disables the premium options panel based on the current license status.<br/>
+        /// When Premium is locked, the panel is disabled and dimmed (45% opacity).
+        /// </summary>
+        /// <remarks>
+        /// <para>This method is called during window initialization and after any license<br/>
+        /// state change (activation/deactivation) to ensure the UI reflects the current<br/>
+        /// license status.</para>
+        /// </remarks>
         private void RefreshPremiumPanelEnabled()
         {
             bool Premium = LicenseManager.PremiumUnlocked;
@@ -97,6 +181,23 @@ namespace RenderDocComments
 
         // ── Licence actions ───────────────────────────────────────────────────────
 
+        /// <summary>
+        /// Handles the "Get Premium" button click by opening the <see cref="PurchaseActivationWindow"/> dialog.
+        /// </summary>
+        /// <param name="sender">
+        /// The button that raised the event (unused).
+        /// </param>
+        /// <param name="e">
+        /// The event arguments (unused).
+        /// </param>
+        /// <remarks>
+        /// <para>When the license is successfully activated (via the <see cref="PurchaseActivationWindow.LicenseActivated"/> event):</para>
+        /// <list type="number">
+        /// <item><description>Refreshes the license badge to show "Activated".</description></item>
+        /// <item><description>Enables the premium options panel.</description></item>
+        /// <item><description>Displays a success message in green text.</description></item>
+        /// </list>
+        /// </remarks>
         private void OnGetPremiumClicked(object sender, RoutedEventArgs e)
         {
             var win = new PurchaseActivationWindow(_serviceProvider) { Owner = this };
@@ -109,6 +210,25 @@ namespace RenderDocComments
             win.ShowDialog();
         }
 
+        /// <summary>
+        /// Handles the "Deactivate" button click by calling <see cref="LicenseManager.Deactivate"/><br/>
+        /// and updating the UI to reflect the deactivated state.
+        /// </summary>
+        /// <param name="sender">
+        /// The button that raised the event (unused).
+        /// </param>
+        /// <param name="e">
+        /// The event arguments (unused).
+        /// </param>
+        /// <remarks>
+        /// <para>After deactivation, the method:</para>
+        /// <list type="number">
+        /// <item><description>Saves the updated settings (which now have <see cref="RenderDocOptions.PremiumUnlocked"/> set to <c>false</c>).</description></item>
+        /// <item><description>Refreshes the license badge to show "Free".</description></item>
+        /// <item><description>Disables and dims the premium options panel.</description></item>
+        /// <item><description>Displays a confirmation message in green text.</description></item>
+        /// </list>
+        /// </remarks>
         private void OnDeactivateClicked(object sender, RoutedEventArgs e)
         {
             LicenseManager.Deactivate();
@@ -118,6 +238,17 @@ namespace RenderDocComments
             ShowLicenseMessage("Premium licence deactivated.", isError: false);
         }
 
+        /// <summary>
+        /// Displays a license-related status message in the message text block,<br/>
+        /// colored green for success or red for errors.
+        /// </summary>
+        /// <param name="msg">
+        /// The message text to display.
+        /// </param>
+        /// <param name="isError">
+        /// <c>true</c> to display the message in red (error color <c>#F48771</c>);<br/>
+        /// <c>false</c> to display it in green (success color <c>#6A9955</c>).
+        /// </param>
         private void ShowLicenseMessage(string msg, bool isError)
         {
             LicenseMessageText.Text = msg;
@@ -129,12 +260,44 @@ namespace RenderDocComments
 
         // ── Generic setting change ────────────────────────────────────────────────
 
+        /// <summary>
+        /// Handles any user interaction with a settings control, applying the current<br/>
+        /// UI values to <see cref="RenderDocOptions.Instance"/> (without persisting to disk).
+        /// </summary>
+        /// <param name="sender">
+        /// The control that raised the event (unused).
+        /// </param>
+        /// <param name="e">
+        /// The event arguments (unused).
+        /// </param>
+        /// <remarks>
+        /// <para>This method is called in real-time as the user changes settings, ensuring<br/>
+        /// the <see cref="RenderDocOptions.Instance"/> is always in sync with the UI.<br/>
+        /// Actual persistence to the Visual Studio settings store happens only when the<br/>
+        /// user clicks the "Save" button.</para>
+        /// <para>The method returns immediately if <see cref="_loading"/> is <c>true</c> to prevent<br/>
+        /// spurious saves during window initialization.</para>
+        /// </remarks>
         private void OnSettingChanged(object sender, RoutedEventArgs e)
         {
             if (_loading) return;
             ApplyToOptions();
         }
 
+        /// <summary>
+        /// Copies all current UI control values to <see cref="RenderDocOptions.Instance"/>.
+        /// </summary>
+        /// <remarks>
+        /// <para>This method maps each UI control to its corresponding option property:</para>
+        /// <list type="bullet">
+        /// <item><description><see cref="RenderEnabledCheck"/> → <see cref="RenderDocOptions.RenderEnabled"/>.</description></item>
+        /// <item><description><see cref="AutoRefreshCheck"/> → <see cref="RenderDocOptions.AutoRefreshOnThemeChange"/>.</description></item>
+        /// <item><description><see cref="GlyphModeRadio"/> → <see cref="RenderDocOptions.GlyphToggleEnabled"/>.</description></item>
+        /// <item><description><see cref="FontFamilyCombo"/> → <see cref="RenderDocOptions.CustomFontFamily"/>.</description></item>
+        /// <item><description>Border checkboxes → <see cref="RenderDocOptions.BorderLeft"/>, <see cref="RenderDocOptions.BorderTop"/>, etc.</description></item>
+        /// <item><description>Color backing fields → <see cref="RenderDocOptions.ColorCodeFg"/>, etc.</description></item>
+        /// </list>
+        /// </remarks>
         private void ApplyToOptions()
         {
             var o = RenderDocOptions.Instance;
@@ -156,6 +319,21 @@ namespace RenderDocComments
             o.GradientStop2 = _colorGrad2;
         }
 
+        /// <summary>
+        /// Handles changes to the mode radio buttons (Glyph Mode vs. Caret Mode),<br/>
+        /// updating <see cref="RenderDocOptions.GlyphToggleEnabled"/> and triggering a settings save.
+        /// </summary>
+        /// <param name="sender">
+        /// The radio button that raised the event (unused).
+        /// </param>
+        /// <param name="e">
+        /// The event arguments (unused).
+        /// </param>
+        /// <remarks>
+        /// <para>Unlike <see cref="OnSettingChanged"/>, this handler directly sets the<br/>
+        /// <see cref="RenderDocOptions.GlyphToggleEnabled"/> property before calling<br/>
+        /// <see cref="OnSettingChanged"/> to ensure the change is applied immediately.</para>
+        /// </remarks>
         private void OnToggleModeChanged(object sender, RoutedEventArgs e)
         {
             if (_loading) return;
@@ -165,6 +343,16 @@ namespace RenderDocComments
 
         // ── Font ──────────────────────────────────────────────────────────────────
 
+        /// <summary>
+        /// Handles font family combo selection changes, updating the preview text<br/>
+        /// and triggering a settings save.
+        /// </summary>
+        /// <param name="sender">
+        /// The combo box that raised the event (unused).
+        /// </param>
+        /// <param name="e">
+        /// The event arguments (unused).
+        /// </param>
         private void OnFontFamilyChanged(object sender, SelectionChangedEventArgs e)
         {
             if (_loading) return;
@@ -172,6 +360,15 @@ namespace RenderDocComments
             OnSettingChanged(sender, null);
         }
 
+        /// <summary>
+        /// Updates the font family of the preview text block to match the selected<br/>
+        /// font in the combo box, falling back to Segoe UI if the selected font is unavailable.
+        /// </summary>
+        /// <remarks>
+        /// <para>The method attempts to create a <see cref="FontFamily"/> from the selected name.<br/>
+        /// If the font family constructor throws (e.g., for a corrupted or missing font),<br/>
+        /// the method falls back to "Segoe UI" to prevent a crash.</para>
+        /// </remarks>
         private void UpdateFontPreview()
         {
             var name = FontFamilyCombo.SelectedItem?.ToString() ?? "Segoe UI";
@@ -181,6 +378,26 @@ namespace RenderDocComments
 
         // ── Swatches ──────────────────────────────────────────────────────────────
 
+        /// <summary>
+        /// Handles a color swatch button click, opening the Windows color dialog<br/>
+        /// to let the user pick a new color for the corresponding setting.
+        /// </summary>
+        /// <param name="sender">
+        /// The button that was clicked.
+        /// </param>
+        /// <param name="e">
+        /// The event arguments (unused).
+        /// </param>
+        /// <remarks>
+        /// <para>The method uses the button's <see cref="Button.Tag"/> property to identify<br/>
+        /// which color to edit (e.g., "CodeFg", "SummaryFg", "Grad0", etc.).</para>
+        /// <para>If the user picks a color and confirms the dialog, the method:</para>
+        /// <list type="number">
+        /// <item><description>Updates the corresponding backing field via <see cref="SetColorByTag"/>.</description></item>
+        /// <item><description>Refreshes all swatches and the gradient preview.</description></item>
+        /// <item><description>Triggers <see cref="OnSettingChanged"/> to apply the change.</description></item>
+        /// </list>
+        /// </remarks>
         private void OnSwatchClicked(object sender, RoutedEventArgs e)
         {
             if (!(sender is System.Windows.Controls.Button btn)) return;
@@ -195,6 +412,15 @@ namespace RenderDocComments
             OnSettingChanged(sender, null);
         }
 
+        /// <summary>
+        /// Retrieves the current color value for a given tag from the local backing fields.
+        /// </summary>
+        /// <param name="tag">
+        /// The color identifier tag (e.g., "CodeFg", "SummaryFg", "Grad0").
+        /// </param>
+        /// <returns>
+        /// The ARGB integer value for the specified color, or <c>0xFFFFFFFF</c> (white) for unknown tags.
+        /// </returns>
         private int GetColorByTag(string tag)
         {
             switch (tag)
@@ -211,6 +437,15 @@ namespace RenderDocComments
             }
         }
 
+        /// <summary>
+        /// Sets the local backing field for a given color tag to the specified ARGB value.
+        /// </summary>
+        /// <param name="tag">
+        /// The color identifier tag (e.g., "CodeFg", "Grad0").
+        /// </param>
+        /// <param name="value">
+        /// The new ARGB integer value to store.
+        /// </param>
         private void SetColorByTag(string tag, int value)
         {
             switch (tag)
@@ -227,6 +462,12 @@ namespace RenderDocComments
         }
 
         /// <summary>Opens the Windows colour dialog and returns the picked ARGB int, or null.</summary>
+        /// <param name="currentArgb">
+        /// The currently selected color, used as the initial color in the dialog.
+        /// </param>
+        /// <returns>
+        /// The picked ARGB integer if the user confirms the dialog; <c>null</c> if the dialog is cancelled.
+        /// </returns>
         private static int? PickColor(int currentArgb)
         {
             using (var dlg = new ColorDialog())
@@ -239,6 +480,13 @@ namespace RenderDocComments
             }
         }
 
+        /// <summary>
+        /// Updates all color swatch buttons to reflect the current backing field values.
+        /// </summary>
+        /// <remarks>
+        /// <para>After updating the swatches, the method calls <see cref="RefreshGradientPreview"/> to<br/>
+        /// update the gradient preview bar with the current gradient stop colors.</para>
+        /// </remarks>
         private void RefreshAllSwatches()
         {
             SetSwatchColor(SwatchCodeFg, _colorCodeFg);
@@ -252,6 +500,15 @@ namespace RenderDocComments
             RefreshGradientPreview();
         }
 
+        /// <summary>
+        /// Opens the Visual Studio Marketplace review page in the default browser.
+        /// </summary>
+        /// <param name="sender">
+        /// The button that raised the event (unused).
+        /// </param>
+        /// <param name="e">
+        /// The event arguments (unused).
+        /// </param>
         private void RatingButton_Click(object sender, RoutedEventArgs e)
         {
             Process.Start(new ProcessStartInfo
@@ -261,12 +518,32 @@ namespace RenderDocComments
             });
         }
 
+        /// <summary>
+        /// Sets the background color of a swatch button to the specified ARGB value.
+        /// </summary>
+        /// <param name="btn">
+        /// The button to color.
+        /// </param>
+        /// <param name="argb">
+        /// The ARGB integer value.
+        /// </param>
         private static void SetSwatchColor(System.Windows.Controls.Button btn, int argb)
         {
             var c = ArgbToWpf(argb);
             btn.Background = new SolidColorBrush(c);
         }
 
+        /// <summary>
+        /// Updates the gradient preview bar to reflect the current gradient stop colors.
+        /// </summary>
+        /// <remarks>
+        /// <para>Creates a horizontal <see cref="LinearGradientBrush"/> with three stops:</para>
+        /// <list type="bullet">
+        /// <item><description>Stop 0: <see cref="_colorGrad0"/> at offset 0.0.</description></item>
+        /// <item><description>Stop 1: <see cref="_colorGrad1"/> at offset 0.4.</description></item>
+        /// <item><description>Stop 2: <see cref="_colorGrad2"/> at offset 1.0.</description></item>
+        /// </list>
+        /// </remarks>
         private void RefreshGradientPreview()
         {
             var brush = new LinearGradientBrush(
@@ -282,6 +559,28 @@ namespace RenderDocComments
 
         // ── Gradient presets ──────────────────────────────────────────────────────
 
+        /// <summary>
+        /// Handles a gradient preset button click, applying a predefined set of<br/>
+        /// gradient stop colors to the backing fields.
+        /// </summary>
+        /// <param name="sender">
+        /// The button that raised the event. The button's <see cref="Button.Tag"/><br/>
+        /// determines which preset to apply ("Purple", "Ocean", "Sunset", "Forest", "RoseGold").
+        /// </param>
+        /// <param name="e">
+        /// The event arguments (unused).
+        /// </param>
+        /// <remarks>
+        /// <para>Available presets:</para>
+        /// <list type="bullet">
+        /// <item><description><b>Purple:</b> Violet → Purple → Dark Purple (default).</description></item>
+        /// <item><description><b>Ocean:</b> Blue → Dark Blue → Navy.</description></item>
+        /// <item><description><b>Sunset:</b> Orange → Red → Dark Red.</description></item>
+        /// <item><description><b>Forest:</b> Green → Dark Green → Very Dark Green.</description></item>
+        /// <item><description><b>RoseGold:</b> Rose → Warm Brown → Dark Brown.</description></item>
+        /// </list>
+        /// <para>After applying the preset, the method refreshes all swatches and triggers a settings change.</para>
+        /// </remarks>
         private void OnGradientPresetClicked(object sender, RoutedEventArgs e)
         {
             if (!(sender is System.Windows.Controls.Button btn)) return;
@@ -319,6 +618,25 @@ namespace RenderDocComments
 
         // ── Footer buttons ────────────────────────────────────────────────────────
 
+        /// <summary>
+        /// Handles the "Save" button click, persisting all current settings to disk<br/>
+        /// and broadcasting the change to all subscribers before closing the window.
+        /// </summary>
+        /// <param name="sender">
+        /// The button that raised the event (unused).
+        /// </param>
+        /// <param name="e">
+        /// The event arguments (unused).
+        /// </param>
+        /// <remarks>
+        /// <para>The method performs the following steps:</para>
+        /// <list type="number">
+        /// <item><description>Calls <see cref="ApplyToOptions"/> to sync the UI to <see cref="RenderDocOptions.Instance"/>.</description></item>
+        /// <item><description>Calls <see cref="RenderDocOptions.Save"/> to persist settings to the Visual Studio settings store.</description></item>
+        /// <item><description>Raises <see cref="SettingsChangedBroadcast.RaiseSettingsChanged"/> to notify all taggers to rebuild.</description></item>
+        /// <item><description>Closes the window.</description></item>
+        /// </list>
+        /// </remarks>
         private void OnSaveClicked(object sender, RoutedEventArgs e)
         {
             ApplyToOptions();
@@ -327,8 +645,44 @@ namespace RenderDocComments
             Close();
         }
 
+        /// <summary>
+        /// Handles the "Close" button click, closing the window without saving changes.
+        /// </summary>
+        /// <param name="sender">
+        /// The button that raised the event (unused).
+        /// </param>
+        /// <param name="e">
+        /// The event arguments (unused).
+        /// </param>
+        /// <remarks>
+        /// <para>Note: Changes are already applied to <see cref="RenderDocOptions.Instance"/> in real-time<br/>
+        /// via <see cref="OnSettingChanged"/> as the user interacts with controls. Only the<br/>
+        /// persistence to disk (via <see cref="RenderDocOptions.Save"/>) is deferred until Save is clicked.<br/>
+        /// Therefore, closing without saving means the in-memory options revert to the<br/>
+        /// last saved state on next Visual Studio restart.</para>
+        /// </remarks>
         private void OnCloseClicked(object sender, RoutedEventArgs e) => Close();
 
+        /// <summary>
+        /// Handles the "Reset" button click, resetting all settings to their default values<br/>
+        /// after confirming with the user via a confirmation dialog.
+        /// </summary>
+        /// <param name="sender">
+        /// The button that raised the event (unused).
+        /// </param>
+        /// <param name="e">
+        /// The event arguments (unused).
+        /// </param>
+        /// <remarks>
+        /// <para>If the user confirms, the method:</para>
+        /// <list type="number">
+        /// <item><description>Creates a fresh <see cref="RenderDocOptions"/> instance via reflection (to get default constructor values).</description></item>
+        /// <item><description>Copies all default values to the singleton <see cref="RenderDocOptions.Instance"/>.</description></item>
+        /// <item><description>Reloads the UI via <see cref="LoadFromOptions"/>.</description></item>
+        /// </list>
+        /// <para>Note: The reset does NOT persist to disk — the user must click "Save" to make<br/>
+        /// the defaults permanent. This allows the user to preview the defaults before committing.</para>
+        /// </remarks>
         private void OnResetClicked(object sender, RoutedEventArgs e)
         {
             var result = System.Windows.MessageBox.Show(
@@ -363,6 +717,15 @@ namespace RenderDocComments
 
         // ── Helper ────────────────────────────────────────────────────────────────
 
+        /// <summary>
+        /// Converts an ARGB integer to a WPF <see cref="Color"/> structure.
+        /// </summary>
+        /// <param name="argb">
+        /// The ARGB integer with bytes in order (alpha, red, green, blue).
+        /// </param>
+        /// <returns>
+        /// A WPF <see cref="Color"/> with the same channel values.
+        /// </returns>
         private static Color ArgbToWpf(int argb)
         {
             byte a = (byte)((argb >> 24) & 0xFF);

@@ -9,37 +9,160 @@ using System.Windows.Media.Effects;
 
 namespace RenderDocComments.DocCommentRenderer
 {
+    /// <summary>
+    /// WPF user control that renders parsed documentation comments as a formatted visual block.<br/>
+    /// Inherits from <see cref="StackPanel"/> to vertically stack documentation sections.
+    /// </summary>
+    /// <remarks>
+    /// <para>This control is the primary visual representation of documentation comments in the<br/>
+    /// editor. It is created by <see cref="DocCommentAdornmentTag.CreateControl"/> and positioned<br/>
+    /// as an intra-text adornment via the tagger infrastructure.</para>
+    /// <para>The control renders the following documentation sections when present:</para>
+    /// <list type="bullet">
+    /// <item><description><b>InheritDoc / Include fallback:</b> Shown when resolution fails.</description></item>
+    /// <item><description><b>Deprecated banner:</b> Red-toned admonition for deprecated members.</description></item>
+    /// <item><description><b>Summary / Brief:</b> Primary documentation text.</description></item>
+    /// <item><description><b>Remarks / Details:</b> Extended documentation.</description></item>
+    /// <item><description><b>Admonitions:</b> Note, Warning, Attention, Bug, Todo — each with distinct accent colors.</description></item>
+    /// <item><description><b>Example:</b> Usage examples with mixed prose and code blocks.</description></item>
+    /// <item><description><b>Parameters:</b> Type parameters (<c>&lt;typeparam&gt;</c>) and value parameters (<c>&lt;param&gt;</c>) with direction badges.</description></item>
+    /// <item><description><b>Returns:</b> Return value documentation.</description></item>
+    /// <item><description><b>Return values:</b> C++ <c>\retval</c> documentation.</description></item>
+    /// <item><description><b>Exceptions:</b> Exception types with clickable navigation links.</description></item>
+    /// <item><description><b>Pre/Post conditions:</b> Contract documentation.</description></item>
+    /// <item><description><b>Permission:</b> Access permission documentation.</description></item>
+    /// <item><description><b>Completion List:</b> IntelliSense completion entries.</description></item>
+    /// <item><description><b>See Also:</b> Cross-reference links.</description></item>
+    /// <item><description><b>Meta-info:</b> Since, Version, Author, Date, Copyright.</description></item>
+    /// </list>
+    /// <para>All colors are theme-aware and adapt to dark/light Visual Studio themes.<br/>
+    /// The control supports configurable gradient accent bars on any combination of sides.</para>
+    /// </remarks>
     public class DocCommentControl : StackPanel
     {
         // ── All brushes injected — NO static fields ───────────────────────────────
+        
+        /// <summary>Primary foreground brush for standard documentation text.</summary>
         private readonly Brush _fg;
+        /// <summary>Dimmed foreground brush for secondary or less prominent text.</summary>
         private readonly Brush _fgDim;
+        /// <summary>Background brush matching the editor's theme background.</summary>
         private readonly Brush _bg;
+        /// <summary>Foreground brush for summary text (custom color for premium users).</summary>
         private readonly Brush _summaryFg;
+        /// <summary>Foreground brush for hyperlinks and cref navigation targets.</summary>
         private readonly Brush _linkBrush;
+        /// <summary>Background brush for inline and block code elements.</summary>
         private readonly Brush _codeBg;
+        /// <summary>Foreground brush for code text (monospaced fonts).</summary>
         private readonly Brush _codeFg;
+        /// <summary>Foreground brush for parameter names in the parameter grid.</summary>
         private readonly Brush _paramNameBrush;
+        /// <summary>Foreground brush for section labels (e.g., "Parameters:", "Returns:").</summary>
         private readonly Brush _sectionLabelBrush;
+        /// <summary>Gradient brush for accent bars surrounding the documentation block.</summary>
         private readonly Brush _gradientBarBrush;
 
         // ── Admonition brushes derived from theme ─────────────────────────────────
+        
+        /// <summary>Accent brush for Note admonitions (blue tones).</summary>
         private readonly Brush _noteBrush;
+        /// <summary>Accent brush for Warning admonitions (amber tones).</summary>
         private readonly Brush _warningBrush;
+        /// <summary>Accent brush for Deprecated banners (red tones).</summary>
         private readonly Brush _deprecatedBrush;
+        /// <summary>Accent brush for Bug admonitions (orange-red tones).</summary>
         private readonly Brush _bugBrush;
+        /// <summary>Accent brush for Todo admonitions (green tones).</summary>
         private readonly Brush _todoBrush;
+        /// <summary>Brush for meta-information fields (author, date, version, etc.).</summary>
         private readonly Brush _metaBrush;
 
+        /// <summary>The editor's default font family, used for prose text.</summary>
         private readonly FontFamily _editorFont;
+        /// <summary>Monospaced font family for code elements (Cascadia Mono, Consolas, Courier New).</summary>
         private readonly FontFamily _monoFont;
+        /// <summary>Font size in device-independent units, derived from the editor's font settings.</summary>
         private readonly double _fontSize;
+        /// <summary>Maximum content width calculated as 60% of available viewport width minus indentation.</summary>
         private readonly double _contentMaxWidth;
 
+        /// <summary>Constant indentation width in pixels for section content bodies.</summary>
         private const double SectionContentIndent = 12.0;
 
         // ── Constructor ───────────────────────────────────────────────────────────
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="DocCommentControl"/> class with<br/>
+        /// all visual properties and builds the documentation layout tree.
+        /// </summary>
+        /// <param name="doc">
+        /// The parsed documentation comment containing structured XML documentation content.
+        /// </param>
+        /// <param name="foreground">
+        /// The primary foreground brush for standard text, derived from the editor's theme.
+        /// </param>
+        /// <param name="background">
+        /// The background brush matching the editor's theme, used for the control's background<br/>
+        /// and to derive theme-adaptive accent colors for admonitions and code blocks.
+        /// </param>
+        /// <param name="summaryFg">
+        /// The foreground brush specifically for summary text. May differ from the primary<br/>
+        /// foreground color for premium users with custom color profiles.
+        /// </param>
+        /// <param name="linkColor">
+        /// The foreground brush for hyperlinks and cref navigation targets.
+        /// </param>
+        /// <param name="codeFg">
+        /// The foreground brush for code text in inline and block code elements.
+        /// </param>
+        /// <param name="paramNameBrush">
+        /// The foreground brush for parameter names in the parameter grid layout.
+        /// </param>
+        /// <param name="sectionLabelBrush">
+        /// The foreground brush for section labels (e.g., "Parameters:", "Returns:", "Exceptions:").
+        /// </param>
+        /// <param name="gradientBarBrush">
+        /// The gradient brush used to render accent bars on the sides, top, or bottom of the control.
+        /// </param>
+        /// <param name="editorFont">
+        /// The font family used by the editor for prose text, ensuring visual consistency.
+        /// </param>
+        /// <param name="fontSize">
+        /// The font size in device-independent units (1/96 inch), matching the editor's font settings.
+        /// </param>
+        /// <param name="viewportWidth">
+        /// The current width of the editor viewport in device-independent pixels, used to calculate<br/>
+        /// the maximum content width for optimal line length.
+        /// </param>
+        /// <param name="indentWidth">
+        /// The horizontal indentation width in pixels, used to position the control at the correct<br/>
+        /// offset matching the source code indentation.
+        /// </param>
+        /// <remarks>
+        /// <para>The constructor performs the following initialization steps:</para>
+        /// <list type="number">
+        /// <item><description>Stores all injected brushes and font properties for later use.</description></item>
+        /// <item><description>Creates a monospaced font family with fallback chain: Cascadia Mono → Consolas → Courier New.</description></item>
+        /// <item><description>Calculates <see cref="_contentMaxWidth"/> as 60% of available viewport width to prevent overly long lines.</description></item>
+        /// <item><description>Detects theme darkness via <see cref="GetLuminance"/> to adapt color palettes.</description></item>
+        /// <item><description>Creates theme-adaptive brushes:
+        ///   <list type="bullet">
+        ///   <item><description><b>Dim foreground:</b> Semi-transparent gray for secondary text.</description></item>
+        ///   <item><description><b>Code background:</b> Semi-transparent white (dark theme) or black (light theme).</description></item>
+        ///   <item><description><b>Admonition colors:</b> Note (blue), Warning (amber), Deprecated (red), Bug (orange-red), Todo (green).</description></item>
+        ///   <item><description><b>Meta brush:</b> Reuses the dim foreground for meta-information fields.</description></item>
+        ///   </list>
+        /// </description></item>
+        /// <item><description>Configures the StackPanel with vertical orientation and appropriate margins.</description></item>
+        /// <item><description>Invokes <see cref="Build"/> to construct the complete visual layout tree.</description></item>
+        /// </list>
+        /// <para>Theme detection logic:</para>
+        /// <list type="bullet">
+        /// <item><description><b>Dark theme:</b> Luminance &lt; 0.4 — uses lighter, more saturated accent colors.</description></item>
+        /// <item><description><b>Light theme:</b> Luminance ≥ 0.4 — uses darker, more muted accent colors for contrast.</description></item>
+        /// </list>
+        /// </remarks>
         public DocCommentControl(
             ParsedDocComment doc,
             Brush foreground,
@@ -110,6 +233,65 @@ namespace RenderDocComments.DocCommentRenderer
 
         // ── Build ─────────────────────────────────────────────────────────────────
 
+        /// <summary>
+        /// Constructs the complete visual layout tree for the documentation comment.<br/>
+        /// This method creates all WPF elements (grids, panels, text blocks, borders) and<br/>
+        /// adds them as children of the StackPanel in the correct rendering order.
+        /// </summary>
+        /// <param name="doc">
+        /// The <see cref="ParsedDocComment"/> containing structured documentation content<br/>
+        /// to be rendered. Each non-empty field is rendered as a distinct section.
+        /// </param>
+        /// <remarks>
+        /// <para>The method builds a hierarchical layout using the following structure:</para>
+        /// <list type="number">
+        /// <item>
+        /// <description><b>Outer Grid:</b> A 5-column, 5-row grid that manages gradient accent bars<br/>
+        /// and contains the central content panel. Column layout:
+        ///   <list type="bullet">
+        ///   <item><description>Column 0: Left gradient bar (conditional, 4px if enabled).</description></item>
+        ///   <item><description>Column 1: Left gap (8px if left bar present).</description></item>
+        ///   <item><description>Column 2: Content area (star-sized, takes remaining space).</description></item>
+        ///   <item><description>Column 3: Right gap (8px if right bar present).</description></item>
+        ///   <item><description>Column 4: Right gradient bar (conditional, 4px if enabled).</description></item>
+        ///   </list>
+        /// Row layout follows the same pattern for top/bottom bars.
+        /// </description>
+        /// </item>
+        /// <item>
+        /// <description><b>Gradient Bars:</b> Created by the local <c>MakeBar</c> function, each bar is a<br/>
+        /// <see cref="System.Windows.Shapes.Rectangle"/> filled with a 3-stop gradient and a<br/>
+        /// <see cref="DropShadowEffect"/> for a glowing purple effect. Bars can be vertical or horizontal.
+        /// </description>
+        /// </item>
+        /// <item>
+        /// <description><b>Content StackPanel:</b> Placed in the center cell (column 2, row 2), this panel<br/>
+        /// vertically stacks all documentation sections in the following order:
+        ///   <list type="bullet">
+        ///   <item><description>InheritDoc / Include fallback messages (when resolution fails).</description></item>
+        ///   <item><description>Deprecated banner (always first if present, red accent).</description></item>
+        ///   <item><description>Summary / Brief (primary documentation text).</description></item>
+        ///   <item><description>Remarks / Details (extended documentation).</description></item>
+        ///   <item><description>Note admonition (blue accent, labeled "ℹ Note").</description></item>
+        ///   <item><description>Warning admonition (amber accent, labeled "⚠ Warning").</description></item>
+        ///   <item><description>Attention admonition (amber accent, labeled "❗ Attention").</description></item>
+        ///   <item><description>Example section (mixed prose + code blocks).</description></item>
+        ///   <item><description>Parameters grid (type params first, then value params with direction badges).</description></item>
+        ///   <item><description>Returns section.</description></item>
+        ///   <item><description>Return values grid (C++ <c>\retval</c>).</description></item>
+        ///   <item><description>Exceptions grid (with clickable cref links).</description></item>
+        ///   <item><description>Precondition / Postcondition / Invariant sections.</description></item>
+        ///   <item><description>Permission section (with cref label if present).</description></item>
+        ///   <item><description>Completion List entries.</description></item>
+        ///   <item><description>Bug / Todo admonitions (orange-red / green accents).</description></item>
+        ///   <item><description>See Also wrap panel (horizontal link list).</description></item>
+        ///   <item><description>Meta-info strip (Since, Version, Author, Date, Copyright in horizontal wrap panel).</description></item>
+        ///   </list>
+        /// </description>
+        /// </item>
+        /// </list>
+        /// <para>Each section is only rendered if its corresponding field in <paramref name="doc"/> is non-empty.</para>
+        /// </remarks>
         private void Build(ParsedDocComment doc)
         {
             var opts = RenderDocOptions.Instance;
@@ -424,6 +606,32 @@ namespace RenderDocComments.DocCommentRenderer
         //
         // Renders a coloured left-border box for Note, Warning, Deprecated, Bug, Todo.
 
+        /// <summary>
+        /// Creates an admonition banner UI element with a colored left accent bar and title.<br/>
+        /// Used for rendering Note, Warning, Deprecated, Bug, and Todo sections.
+        /// </summary>
+        /// <param name="title">
+        /// The title text displayed at the top of the banner (e.g., "⚠ Warning", "ℹ Note").
+        /// </param>
+        /// <param name="body">
+        /// The body text content of the admonition, rendered as mixed prose below the title.
+        /// </param>
+        /// <param name="accentBrush">
+        /// The brush used for the left accent bar and the title text, defining the admonition's color identity.
+        /// </param>
+        /// <returns>
+        /// A <see cref="Grid"/> containing the accent bar and vertically stacked title/body content.
+        /// </returns>
+        /// <remarks>
+        /// <para>The layout uses a 3-column grid:</para>
+        /// <list type="bullet">
+        /// <item><description>Column 0: 3px wide accent bar with rounded corners.</description></item>
+        /// <item><description>Column 1: 6px gap for spacing.</description></item>
+        /// <item><description>Column 2: StackPanel with title (bold, semi-bold) and body text.</description></item>
+        /// </list>
+        /// <para>The title is rendered with <see cref="FontWeights.SemiBold"/> weight and the accent color.<br/>
+        /// The body is rendered via <see cref="BuildMixedPanel"/> to support inline code and links.</para>
+        /// </remarks>
         private UIElement BuildAdmonitionBanner(string title, string body, Brush accentBrush)
         {
             var grid = new Grid { Margin = new Thickness(0, 4, 0, 4) };
@@ -465,6 +673,17 @@ namespace RenderDocComments.DocCommentRenderer
 
         // ── Section label ─────────────────────────────────────────────────────────
 
+        /// <summary>
+        /// Creates a section label text element with italic styling and the section label brush.<br/>
+        /// Used for headers like "Parameters:", "Returns:", "Exceptions:", etc.
+        /// </summary>
+        /// <param name="text">
+        /// The label text to display (e.g., "Parameters:", "See Also:").
+        /// </param>
+        /// <returns>
+        /// A <see cref="TextBlock"/> with italic font style, section label foreground color,<br/>
+        /// and appropriate top/bottom margins for visual separation.
+        /// </returns>
         private UIElement BuildSectionLabel(string text) =>
             new TextBlock
             {
@@ -478,6 +697,28 @@ namespace RenderDocComments.DocCommentRenderer
 
         // ── Rich text block ───────────────────────────────────────────────────────
 
+        /// <summary>
+        /// Creates a rich text block UI element with formatted inline content.<br/>
+        /// This method wraps prose text with support for links, inline code, parameter references,<br/>
+        /// and text formatting (bold, italic, underline, strikethrough) via <see cref="BuildInlines"/>.
+        /// </summary>
+        /// <param name="text">
+        /// The text content to render, which may contain tokenized markup like<br/>
+        /// <c>`code`</c>, <c>[LINK href=...]...</c>, <c>[BOLD]...[/BOLD]</c>, etc.
+        /// </param>
+        /// <param name="fg">
+        /// The foreground brush for the text content.
+        /// </param>
+        /// <param name="marginBottom">
+        /// The bottom margin in pixels for spacing below the text block (default: 0).
+        /// </param>
+        /// <param name="marginLeft">
+        /// The left margin in pixels for indentation (default: 0).
+        /// </param>
+        /// <returns>
+        /// A <see cref="TextBlock"/> with <see cref="TextWrapping.Wrap"/> enabled and<br/>
+        /// parsed inline content added to its <see cref="TextBlock.Inlines"/> collection.
+        /// </returns>
         private UIElement BuildRichBlock(string text, Brush fg,
             double marginBottom = 0, double marginLeft = 0)
         {
@@ -502,6 +743,43 @@ namespace RenderDocComments.DocCommentRenderer
         // a TextBlock, and flushing a new Border-based code block as a separate
         // direct child of a vertical StackPanel whenever a CodeBlock token appears.
 
+        /// <summary>
+        /// Creates a mixed content panel that renders both prose text and block-level code elements.<br/>
+        /// This method solves a WPF limitation where block-level <see cref="Border"/> elements inside<br/>
+        /// <see cref="InlineUIContainer"/> are silently collapsed within <see cref="TextBlock"/>.
+        /// </summary>
+        /// <param name="text">
+        /// The content text which may contain prose segments and <c>[CODE]...[/CODE]</c> blocks.
+        /// </param>
+        /// <param name="fg">
+        /// The foreground brush for prose text content.
+        /// </param>
+        /// <param name="marginLeft">
+        /// The left margin in pixels for indenting the entire panel (default: 0).
+        /// </param>
+        /// <returns>
+        /// A <see cref="StackPanel"/> with vertical orientation containing alternating<br/>
+        /// <see cref="TextBlock"/> (for prose) and <see cref="Border"/> (for code blocks) children.
+        /// </returns>
+        /// <remarks>
+        /// <para>The method uses a tokenization approach with the following logic:</para>
+        /// <list type="number">
+        /// <item><description>Tokenizes the input via <see cref="Tokenise"/> into segments of different kinds.</description></item>
+        /// <item><description>Accumulates prose text into a current <see cref="TextBlock"/> (created on-demand via <c>EnsureTb</c>).</description></item>
+        /// <item><description>When a code block token is encountered, flushes the current TextBlock via <c>FlushTb</c> and creates a new <see cref="Border"/> via <see cref="BuildCodeBlock"/>.</description></item>
+        /// <item><description>For inline elements (code, links, param refs, formatting), adds them to the current TextBlock.</description></item>
+        /// <item><description>After processing all tokens, flushes any remaining prose text.</description></item>
+        /// </list>
+        /// <para>Supported token types:</para>
+        /// <list type="bullet">
+        /// <item><description><see cref="SegKind.Text"/> — Plain prose text with paragraph and line break support.</description></item>
+        /// <item><description><see cref="SegKind.CodeBlock"/> — Full-width code block with monospaced font and background.</description></item>
+        /// <item><description><see cref="SegKind.InlineCode"/> — Inline code snippet with rounded background border.</description></item>
+        /// <item><description><see cref="SegKind.Link"/> — Hyperlink with cref or href navigation.</description></item>
+        /// <item><description><see cref="SegKind.ParamRef"/> — Parameter reference with monospaced styling.</description></item>
+        /// <item><description><see cref="SegKind.Bold"/>, <see cref="SegKind.Italic"/>, <see cref="SegKind.Underline"/>, <see cref="SegKind.Strike"/> — Text formatting.</description></item>
+        /// </list>
+        /// </remarks>
         private UIElement BuildMixedPanel(string text, Brush fg, double marginLeft = 0)
         {
             var panel = new StackPanel
@@ -615,6 +893,21 @@ namespace RenderDocComments.DocCommentRenderer
 
         // ── Inline builder ────────────────────────────────────────────────────────
 
+        /// <summary>
+        /// Builds inline text elements into the specified <see cref="InlineCollection"/> from tokenized text.<br/>
+        /// This is the entry point for creating formatted inline content within a text block.
+        /// </summary>
+        /// <param name="text">
+        /// The text content containing tokenized markup to parse into inline elements.
+        /// </param>
+        /// <param name="inlines">
+        /// The <see cref="InlineCollection"/> to append the generated inline elements to.
+        /// </param>
+        /// <param name="fg">
+        /// The default foreground brush for plain text segments.
+        /// </param>
+        /// <seealso cref="BuildInlinesInto"/>
+        /// <seealso cref="Tokenise"/>
         private void BuildInlines(string text, InlineCollection inlines, Brush fg)
             => BuildInlinesInto(text, inlines, fg);
 
@@ -622,6 +915,30 @@ namespace RenderDocComments.DocCommentRenderer
         //
         // Tokenises inner content recursively so combinations like <b><i>x</i></b> work.
 
+        /// <summary>
+        /// Creates a formatted span element for bold, italic, underline, or strikethrough text.<br/>
+        /// Supports nested formatting by recursively tokenizing the inner content.
+        /// </summary>
+        /// <param name="kind">
+        /// The type of formatting to apply, specified as a <see cref="SegKind"/> enum value.
+        /// </param>
+        /// <param name="innerText">
+        /// The inner text content which may itself contain nested formatting tokens.
+        /// </param>
+        /// <param name="fg">
+        /// The default foreground brush for plain text segments within the span.
+        /// </param>
+        /// <returns>
+        /// A <see cref="Span"/> subclass (<see cref="Bold"/>, <see cref="Italic"/>, <see cref="Underline"/>,<br/>
+        /// or <see cref="Span"/> with <see cref="TextDecorations.Strikethrough"/>) containing<br/>
+        /// recursively parsed inline content.
+        /// </returns>
+        /// <remarks>
+        /// <para>The method enables nested formatting by calling <see cref="BuildInlinesInto"/><br/>
+        /// on the inner text, allowing combinations like <c>[BOLD][ITALIC]text[/ITALIC][/BOLD]</c>.</para>
+        /// <para>Strike-through is handled specially by setting <see cref="Span.TextDecorations"/><br/>
+        /// to <see cref="TextDecorations.Strikethrough"/> on a generic <see cref="Span"/>.</para>
+        /// </remarks>
         private Span BuildFormattedSpan(SegKind kind, string innerText, Brush fg)
         {
             Span span;
@@ -639,7 +956,31 @@ namespace RenderDocComments.DocCommentRenderer
             return span;
         }
 
-        // Shared recursive inline builder — used by BuildInlines and BuildFormattedSpan.
+        /// <summary>
+        /// Shared recursive inline parser that tokenizes text and adds formatted elements<br/>
+        /// to the specified <see cref="InlineCollection"/>. Used by both <see cref="BuildInlines"/><br/>
+        /// and <see cref="BuildFormattedSpan"/> for consistent inline rendering.
+        /// </summary>
+        /// <param name="text">
+        /// The text content to tokenize and parse into inline elements.
+        /// </param>
+        /// <param name="inlines">
+        /// The <see cref="InlineCollection"/> to append the generated inline elements to.
+        /// </param>
+        /// <param name="fg">
+        /// The default foreground brush for plain text segments.
+        /// </param>
+        /// <remarks>
+        /// <para>The method iterates through tokens from <see cref="Tokenise"/> and handles each type:</para>
+        /// <list type="bullet">
+        /// <item><description><see cref="SegKind.Text"/>: Splits on double newlines (paragraphs) and single newlines, adding <see cref="Run"/> and <see cref="LineBreak"/> elements.</description></item>
+        /// <item><description><see cref="SegKind.InlineCode"/>: Creates an <see cref="InlineUIContainer"/> with a rounded <see cref="Border"/> containing monospaced text.</description></item>
+        /// <item><description><see cref="SegKind.Link"/>: Creates a <see cref="Hyperlink"/> via <see cref="BuildLink"/>.</description></item>
+        /// <item><description><see cref="SegKind.ParamRef"/>: Creates a monospaced <see cref="Run"/> with parameter name styling.</description></item>
+        /// <item><description><see cref="SegKind.CodeBlock"/>: Wraps a <see cref="BuildCodeBlock"/> in an <see cref="InlineUIContainer"/>.</description></item>
+        /// <item><description><see cref="SegKind.Bold"/>, <see cref="SegKind.Italic"/>, <see cref="SegKind.Underline"/>, <see cref="SegKind.Strike"/>: Recursively calls <see cref="BuildFormattedSpan"/>.</description></item>
+        /// </list>
+        /// </remarks>
         private void BuildInlinesInto(string text, InlineCollection inlines, Brush fg)
         {
             foreach (var seg in Tokenise(text))
@@ -714,6 +1055,31 @@ namespace RenderDocComments.DocCommentRenderer
 
         // ── Code block ────────────────────────────────────────────────────────────
 
+        /// <summary>
+        /// Creates a code block UI element with monospaced font, background, and rounded corners.<br/>
+        /// Used for rendering multi-line code examples within documentation.
+        /// </summary>
+        /// <param name="code">
+        /// The raw code text to display, which will be trimmed of leading/trailing whitespace.
+        /// </param>
+        /// <param name="marginLeft">
+        /// The left margin in pixels for indenting the code block (default: 0).
+        /// </param>
+        /// <returns>
+        /// A <see cref="Border"/> with rounded corners containing a monospaced <see cref="TextBlock"/>.<br/>
+        /// The border uses <see cref="_codeBg"/> for background and the text uses <see cref="_codeFg"/>.
+        /// </returns>
+        /// <remarks>
+        /// <para>The code block styling includes:</para>
+        /// <list type="bullet">
+        /// <item><description>Background: <see cref="_codeBg"/> — semi-transparent theme-adaptive brush.</description></item>
+        /// <item><description>Font: <see cref="_monoFont"/> — Cascadia Mono, Consolas, or Courier New fallback.</description></item>
+        /// <item><description>Size: <see cref="_fontSize"/> minus 1 unit for slightly smaller code text.</description></item>
+        /// <item><description>Corners: 3px radius for rounded appearance.</description></item>
+        /// <item><description>Padding: 8px horizontal, 4px vertical for comfortable reading.</description></item>
+        /// <item><description>Wrapping: <see cref="TextWrapping.Wrap"/> enabled for long lines.</description></item>
+        /// </list>
+        /// </remarks>
         private UIElement BuildCodeBlock(string code, double marginLeft = 0) =>
             new Border
             {
@@ -733,6 +1099,26 @@ namespace RenderDocComments.DocCommentRenderer
 
         // ── Param grid ────────────────────────────────────────────────────────────
 
+        /// <summary>
+        /// Creates a parameter grid layout for rendering parameter, type parameter, exception,<br/>
+        /// or return value documentation in a structured tabular format.
+        /// </summary>
+        /// <param name="marginLeft">
+        /// The left margin in pixels for indenting the entire grid (default: 0).
+        /// </param>
+        /// <returns>
+        /// A <see cref="Grid"/> with 4 columns:
+        /// <list type="bullet">
+        /// <item><description>Column 0: Direction badge (auto-sized, hidden when empty) — shows <c>[in]</c>, <c>[out]</c>, <c>[in,out]</c>.</description></item>
+        /// <item><description>Column 1: Parameter name (auto-sized) — rendered with <see cref="_paramNameBrush"/> and monospaced font.</description></item>
+        /// <item><description>Column 2: Dash separator (auto-sized) — " — " separator in dimmed color.</description></item>
+        /// <item><description>Column 3: Description (star-sized, takes remaining space) — supports rich inline formatting.</description></item>
+        /// </list>
+        /// </returns>
+        /// <remarks>
+        /// Each row is added dynamically via <see cref="AddParamRow"/> which creates the appropriate<br/>
+        /// elements for each column and manages row-specific styling and formatting.
+        /// </remarks>
         private Grid BuildParamGrid(double marginLeft = 0)
         {
             var grid = new Grid { Margin = new Thickness(marginLeft, 0, 0, 2) };
@@ -753,6 +1139,46 @@ namespace RenderDocComments.DocCommentRenderer
         // an optional isTypeParam flag (renders <T> prefix style).
         // For exceptions the navCref is provided for click-to-navigate.
 
+        /// <summary>
+        /// Adds a single parameter row to the parameter grid, creating name, direction,<br/>
+        /// separator, and description elements in the appropriate grid columns.
+        /// </summary>
+        /// <param name="grid">
+        /// The target <see cref="Grid"/> where the row will be added.
+        /// </param>
+        /// <param name="name">
+        /// The parameter name to display. For type parameters, wrapped in angle brackets.
+        /// </param>
+        /// <param name="description">
+        /// The description text for the parameter, supporting rich inline formatting.
+        /// </param>
+        /// <param name="row">
+        /// Reference to the current row index, incremented after adding the row.<br/>
+        /// Used to track grid row placement across multiple calls.
+        /// </param>
+        /// <param name="navCref">
+        /// Optional cref string for exception types. When provided, the parameter name<br/>
+        /// becomes a clickable hyperlink for navigation (used for <c>&lt;exception&gt;</c> tags).
+        /// </param>
+        /// <param name="direction">
+        /// Optional direction string for C++ parameters (e.g., <c>"in"</c>, <c>"out"</c>, <c>"in,out"</c>).<br/>
+        /// Rendered as a badge in column 0 when non-empty.
+        /// </param>
+        /// <param name="isTypeParam">
+        /// When <c>true</c>, renders the parameter name with angle brackets (<c>&lt;T&gt;</c>)<br/>
+        /// and slightly smaller font to distinguish type parameters from value parameters.
+        /// </param>
+        /// <remarks>
+        /// <para>The method creates the following grid children:</para>
+        /// <list type="bullet">
+        /// <item><description><b>Column 0:</b> Direction badge — <see cref="Border"/> with <see cref="_codeBg"/> background and <see cref="_noteBrush"/> text (only if <paramref name="direction"/> is non-empty).</description></item>
+        /// <item><description><b>Column 1:</b> Parameter name — either a clickable <see cref="Hyperlink"/> (if <paramref name="navCref"/> is provided) or styled <see cref="TextBlock"/> with monospaced font.</description></item>
+        /// <item><description><b>Column 2:</b> Dash separator — " — " in <see cref="_fgDim"/> for visual separation (only if name or description exists).</description></item>
+        /// <item><description><b>Column 3:</b> Description — <see cref="TextBlock"/> with <see cref="TextWrapping.Wrap"/> and inline formatting via <see cref="BuildInlines"/>.</description></item>
+        /// </list>
+        /// <para>Type parameters (<paramref name="isTypeParam"/> = <c>true</c>) render with &lt;angle brackets&gt;<br/>
+        /// and the bracket characters use <see cref="_fgDim"/> while the name uses <see cref="_paramNameBrush"/>.</para>
+        /// </remarks>
         private void AddParamRow(Grid grid, string name, string description,
             ref int row,
             string navCref = null,
@@ -862,6 +1288,56 @@ namespace RenderDocComments.DocCommentRenderer
 
         // ── Link / cref ───────────────────────────────────────────────────────────
 
+        /// <summary>
+        /// Creates a hyperlink inline element with navigation support for both external URLs<br/>
+        /// and internal code symbol references (cref).
+        /// </summary>
+        /// <param name="label">
+        /// The display text for the hyperlink.
+        /// </param>
+        /// <param name="cref">
+        /// The code reference string (e.g., <c>M:System.String.IsNullOrEmpty(System.String)</c>).<br/>
+        /// Used when <paramref name="href"/> is empty to enable symbol navigation via DTE.
+        /// </param>
+        /// <param name="href">
+        /// An external URL for web navigation. Takes precedence over <paramref name="cref"/><br/>
+        /// when both are provided — opens the URL in the default browser.
+        /// </param>
+        /// <returns>
+        /// A <see cref="Hyperlink"/> with underline text decoration and <see cref="_linkBrush"/> foreground.
+        /// </returns>
+        /// <remarks>
+        /// <para>The method supports two navigation modes:</para>
+        /// <list type="number">
+        /// <item>
+        /// <description><b>External URL navigation (href):</b>
+        ///   <list type="bullet">
+        ///   <item><description>Parses <paramref name="href"/> as a <see cref="Uri"/>.</description></item>
+        ///   <item><description>Subscribes to <see cref="Hyperlink.RequestNavigate"/> to open the URL via <see cref="System.Diagnostics.Process.Start"/>.</description></item>
+        ///   <item><description>Marks the event as handled to prevent default behavior.</description></item>
+        ///   </list>
+        /// </description>
+        /// </item>
+        /// <item>
+        /// <description><b>Internal symbol navigation (cref):</b>
+        ///   <list type="bullet">
+        ///   <item><description>Simplifies the cref via <see cref="DocCommentParser.SimplifyCref"/> to extract the symbol name.</description></item>
+        ///   <item><description>Subscribes to <see cref="Hyperlink.Click"/> to perform a Visual Studio search-and-navigate operation.</description></item>
+        ///   <item><description>Uses the DTE (Development Tools Environment) to:
+        ///     <list type="bullet">
+        ///     <item><description>Access the active document and text selection.</description></item>
+        ///     <item><description>Configure the Find dialog with the symbol name (case-sensitive, whole word).</description></item>
+        ///     <item><description>Execute the find operation in the current document.</description></item>
+        ///     <item><description>Navigate to the definition if found, or open "Navigate To" dialog otherwise.</description></item>
+        ///     </list>
+        ///   </description></item>
+        ///   </list>
+        /// </description>
+        /// </item>
+        /// </list>
+        /// <para>All DTE operations are wrapped in try-catch to prevent navigation failures<br/>
+        /// from crashing the editor or disrupting the user experience.</para>
+        /// </remarks>
         private Inline BuildLink(string label, string cref, string href)
         {
             var hl = new Hyperlink(new Run(label))
@@ -921,21 +1397,68 @@ namespace RenderDocComments.DocCommentRenderer
 
         // ── Tokeniser ─────────────────────────────────────────────────────────────
 
+        /// <summary>
+        /// Enumeration of segment types recognized by the text tokenizer.<br/>
+        /// Each value represents a different kind of formatted content in documentation text.
+        /// </summary>
         private enum SegKind
         {
-            Text, InlineCode, Link, ParamRef, CodeBlock,
-            Bold, Italic, Underline, Strike
+            /// <summary>Plain text content without formatting.</summary>
+            Text,
+            /// <summary>Inline code snippet enclosed in backticks (<c>`code`</c>).</summary>
+            InlineCode,
+            /// <summary>Hyperlink with href or cref navigation target.</summary>
+            Link,
+            /// <summary>Parameter reference (<c>&lt;paramref&gt;</c>) rendered in monospaced font.</summary>
+            ParamRef,
+            /// <summary>Block-level code section enclosed in <c>[CODE]...[/CODE]</c>.</summary>
+            CodeBlock,
+            /// <summary>Bold text (<c>[BOLD]...[/BOLD]</c>).</summary>
+            Bold,
+            /// <summary>Italic text (<c>[ITALIC]...[/ITALIC]</c>).</summary>
+            Italic,
+            /// <summary>Underlined text (<c>[UNDERLINE]...[/UNDERLINE]</c>).</summary>
+            Underline,
+            /// <summary>Strikethrough text (<c>[STRIKE]...[/STRIKE]</c>).</summary>
+            Strike
         }
 
+        /// <summary>
+        /// Data class representing a tokenized segment of documentation text.<br/>
+        /// Each instance holds the segment type and associated content values.
+        /// </summary>
         private class Seg
         {
+            /// <summary>The type of content segment.</summary>
             public SegKind Kind;
+            /// <summary>The primary text value of the segment.</summary>
             public string Value = string.Empty;
+            /// <summary>The display label for link segments.</summary>
             public string Label = string.Empty;
+            /// <summary>The external URL for href-based link segments.</summary>
             public string Href = string.Empty;
+            /// <summary>The code reference for cref-based link segments.</summary>
             public string Cref = string.Empty;
         }
 
+        /// <summary>
+        /// Compiled regular expression that matches all supported documentation text tokens.<br/>
+        /// Uses named capture groups to identify token types and extract their content.
+        /// </summary>
+        /// <remarks>
+        /// <para>The regex matches the following patterns (in priority order):</para>
+        /// <list type="bullet">
+        /// <item><description><c>`code`</c> — Inline code (capture group: <c>code</c>).</description></item>
+        /// <item><description><c>[LINK href=url]label[/LINK]</c> — External URL link (capture groups: <c>href</c>, <c>hlabel</c>).</description></item>
+        /// <item><description><c>[LINK cref=cref]label[/LINK]</c> — Symbol reference link (capture groups: <c>cref</c>, <c>clabel</c>).</description></item>
+        /// <item><description><c>[PARAMREF]name[/PARAMREF]</c> — Parameter reference (capture group: <paramref name="paramref"/></description></item>
+        /// <item><description><c>[CODE]...[/CODE]</c> — Block code section (capture group: <c>codeblock</c>, supports multiline with <c>[\s\S]*?</c>).</description></item>
+        /// <item><description><c>[BOLD]...[/BOLD]</c> — Bold text (capture group: <c>bold</c>, multiline).</description></item>
+        /// <item><description><c>[ITALIC]...[/ITALIC]</c> — Italic text (capture group: <c>italic</c>, multiline).</description></item>
+        /// <item><description><c>[UNDERLINE]...[/UNDERLINE]</c> — Underline text (capture group: <c>underline</c>, multiline).</description></item>
+        /// <item><description><c>[STRIKE]...[/STRIKE]</c> — Strikethrough text (capture group: <c>strike</c>, multiline).</description></item>
+        /// </list>
+        /// </remarks>
         private static readonly Regex TokenRegex = new Regex(
             @"`(?<code>[^`]+)`" +
             @"|\[LINK href=(?<href>[^\]]+)\](?<hlabel>[^\[]+)\[/LINK\]" +
@@ -948,6 +1471,31 @@ namespace RenderDocComments.DocCommentRenderer
             @"|\[STRIKE\](?<strike>[\s\S]*?)\[/STRIKE\]",
             RegexOptions.Compiled);
 
+        /// <summary>
+        /// Tokenizes documentation text into a list of typed segments based on markup patterns.<br/>
+        /// Plain text between markup tokens is collected as <see cref="SegKind.Text"/> segments.
+        /// </summary>
+        /// <param name="input">
+        /// The input text string potentially containing markup tokens for parsing.
+        /// </param>
+        /// <returns>
+        /// A list of <see cref="Seg"/> objects representing the sequential segments found in the input.<br/>
+        /// The list always covers the entire input string with no gaps or overlaps.
+        /// </returns>
+        /// <remarks>
+        /// <para>The method uses <see cref="TokenRegex"/> to find all markup matches in the input.<br/>
+        /// For each match, it creates a segment based on which named capture group succeeded:</para>
+        /// <list type="bullet">
+        /// <item><description><c>code</c> → <see cref="SegKind.InlineCode"/> with <see cref="Seg.Value"/> set to the matched code text.</description></item>
+        /// <item><description><c>hlabel</c> → <see cref="SegKind.Link"/> with <see cref="Seg.Href"/> and <see cref="Seg.Label"/> populated.</description></item>
+        /// <item><description><c>clabel</c> → <see cref="SegKind.Link"/> with <see cref="Seg.Cref"/> and <see cref="Seg.Label"/> populated.</description></item>
+        /// <item><description><paramref name="paramref"/> → <see cref="SegKind.ParamRef"/> with <see cref="Seg.Value"/> set to the parameter name.</description></item>
+        /// <item><description><c>codeblock</c> → <see cref="SegKind.CodeBlock"/> with <see cref="Seg.Value"/> set to the code content.</description></item>
+        /// <item><description><c>bold</c>, <c>italic</c>, <c>underline</c>, <c>strike</c> → Corresponding <see cref="SegKind"/> values.</description></item>
+        /// </list>
+        /// <para>Text between matches (including before the first and after the last markup)<br/>
+        /// is collected as <see cref="SegKind.Text"/> segments, preserving the original content order.</para>
+        /// </remarks>
         private List<Seg> Tokenise(string input)
         {
             var result = new List<Seg>();
@@ -1020,6 +1568,31 @@ namespace RenderDocComments.DocCommentRenderer
 
         // ── Helpers ───────────────────────────────────────────────────────────────
 
+        /// <summary>
+        /// Calculates the relative luminance of a brush color to determine theme brightness.<br/>
+        /// Used to adapt color palettes for dark versus light Visual Studio themes.
+        /// </summary>
+        /// <param name="brush">
+        /// The brush to analyze for luminance. Expected to be a <see cref="SolidColorBrush"/><br/>
+        /// for accurate calculation; other brush types return a default mid-range value.
+        /// </param>
+        /// <returns>
+        /// A double between 0.0 (black) and 1.0 (white) representing the perceived brightness<br/>
+        /// of the brush color, calculated using the sRGB luminance formula (Rec. 709 coefficients).<br/>
+        /// Returns 0.5 for non-solid brushes or invalid input.
+        /// </returns>
+        /// <remarks>
+        /// <para>The luminance calculation uses the standard formula:</para>
+        /// <c>L = 0.2126 × R + 0.7152 × G + 0.0722 × B</c><br/>
+        /// where R, G, B are normalized to [0, 1] range from [0, 255] byte values.
+        /// <para>The coefficients reflect human perceptual sensitivity to different color channels,<br/>
+        /// with green contributing most to perceived brightness and blue least.</para>
+        /// <para>Threshold usage:</para>
+        /// <list type="bullet">
+        /// <item><description>Luminance &lt; 0.4 → Dark theme detection (used in <see cref="DocCommentControl"/> constructor).</description></item>
+        /// <item><description>Luminance ≥ 0.4 → Light theme detection.</description></item>
+        /// </list>
+        /// </remarks>
         private static double GetLuminance(Brush brush)
         {
             if (brush is SolidColorBrush scb)
