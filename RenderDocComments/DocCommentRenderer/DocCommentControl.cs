@@ -1,3 +1,40 @@
+/* ═══════════════════════════════════════════════════════════════════════════════
+ *  File:    DocCommentControl.cs
+ *  Purpose: The primary WPF rendering control that builds the complete visual
+ *           layout for parsed documentation comments. ~1600 lines of programmatic
+ *           UI construction (no separate XAML file).
+ *
+ *  Architecture Role:
+ *    The leaf node of the rendering pipeline. Receives a ParsedDocComment and
+ *    a full set of theme-aware brushes, fonts, and viewport dimensions from
+ *    DocCommentAdornmentTag. Inherits from StackPanel to vertically stack
+ *    documentation sections as children.
+ *
+ *  Key Classes:
+ *    DocCommentControl : StackPanel  — Builds the entire documentation layout
+ *                                      tree in its constructor via Build().
+ *
+ *  Dependencies:
+ *    • DocCommentParser.cs       — Consumes ParsedDocComment and its nested
+ *      types (ParamEntry, ExceptionEntry, SeeAlsoEntry, etc.).
+ *    • RenderDocOptions.cs       — Reads border toggles, gradient stops,
+ *      EffectiveFontFamily.
+ *    • DocCommentAdornmentTag.cs — Creates this control instance.
+ *    • WPF: System.Windows.Controls, System.Windows.Documents,
+ *      System.Windows.Media, System.Windows.Media.Effects.
+ *
+ *  When to Edit:
+ *    • Wrong layout / spacing / alignment — modify Build() grid/panel structure.
+ *    • Adding a new documentation section (e.g., a new XML tag) — add a new
+ *      section block in Build().
+ *    • Changing gradient bar appearance — modify MakeBar() or grid column/row
+ *      definitions.
+ *    • Changing admonition banner style — modify BuildAdmonitionBanner().
+ *    • Modifying parameter grid layout — modify BuildParamGrid() / AddParamRow().
+ *    • Adding new inline token types — extend Tokenise().
+ *    • Changing content width ratio — modify _contentMaxWidth calculation.
+ *    • Fixing any visual/rendering bug (colors, fonts, spacing, overflow).
+ * ═══════════════════════════════════════════════════════════════════════════════ */
 using System;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;

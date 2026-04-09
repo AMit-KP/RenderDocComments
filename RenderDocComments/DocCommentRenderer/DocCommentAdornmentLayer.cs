@@ -1,4 +1,31 @@
-﻿using System.ComponentModel.Composition;
+﻿/* ═══════════════════════════════════════════════════════════════════════════════
+ *  File:    DocCommentAdornmentLayer.cs
+ *  Purpose: Defines the Visual Studio editor adornment layer where rendered
+ *           documentation comments are displayed.
+ *
+ *  Architecture Role:
+ *    Registers a named AdornmentLayerDefinition via MEF that tells the VS editor
+ *    infrastructure where (in z-order) to place the rendered documentation
+ *    controls. Positioned before PredefinedAdornmentLayers.Text so that rendered
+ *    comments appear beneath the actual source text.
+ *
+ *  Key Classes:
+ *    DocCommentAdornmentLayer  — MEF-exported class providing the layer definition.
+ *
+ *  Dependencies:
+ *    • Microsoft.VisualStudio.Text.Editor  (AdornmentLayerDefinition,
+ *      PredefinedAdornmentLayers)
+ *    • Microsoft.VisualStudio.Utilities     (Export, Name, Order attributes)
+ *    • Referenced by: DocCommentAdornmentTagger.cs (indirectly — the tagger
+ *      creates visual elements that the adornment layer hosts).
+ *
+ *  When to Edit:
+ *    • Changing the z-order of rendered comments relative to other VS adornments.
+ *    • Renaming the adornment layer (must also update references in the tagger).
+ *    • Adding additional layer definitions (e.g., a separate layer for glyph
+ *      adornments vs. intra-text adornments).
+ * ═══════════════════════════════════════════════════════════════════════════════ */
+using System.ComponentModel.Composition;
 using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.Utilities;
 

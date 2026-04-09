@@ -1,3 +1,52 @@
+/* ═══════════════════════════════════════════════════════════════════════════════
+ *  File:    DocCommentGlyphFactory.cs
+ *  Purpose: Implements the glyph margin toggle button for documentation comments
+ *           and the supporting infrastructure (tag, tagger, provider, toggle
+ *           state tracking) for the Premium glyph mode feature.
+ *
+ *  Architecture Role:
+ *    Provides the visual UI element (clickable toggle button) displayed in the
+ *    editor's left glyph margin next to each documentation comment block. Works
+ *    in tandem with DocCommentAdornmentTagger: when the user clicks the glyph,
+ *    it toggles the block's hidden state and broadcasts a settings change that
+ *    causes the adornment tagger to rebuild tags respecting the new visibility.
+ *
+ *  Key Classes:
+ *    DocCommentGlyphTag        — IGlyphTag carrying the block span for a doc
+ *                                comment. Consumed by the glyph factory.
+ *    DocCommentGlyphTagger     — ITagger<DocCommentGlyphTag>; scans the buffer
+ *                                for doc-comment blocks and yields a tag for
+ *                                the first line of each block.
+ *    DocCommentGlyphTaggerProvider — ITaggerProvider; MEF-exported singleton
+ *                                    factory for the glyph tagger.
+ *    DocCommentGlyphFactory    — IGlyphFactory; creates the WPF Border button
+ *                                displayed in the glyph margin.
+ *    DocCommentGlyphFactoryProvider — IGlyphFactoryProvider; MEF-exported
+ *                                     factory for the glyph factory.
+ *    DocCommentToggleState     — Static utility tracking which blocks are
+ *                                manually hidden (session-scoped HashSet).
+ *
+ *
+ *  Dependencies:
+ *    • DocCommentAdornmentTagger.cs — Listens to settings broadcast from
+ *      toggle click handler.
+ *    • DocCommentToggleState        — Used by both the factory (click) and
+ *      the adornment tagger (GetTags filtering).
+ *    • RenderDocOptions.cs          — EffectiveGlyphToggle setting.
+ *    • SettingsChangedBroadcast.cs  — Raises settings change on toggle click.
+ *
+ *  When to Edit:
+ *    • Adding a new button to the margin — modify GenerateGlyph() to wrap the
+ *      existing Border in a StackPanel/Grid and add another button.
+ *    • Changing the glyph icon — replace IconBase64 string.
+ *    • Modifying button size, opacity, tooltip, or click behavior — edit
+ *      GenerateGlyph().
+ *    • Adding a new glyph tagger for a different adornment type — extend the
+ *      tagger/tagger-provider pattern here.
+ *    • Changing toggle state persistence (e.g., persisting across sessions) —
+ *      modify DocCommentToggleState.
+ *    • Fixing margin button icon / size / tooltip issues.
+ * ═══════════════════════════════════════════════════════════════════════════════ */
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.Composition;

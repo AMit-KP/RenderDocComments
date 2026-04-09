@@ -1,3 +1,51 @@
+/* ═══════════════════════════════════════════════════════════════════════════════
+ *  File:    DocCommentParser.cs
+ *  Purpose: Transforms raw documentation comment text into structured
+ *           ParsedDocComment objects, supporting both C#-style XML documentation
+ *           and C++-style Doxygen command syntax.
+ *
+ *  Architecture Role:
+ *    The parsing layer between the raw text extracted by the tagger and the
+ *    visual control that renders it. Converts comment strings into a rich data
+ *    model with typed fields (summary, remarks, params, exceptions, etc.) and
+ *    intermediate token strings for inline markup ([CODE], [LINK], [BOLD], etc.)
+ *    that DocCommentControl.Tokenise() later renders as WPF Inline elements.
+ *
+ *  Key Classes (Data Models):
+ *    ParsedDocComment      — Root data model containing all extracted fields.
+ *    ParamEntry            — Parameter/type parameter: Name, Description,
+ *                            Direction (C++ [in]/[out]/[in,out]).
+ *    ExceptionEntry        — Exception: Type, FullCref, Description.
+ *    SeeAlsoEntry          — Cross-reference: Label, Cref, Href.
+ *    InheritDocEntry       — InheritDoc: optional Cref target.
+ *    IncludeEntry          — External file reference: File, Path (XPath).
+ *    RetValEntry           — C++ return value: Name, Description.
+ *    DocCommentLanguage    — Enum: CSharp, Cpp (parser style hint).
+ *
+ *  Key Classes (Parser):
+ *    DocCommentParser  [static class] — Main parser with two sub-parsers:
+ *                                       ParseCSharp (XML) and ParseCpp
+ *                                       (Doxygen).
+ *
+ *  Dependencies:
+ *    • System.Xml.Linq (XDocument, XElement) — XML parsing.
+ *    • System.Text.RegularExpressions — Pattern matching.
+ *    • DocCommentControl.cs — Consumes the token strings produced here.
+ *    • DocCommentAdornmentTagger.cs — Calls Parse() for each doc-comment block.
+ *
+ *  When to Edit:
+ *    • Adding support for a new XML tag (e.g., a new C# documentation tag) —
+ *      extend ParseCSharp and ReadInnerMixed.
+ *    • Adding support for a new Doxygen command — extend ParseCpp command
+ *      dispatch and _doxygenTagDetect regex.
+ *    • Adding a new inline markup token type — extend ReadInnerMixed and
+ *      DocCommentControl.Tokenise().
+ *    • Changing how cref references are simplified — modify SimplifyCref().
+ *    • Fixing parsed content missing or wrong text — check the relevant
+ *      parser extraction logic.
+ *    • Handling additional C++ comment prefix styles — modify
+ *      StripCppLinePrefix().
+ * ═══════════════════════════════════════════════════════════════════════════════ */
 using System;
 using System.Collections.Generic;
 using System.Linq;

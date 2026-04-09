@@ -1,3 +1,34 @@
+/* ═══════════════════════════════════════════════════════════════════════════════
+ *  File:    DocCommentAdornmentTaggerProvider.cs
+ *  Purpose: MEF-exported factory that supplies DocCommentAdornmentTagger
+ *           instances to Visual Studio text views for supported programming
+ *           languages.
+ *
+ *  Architecture Role:
+ *    Implements IViewTaggerProvider — the entry point through which the VS
+ *    editor infrastructure requests a tagger when a document view is opened.
+ *    Discovered by MEF via [Export] and filtered by content type, tag type,
+ *    and text view role attributes.
+ *
+ *  Key Classes:
+ *    DocCommentAdornmentTaggerProvider  — IViewTaggerProvider implementation;
+ *                                         creates taggers on demand.
+ *
+ *  Dependencies:
+ *    • DocCommentAdornmentTagger.cs  — Creates the singleton tagger instance.
+ *    • DocCommentAdornmentTag.cs     — Uses IEditorFormatMap for theme colors.
+ *    • Microsoft.VisualStudio.Utilities  (ContentType, TagType, TextViewRole
+ *      attributes).
+ *
+ *  When to Edit:
+ *    • Adding support for a new programming language — add a [ContentType]
+ *      attribute.
+ *    • Changing the tag type (e.g., switching from IntraTextAdornmentTag to a
+ *      custom tag type).
+ *    • Modifying how the format map is initialized or injecting additional
+ *      services into the view.
+ *    • Changing the singleton key or tagger lifecycle management.
+ * ═══════════════════════════════════════════════════════════════════════════════ */
 using System.ComponentModel.Composition;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Classification;

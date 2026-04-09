@@ -1,3 +1,40 @@
+/* ═══════════════════════════════════════════════════════════════════════════════
+ *  File:    DocCommentAdornmentTagger.cs
+ *  Purpose: The central tagging engine that scans the text buffer, detects
+ *           documentation comment blocks, parses them, resolves cross-references
+ *           (inheritdoc/include), and produces IntraTextAdornmentTag instances
+ *           that the VS editor renders as formatted documentation.
+ *
+ *  Architecture Role:
+ *    Implements ITagger<IntraTextAdornmentTag> — the core workhorse of the
+ *    rendering pipeline. It is instantiated once per buffer by
+ *    DocCommentAdornmentTaggerProvider and subscribed to buffer changes, caret
+ *    movements, layout updates, view closure, and settings broadcasts.
+ *
+ *  Key Classes:
+ *    DocCommentAdornmentTagger  — ITagger implementation; manages the three-pass
+ *                                 analysis pipeline and tag caching.
+ *
+ *  Dependencies:
+ *    • DocCommentParser.cs          — Parses raw comment text.
+ *    • DocCommentAdornmentTag.cs    — Creates the adornment tag with control.
+ *    • DocCommentToggleState.cs     — (in DocCommentGlyphFactory.cs) Checks
+ *      hidden state in glyph mode.
+ *    • RenderDocOptions.cs          — RenderEnabled, EffectiveGlyphToggle,
+ *      font/color settings.
+ *    • SettingsChangedBroadcast.cs  — Listens for settings/theme changes.
+ *    • LicenseManager.cs            — (indirectly via options).
+ *
+ *  When to Edit:
+ *    • Comments render when they should not (or vice versa) — modify GetTags()
+ *      filtering logic.
+ *    • Adding support for a new documentation comment syntax — add regex and
+ *      update BuildTags() line scanning.
+ *    • Adding support for a new language — extend GetLanguage(), add member
+ *      name regex, update BuildTags() parser selection.
+ *    • Changing <inheritdoc> or <include> resolution behavior.
+ *    • Modifying tag caching or invalidation strategy.
+ * ═══════════════════════════════════════════════════════════════════════════════ */
 using System;
 using System.Collections.Generic;
 using System.IO;

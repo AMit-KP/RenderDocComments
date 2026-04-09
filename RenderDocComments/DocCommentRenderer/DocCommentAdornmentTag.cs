@@ -1,3 +1,37 @@
+/* ═══════════════════════════════════════════════════════════════════════════════
+ *  File:    DocCommentAdornmentTag.cs
+ *  Purpose: Creates the intra-text adornment tag that wraps the DocCommentControl
+ *           (the primary WPF rendering control) and injects theme-aware colors,
+ *           font settings, and brush configurations.
+ *
+ *  Architecture Role:
+ *    Sits between the tagger (which detects doc comments) and the control (which
+ *    renders them). The tagger instantiates this tag for each documentation
+ *    comment span; the tag's constructor extracts theme colors from the VS
+ *    IEditorFormatMap, builds all required brushes, and passes them to
+ *    DocCommentControl.
+ *
+ *  Key Classes:
+ *    DocCommentAdornmentTag  — Inherits from IntraTextAdornmentTag; creates and
+ *                              configures a DocCommentControl instance.
+ *
+ *  Dependencies:
+ *    • DocCommentControl.cs       — Creates the control instance.
+ *    • DocCommentParser.cs        — Consumes ParsedDocComment data model.
+ *    • RenderDocOptions.cs        — Reads EffectiveFontFamily, gradient stops,
+ *      and color settings (premium-aware via LicenseManager.PremiumUnlocked).
+ *    • LicenseManager.cs          — Checks PremiumUnlocked for summary color.
+ *    • Microsoft.VisualStudio.Text.Classification (IEditorFormatMap,
+ *      EditorFormatDefinition).
+ *
+ *  When to Edit:
+ *    • Adding a new brush/color that DocCommentControl needs (e.g., a new
+ *      section type).
+ *    • Changing how theme colors are extracted from VS format map.
+ *    • Modifying font size/family resolution logic.
+ *    • Switching the control type from DocCommentControl to a different WPF
+ *      element.
+ * ═══════════════════════════════════════════════════════════════════════════════ */
 using System.Windows;
 using System.Windows.Media;
 using Microsoft.VisualStudio.Text;
