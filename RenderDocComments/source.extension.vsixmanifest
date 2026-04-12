@@ -3,7 +3,7 @@
                  xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
     <Metadata>
         <Identity Id="RenderDocComments.f3a2b1c0-1234-5678-abcd-ef0123456789"
-                  Version="1.4.4"
+                  Version="1.5.7"
                   Language="en-US"
                   Publisher="AMit-KP" />
         <DisplayName>Render Doc Comments</DisplayName>

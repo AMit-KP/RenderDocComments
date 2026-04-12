@@ -177,7 +177,20 @@ namespace RenderDocComments.DocCommentRenderer
                 wpfView.Properties.AddProperty(typeof(Microsoft.VisualStudio.Text.Classification.IEditorFormatMap), map);
             }
 
-            return buffer.Properties.GetOrCreateSingletonProperty(
+            // Key the tagger singleton on the VIEW (not the buffer) so that each
+            // IWpfTextView — including both sides of a git-diff window and the
+            // normal editor tab — gets its own DocCommentAdornmentTagger instance.
+            //
+            // Keying on the buffer was the source of the "blank adornment" bug:
+            // when a git-diff view opened the same ITextBuffer, the existing tagger
+            // (bound to the original view's viewport/events) was reused unchanged.
+            // Returning to the normal tab then served stale DocCommentControl
+            // instances sized for the diff viewport, producing empty white space.
+            //
+            // Using the view as the singleton scope means every view gets a fresh
+            // tagger bound to its own LayoutChanged / Caret / Closed events and
+            // its own ViewportWidth, so controls are always sized correctly.
+            return wpfView.Properties.GetOrCreateSingletonProperty(
                 typeof(DocCommentAdornmentTagger),
                 () => new DocCommentAdornmentTagger(buffer, wpfView))
                 as ITagger<T>;
