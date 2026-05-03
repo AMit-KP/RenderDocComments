@@ -1970,8 +1970,14 @@ namespace RenderDocComments.DocCommentRenderer
         /// </remarks>
         private void OnLayoutChanged(object sender, Microsoft.VisualStudio.Text.Editor.TextViewLayoutChangedEventArgs e)
         {
-            if (e.NewViewState.ViewportWidth != e.OldViewState.ViewportWidth
-                || e.NewViewState.ViewportHeight != e.OldViewState.ViewportHeight)
+            bool widthChanged = e.NewViewState.ViewportWidth != e.OldViewState.ViewportWidth;
+            bool heightChanged = e.NewViewState.ViewportHeight != e.OldViewState.ViewportHeight;
+
+            // In fixed-width mode, viewport width changes don't affect rendered width
+            if (widthChanged && RenderDocOptions.Instance.EffectiveUseFixedWidth)
+                widthChanged = false;
+
+            if (widthChanged || heightChanged)
             {
                 _cachedSnapshot = null;
                 _cachedTags = null;

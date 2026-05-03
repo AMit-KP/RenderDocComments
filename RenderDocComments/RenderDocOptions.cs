@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Windows.Media;
 using Microsoft.VisualStudio.Settings;
 using Microsoft.VisualStudio.Shell.Settings;
@@ -181,7 +182,34 @@ namespace RenderDocComments
         /// </summary>
         public bool BorderBottom { get; set; } = false;
 
-        // -- Colours (Premium 5) --
+        // -- Width (Premium 5) --
+
+        /// <summary>
+        /// Gets or sets whether to use a fixed maximum width for rendered documentation controls<br/>
+        /// instead of filling the available viewport width minus indentation. Requires Premium.
+        /// </summary>
+        /// <remarks>
+        /// <para>When enabled and Premium is unlocked, <see cref="FixedWidth"/> acts as a cap on the control width,<br/>
+        /// preventing overly wide layouts in large viewports. The control still respects the viewport edge<br/>
+        /// via <see cref="EffectiveWidth"/> — it never exceeds <c>viewportWidth - indentWidth</c>.</para>
+        /// <para>When disabled (or Premium is locked), the control uses the full available width:<br/>
+        /// <c>Math.Max(200.0, viewportWidth - indentWidth)</c>.</para>
+        /// <para>Default value: <c>false</c> (free behavior — responsive width).</para>
+        /// </remarks>
+        public bool UseFixedWidth { get; set; } = false;
+
+        /// <summary>
+        /// Gets or sets the fixed width in WPF device-independent pixels used when <see cref="UseFixedWidth"/> is <c>true</c>.<br/>
+        /// Default: <c>700.0</c>. Clamped to <c>[200.0, 10000.0]</c> on read via <see cref="ClampedFixedWidth"/>.
+        /// </summary>
+        public double FixedWidth { get; set; } = 700.0;
+
+        /// <summary>
+        /// Gets the <see cref="FixedWidth"/> value clamped to the valid range <c>[200.0, 10000.0]</c>.
+        /// </summary>
+        private double ClampedFixedWidth => Math.Max(200.0, Math.Min(10000.0, FixedWidth));
+
+        // -- Colours (Premium 6) --
 
         /// <summary>
         /// Gets or sets the ARGB color value for code block text (inline and block code).<br/>
@@ -252,6 +280,12 @@ namespace RenderDocComments
         /// Returns <c>true</c> only if Premium is unlocked AND <see cref="GlyphToggleEnabled"/> is enabled.
         /// </summary>
         public bool EffectiveGlyphToggle => Premium && GlyphToggleEnabled;
+
+        /// <summary>
+        /// Gets the effective value for the fixed width feature, respecting the Premium gate.<br/>
+        /// Returns <c>true</c> only if Premium is unlocked AND <see cref="UseFixedWidth"/> is enabled.
+        /// </summary>
+        public bool EffectiveUseFixedWidth => Premium && UseFixedWidth;
 
         /// <summary>
         /// Gets the effective font family for rendered documentation.<br/>
@@ -340,6 +374,20 @@ namespace RenderDocComments
         /// </summary>
         public Color EffectiveGradientStop2 => Premium ? ToColor(GradientStop2) : Color.FromArgb(0x50, 0x50, 0x28, 0x96);
 
+        /// <summary>
+        /// Computes the effective control width based on the current viewport and indentation.<br/>
+        /// When <see cref="UseFixedWidth"/> is <c>true</c> and Premium is unlocked, caps the result at <see cref="ClampedFixedWidth"/>.<br/>
+        /// Otherwise, returns <c>Math.Max(200.0, viewportWidth - indentWidth)</c>.
+        /// </summary>
+        /// <param name="viewportWidth">The current editor viewport width in WPF DIPs.</param>
+        /// <param name="indentWidth">The horizontal indentation width in WPF DIPs.</param>
+        /// <returns>The width to use for the rendered documentation control.</returns>
+        public double EffectiveWidth(double viewportWidth, double indentWidth)
+        {
+            if (Premium && UseFixedWidth) return ClampedFixedWidth;
+            return Math.Max(200.0, viewportWidth - indentWidth);
+        }
+
         // ── Persistence ───────────────────────────────────────────────────────────
 
         /// <summary>
@@ -387,6 +435,9 @@ namespace RenderDocComments
                 BorderTop = ReadBool(store, nameof(BorderTop), BorderTop);
                 BorderRight = ReadBool(store, nameof(BorderRight), BorderRight);
                 BorderBottom = ReadBool(store, nameof(BorderBottom), BorderBottom);
+
+                UseFixedWidth = ReadBool(store, nameof(UseFixedWidth), UseFixedWidth);
+                FixedWidth = ReadDouble(store, nameof(FixedWidth), FixedWidth);
 
                 ColorCodeFg = ReadInt(store, nameof(ColorCodeFg), ColorCodeFg);
                 ColorSummaryFg = ReadInt(store, nameof(ColorSummaryFg), ColorSummaryFg);
@@ -443,6 +494,8 @@ namespace RenderDocComments
                 store.SetBoolean(CollectionPath, nameof(BorderTop), BorderTop);
                 store.SetBoolean(CollectionPath, nameof(BorderRight), BorderRight);
                 store.SetBoolean(CollectionPath, nameof(BorderBottom), BorderBottom);
+                store.SetBoolean(CollectionPath, nameof(UseFixedWidth), UseFixedWidth);
+                store.SetString(CollectionPath, nameof(FixedWidth), FixedWidth.ToString(CultureInfo.InvariantCulture));
 
                 store.SetInt32(CollectionPath, nameof(ColorCodeFg), ColorCodeFg);
                 store.SetInt32(CollectionPath, nameof(ColorSummaryFg), ColorSummaryFg);
@@ -499,6 +552,35 @@ namespace RenderDocComments
             => store.PropertyExists(CollectionPath, name)
                ? store.GetInt32(CollectionPath, name)
                : fallback;
+
+        /// <summary>
+        /// Reads a double property from the settings store, falling back to a default value<br/>
+        /// if the property doesn't exist (first run or corrupted settings).
+        /// </summary>
+        /// <param name="store">
+        /// The read-only settings store to read from.
+        /// </param>
+        /// <param name="name">
+        /// The property name within the <see cref="CollectionPath"/> collection.
+        /// </param>
+        /// <param name="fallback">
+        /// The default value to return if the property doesn't exist in the store.
+        /// </param>
+        /// <returns>
+        /// The stored double value if the property exists; otherwise, <paramref name="fallback"/>.
+        /// </returns>
+        private double ReadDouble(SettingsStore store, string name, double fallback)
+        {
+            if (store.PropertyExists(CollectionPath, name))
+            {
+                string value = store.GetString(CollectionPath, name);
+                if (double.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out double result))
+                {
+                    return result;
+                }
+            }
+            return fallback;
+        }
 
         /// <summary>
         /// Sets the Premium unlocked state. Called by <see cref="LicenseManager"/> during<br/>

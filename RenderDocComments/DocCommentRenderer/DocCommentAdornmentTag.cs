@@ -174,7 +174,7 @@ namespace RenderDocComments.DocCommentRenderer
                 sectionBrush,
                 gradBrush,
                 ff, fs,
-                view.ViewportWidth,
+                opts.EffectiveWidth(view.ViewportWidth, indentWidth),
                 indentWidth);
         }
     }

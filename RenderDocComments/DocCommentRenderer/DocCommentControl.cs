@@ -226,7 +226,15 @@ namespace RenderDocComments.DocCommentRenderer
             _editorFont = editorFont;
             _monoFont = new FontFamily("Cascadia Mono, Consolas, Courier New");
             _fontSize = fontSize;
-            _contentMaxWidth = (viewportWidth - indentWidth - 32) * 0.60;
+
+            if (RenderDocOptions.Instance.EffectiveUseFixedWidth)
+            {
+                _contentMaxWidth = viewportWidth;
+            }
+            else
+            {
+                _contentMaxWidth = (viewportWidth - indentWidth - 32) * 0.60;
+            }
 
             bool isDark = GetLuminance(background) < 0.4;
 
@@ -340,9 +348,13 @@ namespace RenderDocComments.DocCommentRenderer
 
             var outerGrid = new Grid
             {
-                MaxWidth = _contentMaxWidth,
                 HorizontalAlignment = HorizontalAlignment.Left
             };
+
+            if (opts.EffectiveUseFixedWidth)
+                outerGrid.Width = _contentMaxWidth;
+            else
+                outerGrid.MaxWidth = _contentMaxWidth;
 
             // Column layout: left-bar | gap | content | gap | right-bar
             outerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(left > 0 ? left : 0) });

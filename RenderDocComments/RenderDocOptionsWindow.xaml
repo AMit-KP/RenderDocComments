@@ -174,8 +174,6 @@
 				Content="Enable doc comment rendering"
 				Unchecked="OnSettingChanged" />
 
-			<Separator Margin="0,8,0,0" Background="#444" />
-
 			<!--  ══ Premium section  -->
 			<StackPanel Orientation="Horizontal">
 				<TextBlock
@@ -204,14 +202,6 @@
 
 			<StackPanel x:Name="PremiumOptionsPanel" Margin="0,0,0,6">
 
-				<!--  Auto theme refresh  -->
-				<TextBlock Style="{StaticResource SectionHeader}" Text="Theme Auto-Refresh" />
-				<CheckBox
-					x:Name="AutoRefreshCheck"
-					Checked="OnSettingChanged"
-					Content="Auto-refresh colours when VS colour theme changes"
-					Unchecked="OnSettingChanged" />
-
 				<!--  Glyph toggle  -->
 				<TextBlock Style="{StaticResource SectionHeader}" Text="Margin Glyph Toggle" />
 				<StackPanel Margin="6,4,6,6">
@@ -226,6 +216,30 @@
 						Checked="OnToggleModeChanged"
 						Content="Margin glyph button (Premium) — click to toggle per comment"
 						Foreground="#D4D4D4" />
+				</StackPanel>
+
+				<!--  Auto theme refresh  -->
+				<TextBlock Style="{StaticResource SectionHeader}" Text="Theme Auto-Refresh" />
+				<CheckBox
+					x:Name="AutoRefreshCheck"
+					Checked="OnSettingChanged"
+					Content="Auto-refresh colours when VS colour theme changes"
+					Unchecked="OnSettingChanged" />
+
+				<!--  Fixed width  -->
+				<TextBlock Style="{StaticResource SectionHeader}" Text="Comment Width" />
+				<CheckBox
+					x:Name="UseFixedWidthCheck"
+					Checked="OnFixedWidthChanged"
+					Content="Use fixed width"
+					Unchecked="OnFixedWidthChanged" />
+				<StackPanel Margin="20,2,0,6" Orientation="Horizontal">
+					<TextBlock Style="{StaticResource OptionLabel}" Text="Fixed width (px):" />
+					<TextBox
+						x:Name="FixedWidthText"
+						Width="70"
+						TextAlignment="Left"
+						TextChanged="OnFixedWidthTextChanged" />
 				</StackPanel>
 
 				<!--  Font  -->

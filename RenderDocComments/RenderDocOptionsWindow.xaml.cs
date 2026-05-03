@@ -43,6 +43,9 @@ namespace RenderDocComments
                     _colorLink, _colorSectionLabel,
                     _colorGrad0, _colorGrad1, _colorGrad2;
 
+        /// <summary>Backing field for the fixed width setting.</summary>
+        private double _fixedWidth = 700.0;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="RenderDocOptionsWindow"/> class.
         /// </summary>
@@ -121,6 +124,11 @@ namespace RenderDocComments
             BorderTopCheck.IsChecked = o.BorderTop;
             BorderRightCheck.IsChecked = o.BorderRight;
             BorderBottomCheck.IsChecked = o.BorderBottom;
+
+            UseFixedWidthCheck.IsChecked = o.UseFixedWidth;
+            _fixedWidth = o.FixedWidth;
+            FixedWidthText.Text = ((int)Math.Round(_fixedWidth)).ToString();
+            UpdateFixedWidthEnabled();
 
             _colorCodeFg = o.ColorCodeFg;
             _colorSummaryFg = o.ColorSummaryFg;
@@ -309,6 +317,8 @@ namespace RenderDocComments
             o.BorderTop = BorderTopCheck.IsChecked == true;
             o.BorderRight = BorderRightCheck.IsChecked == true;
             o.BorderBottom = BorderBottomCheck.IsChecked == true;
+            o.UseFixedWidth = UseFixedWidthCheck.IsChecked == true;
+            o.FixedWidth = _fixedWidth;
             o.ColorCodeFg = _colorCodeFg;
             o.ColorSummaryFg = _colorSummaryFg;
             o.ColorParamName = _colorParamName;
@@ -374,6 +384,43 @@ namespace RenderDocComments
             var name = FontFamilyCombo.SelectedItem?.ToString() ?? "Segoe UI";
             try { FontPreviewText.FontFamily = new FontFamily(name); }
             catch { FontPreviewText.FontFamily = new FontFamily("Segoe UI"); }
+        }
+
+        // ── Fixed width ───────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Handles the UseFixedWidth checkbox toggle, updating the options and UI enabled state.
+        /// </summary>
+        private void OnFixedWidthChanged(object sender, RoutedEventArgs e)
+        {
+            if (_loading) return;
+            UpdateFixedWidthEnabled();
+            OnSettingChanged(sender, e);
+        }
+
+        /// <summary>
+        /// Handles text changes in the FixedWidth textbox, validating and parsing the input.
+        /// </summary>
+        private void OnFixedWidthTextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (_loading) return;
+            var text = FixedWidthText.Text.Trim();
+            if (int.TryParse(text, out int val))
+            {
+                val = Math.Max(200, Math.Min(10000, val));
+                _fixedWidth = val;
+                OnSettingChanged(sender, null);
+            }
+        }
+
+        /// <summary>
+        /// Enables or disables the FixedWidth textbox based on the UseFixedWidth checkbox state.
+        /// </summary>
+        private void UpdateFixedWidthEnabled()
+        {
+            bool enabled = UseFixedWidthCheck.IsChecked == true;
+            FixedWidthText.IsEnabled = enabled;
+            FixedWidthText.Opacity = enabled ? 1.0 : 0.45;
         }
 
         // ── Swatches ──────────────────────────────────────────────────────────────
@@ -701,6 +748,7 @@ namespace RenderDocComments
             o.GlyphToggleEnabled = false;
             o.CustomFontFamily = "Segoe UI";
             o.BorderLeft = true; o.BorderTop = false; o.BorderRight = false; o.BorderBottom = false;
+            o.UseFixedWidth = false; o.FixedWidth = 700.0;
             o.ColorCodeFg = unchecked((int)0xFFCE9178);
             o.ColorSummaryFg = unchecked((int)0xFFD4D4D4);
             o.ColorParamName = unchecked((int)0xFF9CDCFE);
