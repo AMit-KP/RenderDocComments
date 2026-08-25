@@ -93,6 +93,7 @@ namespace RenderDocComments
             RenderDocOptions.Instance.Load(this);
 
             await RenderDocOptionsCommand.InitializeAsync(this);
+            await RenderDocToggleCommand.InitializeAsync(this);
 
             await LicenseManager.RevalidateOnStartupAsync(this).ConfigureAwait(true);
 

@@ -63,6 +63,7 @@
     <Compile Include="LicenseManager.cs" />
     <Compile Include="SettingsChangedBroadcast.cs" />
     <Compile Include="RenderDocOptionsCommand.cs" />
+    <Compile Include="RenderDocToggleCommand.cs" />
     <Compile Include="RenderDocOptionsWindow.xaml.cs">
       <DependentUpon>RenderDocOptionsWindow.xaml</DependentUpon>
     </Compile>
@@ -118,6 +119,10 @@
   <ItemGroup>
     <Content Include="Assets\icon.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Resource Include="Assets\icon.svg" />
+    <Content Include="RenderDocIcons.imagemanifest">
       <IncludeInVSIX>true</IncludeInVSIX>
     </Content>
     <Content Include="Assets\LICENSE.txt">

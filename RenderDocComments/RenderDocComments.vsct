@@ -6,6 +6,18 @@
   <Extern href="vsshlids.h"/>
 
   <Commands package="guidRenderDocPackage">
+    <Groups>
+      <!-- Group on the Standard toolbar -->
+      <Group guid="guidRenderDocCommandSet" id="MyToolbarGroup" priority="0x0600">
+        <Parent guid="guidSHLMainMenu" id="IDM_VS_TOOL_STANDARD"/>
+      </Group>
+      
+      <!-- Group on the Editor Context Menu -->
+      <Group guid="guidRenderDocCommandSet" id="MyContextMenuGroup" priority="0x0600">
+        <Parent guid="guidSHLMainMenu" id="IDM_VS_CTXT_CODEWIN"/>
+      </Group>
+    </Groups>
+
     <Buttons>
       <Button guid="guidRenderDocCommandSet" id="cmdidRenderDocOptions"
               priority="0x0100" type="Button">
@@ -14,8 +26,24 @@
           <ButtonText>Render Doc Options</ButtonText>
         </Strings>
       </Button>
+
+      <Button guid="guidRenderDocCommandSet" id="cmdidToggleRenderPerFile"
+              priority="0x0100" type="Button">
+        <Parent guid="guidRenderDocCommandSet" id="MyToolbarGroup"/>
+        <CommandFlag>TextOnly</CommandFlag>
+        <Strings>
+          <ButtonText>Render Doc Comments for this file</ButtonText>
+          <ToolTipText>Toggle Doc Rendering for this file</ToolTipText>
+        </Strings>
+      </Button>
     </Buttons>
-  </Commands>
+    </Commands>
+
+    <CommandPlacements>
+    <CommandPlacement guid="guidRenderDocCommandSet" id="cmdidToggleRenderPerFile" priority="0x0100">
+      <Parent guid="guidRenderDocCommandSet" id="MyContextMenuGroup"/>
+    </CommandPlacement>
+  </CommandPlacements>
 
   <Symbols>
     <!-- This GUID must match PackageGuidString in RenderDocCommentsPackage.cs -->
@@ -26,6 +54,9 @@
     <GuidSymbol name="guidRenderDocCommandSet"
                 value="{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}">
       <IDSymbol name="cmdidRenderDocOptions" value="0x0100"/>
+      <IDSymbol name="cmdidToggleRenderPerFile" value="0x0101"/>
+      <IDSymbol name="MyToolbarGroup" value="0x1020"/>
+      <IDSymbol name="MyContextMenuGroup" value="0x1030"/>
     </GuidSymbol>
   </Symbols>
 

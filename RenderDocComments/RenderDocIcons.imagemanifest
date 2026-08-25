@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ImageManifest xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns="http://schemas.microsoft.com/VisualStudio/ImageManifestSchema/2014">
+  <Symbols>
+    <String Name="Resources" Value="/RenderDocComments;component/Assets" />
+    <Guid Name="guidImages" Value="{B1B2C3D4-E5F6-7890-ABCD-EF1234567891}" />
+    <ID Name="bmpPic1" Value="1" />
+  </Symbols>
+  <Images>
+    <Image Guid="$(guidImages)" ID="$(bmpPic1)">
+      <Source Uri="$(Resources)/icon.svg" />
+    </Image>
+  </Images>
+  <ImageLists />
+</ImageManifest>

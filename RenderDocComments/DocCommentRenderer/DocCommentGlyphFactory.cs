@@ -225,6 +225,10 @@ namespace RenderDocComments.DocCommentRenderer
         {
             if (!RenderDocOptions.Instance.EffectiveGlyphToggle) yield break;
 
+            // Per-file override
+            if (_buffer.Properties.TryGetProperty("RenderDocComments_Disabled", out bool disabled) && disabled)
+                yield break;
+
             var snapshot = spans[0].Snapshot;
             int lineCount = snapshot.LineCount;
             int i = 0;

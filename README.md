@@ -68,6 +68,7 @@ From here, you can toggle between **Caret-based hiding** and **Margin Glyph cont
 | **Interactive `cref` Links** | ✅ | ✅ |
 | **Caret-Based Auto-Hide** | ✅ (Always On) | **🔘 Selectable** |
 | **Margin Glyph Toggle** | ❌ | **🔘 Selectable** |
+| **Per-File Toggle (Toolbar Button & Context Menu)** | ✅ | ✅ |
 | **Theme Synchronization** | Manual (Reopen) | **⚡ Instant Auto-Sync** |
 | **Typography** | Segoe UI (Fixed) | **🎨 Fully Custom** |
 | **Accent Bars** | Left Side Only | **🔥 Multi-side Layout** |

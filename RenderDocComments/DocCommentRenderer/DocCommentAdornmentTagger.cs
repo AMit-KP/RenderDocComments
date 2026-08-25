@@ -177,6 +177,10 @@ namespace RenderDocComments.DocCommentRenderer
             if (_forceEmpty) yield break;
             if (!RenderDocOptions.Instance.RenderEnabled) yield break;
 
+            // Per-file override
+            if (_buffer.Properties.TryGetProperty("RenderDocComments_Disabled", out bool disabled) && disabled)
+                yield break;
+
             var snapshot = spans[0].Snapshot;
             var tags = GetOrBuildTags(snapshot);
 
