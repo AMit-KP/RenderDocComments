@@ -1770,6 +1770,11 @@ namespace RenderDocComments.DocCommentRenderer
         /// The <see cref="XElement"/> to read. Can be any XML documentation element<br/>
         /// (<c>&lt;summary&gt;</c>, <c>&lt;remarks&gt;</c>, <c>&lt;param&gt;</c>, <c>&lt;c&gt;</c>, <c>&lt;see&gt;</c>, etc.).
         /// </param>
+        /// <param name="listDepth">
+        /// The current <c>&lt;list&gt;</c> nesting depth (0 = top level). Each level increases<br/>
+        /// the indentation of emitted list items and switches to a smaller bullet glyph,<br/>
+        /// mirroring the Visual Studio built-in doc-comment rendering.
+        /// </param>
         /// <returns>
         /// A string containing the element's content with all inline markup converted to tokens:
         /// <list type="bullet">
@@ -1782,7 +1787,8 @@ namespace RenderDocComments.DocCommentRenderer
         /// <item><description><c>&lt;typeparamref name="..."/&gt;</c> → <c>[PARAMREF]name[/PARAMREF]</c>.</description></item>
         /// <item><description><c>&lt;para&gt;</c> → <c>\n\n</c> prefix + recursive content.</description></item>
         /// <item><description><c>&lt;br/&gt;</c> → <c>\n</c> (line break).</description></item>
-        /// <item><description><c>&lt;list&gt;</c> → Bullet/numbered list with terms and descriptions.</description></item>
+        /// <item><description><c>&lt;list&gt;</c> → Bullet/numbered list with terms and descriptions;<br/>
+        /// nested lists are indented one level deeper than their parent item.</description></item>
         /// <item><description><c>&lt;b&gt;</c>/<c>&lt;strong&gt;</c> → <c>[BOLD]content[/BOLD]</c>.</description></item>
         /// <item><description><c>&lt;i&gt;</c>/<c>&lt;em&gt;</c> → <c>[ITALIC]content[/ITALIC]</c>.</description></item>
         /// <item><description><c>&lt;u&gt;</c> → <c>[UNDERLINE]content[/UNDERLINE]</c>.</description></item>
@@ -1801,7 +1807,7 @@ namespace RenderDocComments.DocCommentRenderer
         /// <para>Nested formatting is fully supported — e.g., <c>&lt;b&gt;&lt;i&gt;text&lt;/i&gt;&lt;/b&gt;</c> produces<br/>
         /// <c>[BOLD][ITALIC]text[/ITALIC][/BOLD]</c> through recursive invocation.</para>
         /// </remarks>
-        internal static string ReadInnerMixed(XElement el)
+        internal static string ReadInnerMixed(XElement el, int listDepth = 0)
         {
             if (el == null) return null;
 
@@ -1876,7 +1882,7 @@ namespace RenderDocComments.DocCommentRenderer
                             // ── para ──────────────────────────────────────────────
                             case "para":
                                 sb.Append("\n\n");
-                                sb.Append(ReadInnerMixed(child));
+                                sb.Append(ReadInnerMixed(child, listDepth));
                                 break;
 
                             // ── br ────────────────────────────────────────────────
@@ -1887,62 +1893,99 @@ namespace RenderDocComments.DocCommentRenderer
                             // ── list ──────────────────────────────────────────────
                             case "list":
                                 var listType = child.Attribute("type")?.Value ?? "bullet";
+                                // Each nesting level indents further and uses a smaller
+                                // glyph, mirroring VS's built-in doc-comment rendering.
+                                var ind = new string(' ', 2 + listDepth * 4);
+                                var bulletGlyph = listDepth == 0 ? "•"
+                                    : listDepth == 1 ? "◦" : "▪";
                                 var header = child.Element("listheader");
                                 if (header != null)
                                 {
                                     var ht = header.Element("term")?.Value
-                                             ?? ReadInnerMixed(header);
+                                             ?? ReadInnerMixed(header, listDepth);
                                     if (!string.IsNullOrEmpty(ht))
-                                        sb.Append($"\n  {ht}");
+                                        sb.Append($"\n{ind}{ht}");
                                 }
                                 int listIdx = 1;
                                 foreach (var item in child.Elements("item"))
                                 {
                                     var termEl = item.Element("term");
                                     var descEl = item.Element("description");
-                                    var term = termEl != null ? ReadInnerMixed(termEl) : null;
+                                    var term = termEl != null ? ReadInnerMixed(termEl, listDepth + 1) : null;
                                     var desc = descEl != null
-                                        ? ReadInnerMixed(descEl) : item.Value;
+                                        ? ReadInnerMixed(descEl, listDepth + 1) : item.Value;
+
+                                    // A description opening directly with a nested <list> had its
+                                    // leading newline eaten by the recursive reader's Trim(), so
+                                    // inspect the source nodes to keep the parent bullet on its
+                                    // own line with the children indented beneath.
+                                    var opensWithList = false;
+                                    if (descEl != null)
+                                        foreach (var n in descEl.Nodes())
+                                        {
+                                            if (n is XText ws && string.IsNullOrWhiteSpace(ws.Value)) continue;
+                                            opensWithList = n is XElement first
+                                                && first.Name.LocalName.Equals("list",
+                                                    StringComparison.OrdinalIgnoreCase);
+                                            break;
+                                        }
+
                                     var bullet = listType == "number"
-                                        ? $"{listIdx}." : "•";
-                                    sb.Append(term != null
-                                        ? $"\n  {bullet} {term}: {desc}"
-                                        : $"\n  {bullet} {desc}");
+                                        ? $"{listIdx}." : bulletGlyph;
+                                    if (term != null)
+                                    {
+                                        sb.Append($"\n{ind}{bullet} {term}: {desc}");
+                                    }
+                                    else if (string.IsNullOrEmpty(desc))
+                                    {
+                                        sb.Append($"\n{ind}{bullet}");
+                                    }
+                                    else if (opensWithList)
+                                    {
+                                        // Re-add the child-level indent the recursive
+                                        // reader's Trim() stripped from the first line.
+                                        var childInd = new string(' ', 2 + (listDepth + 1) * 4);
+                                        sb.Append($"\n{ind}{bullet}\n{childInd}{desc}");
+                                    }
+                                    else
+                                    {
+                                        sb.Append($"\n{ind}{bullet} {desc}");
+                                    }
                                     listIdx++;
                                 }
                                 break;
 
                             // ── value ─────────────────────────────────────────────
                             case "value":
-                                sb.Append(ReadInnerMixed(child));
+                                sb.Append(ReadInnerMixed(child, listDepth));
                                 break;
 
                             // ── pre — preformatted block, recurse to honour inner tags ──
                             case "pre":
-                                sb.Append(ReadInnerMixed(child));
+                                sb.Append(ReadInnerMixed(child, listDepth));
                                 break;
 
                             // ── bold ──────────────────────────────────────────────
                             case "b":
                             case "strong":
-                                sb.Append($"[BOLD]{ReadInnerMixed(child)}[/BOLD]");
+                                sb.Append($"[BOLD]{ReadInnerMixed(child, listDepth)}[/BOLD]");
                                 break;
 
                             // ── italic ────────────────────────────────────────────
                             case "i":
                             case "em":
-                                sb.Append($"[ITALIC]{ReadInnerMixed(child)}[/ITALIC]");
+                                sb.Append($"[ITALIC]{ReadInnerMixed(child, listDepth)}[/ITALIC]");
                                 break;
 
                             // ── underline ─────────────────────────────────────────
                             case "u":
-                                sb.Append($"[UNDERLINE]{ReadInnerMixed(child)}[/UNDERLINE]");
+                                sb.Append($"[UNDERLINE]{ReadInnerMixed(child, listDepth)}[/UNDERLINE]");
                                 break;
 
                             // ── strikethrough ─────────────────────────────────────
                             case "s":
                             case "strike":
-                                sb.Append($"[STRIKE]{ReadInnerMixed(child)}[/STRIKE]");
+                                sb.Append($"[STRIKE]{ReadInnerMixed(child, listDepth)}[/STRIKE]");
                                 break;
 
                             default:
