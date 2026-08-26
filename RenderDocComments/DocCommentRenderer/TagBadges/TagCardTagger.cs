@@ -196,17 +196,22 @@ namespace RenderDocComments.DocCommentRenderer.TagBadges
         private const int MaxTooltipTailLength = 200;
 
         /// <summary>
-        /// Determines whether a match is <b>anchored</b>: every character between the
-        /// start of the comment <i>content</i> and the match must be whitespace or a
-        /// block decorator (<c>*</c>). <paramref name="contentStart"/> skips the
-        /// comment opener recorded in the range (e.g. <c>//</c>, <c>'</c>, <c>/*</c>),
-        /// so tags opening the comment — or opening a line inside a block — render,
-        /// while ordinary words in prose (e.g. the "WARN" inside
-        /// <c>// WARNING: alias of WARN</c>) never do.
+        /// Determines whether a match is <b>anchored</b> — relative to the match's
+        /// OWN line inside the comment: every character from the line's first
+        /// character (or from <paramref name="contentStart"/> on the opener line,
+        /// skipping the opener itself) up to the match must be whitespace or a block
+        /// decorator (<c>*</c>). Interior block lines therefore anchor fresh after
+        /// each newline (<c>" * NOTE"</c> renders), while words following prose on
+        /// the same line (<c>"// WARNING: alias of WARN"</c>) never do.
         /// </summary>
         private static bool IsAnchored(string text, int contentStart, int matchIndex)
         {
-            for (int i = contentStart; i < matchIndex; i++)
+            int lineStart = contentStart;
+            for (int i = matchIndex - 1; i >= contentStart; i--)
+            {
+                if (text[i] == '\n') { lineStart = i + 1; break; }
+            }
+            for (int i = lineStart; i < matchIndex; i++)
             {
                 char c = text[i];
                 if (char.IsWhiteSpace(c) || c == '*') continue;
