@@ -624,6 +624,7 @@ namespace RenderDocComments.DocCommentRenderer.TagBadges
                     ? TagBadgeCatalog.GetDescription(canonicalNames[0])
                     : tooltipTail,
                 Foreground = themeFg,
+                FontWeight = FontWeights.SemiBold,
                 TextWrapping = TextWrapping.Wrap,
                 TextTrimming = TextTrimming.CharacterEllipsis,
                 MaxHeight = MaxDescriptionLines * lineHeight,
