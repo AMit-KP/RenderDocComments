@@ -187,6 +187,12 @@
 					Content="Enable doc comment rendering"
 					Unchecked="OnSettingChanged" />
 
+				<CheckBox
+					x:Name="TagBadgesCheck"
+					Checked="OnSettingChanged"
+					Content="Enable comment tag cards (// TODO:, // FIXME:, …)"
+					Unchecked="OnSettingChanged" />
+
 				<!--  ══ Premium section  -->
 				<StackPanel Orientation="Horizontal">
 					<TextBlock
@@ -299,6 +305,23 @@
 							Content="Bottom"
 							Unchecked="OnSettingChanged" />
 					</StackPanel>
+
+					<!--  Comment tag cards  -->
+					<TextBlock Style="{StaticResource SectionHeader}" Text="Comment Tag Cards" />
+					<TextBlock
+						Margin="0,0,0,4"
+						FontSize="11"
+						Foreground="#888"
+						Text="Per-tag visibility and colours for plain comments (TODO, FIXME, …). WARNING is an alias of WARN."
+						TextWrapping="Wrap" />
+					<StackPanel x:Name="TagBadgeListPanel" Margin="6,0,6,4" />
+					<Button
+						HorizontalAlignment="Left"
+						Margin="6,2,0,8"
+						Padding="6,3"
+						Click="OnResetBadgeColorsClicked"
+						Content="Reset card colours to defaults"
+						Style="{StaticResource SecondaryButton}" />
 
 					<!--  Colours  -->
 					<TextBlock Style="{StaticResource SectionHeader}" Text="Colours" />

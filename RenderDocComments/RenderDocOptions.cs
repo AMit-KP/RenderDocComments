@@ -1,8 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Windows.Media;
 using Microsoft.VisualStudio.Settings;
 using Microsoft.VisualStudio.Shell.Settings;
+using RenderDocComments.DocCommentRenderer.TagBadges;
 
 namespace RenderDocComments
 {
@@ -261,6 +263,37 @@ namespace RenderDocComments
         /// </summary>
         public int GradientStop2 { get; set; } = unchecked((int)0x50502896);
 
+        // ── Comment tag cards ────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Gets or sets the master toggle for comment tag cards
+        /// (<c>// TODO:</c>, <c>// FIXME:</c>, … rendered as compact cards).
+        /// Free feature. Default: <c>true</c>.
+        /// </summary>
+        /// <remarks>
+        /// Independent of <see cref="RenderEnabled"/> so users can disable doc-comment
+        /// cards without losing tag cards, and vice versa.
+        /// </remarks>
+        public bool TagBadgesEnabled { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets the serialized Premium per-tag colour overrides.<br/>
+        /// Format: semicolon-separated <c>NAME=0xAARRGGBB</c> pairs, e.g.<br/>
+        /// <c>"TODO=0xFF4FC1FF;MAGIC=0xFFDDB0FF"</c>. Empty string = all defaults.
+        /// </summary>
+        /// <remarks>
+        /// Serialized as one string (rather than one settings-store property per tag)
+        /// to keep the store schema compact; parsing is cached in
+        /// <see cref="ParseColorOverrides"/> keyed on the raw value.
+        /// </remarks>
+        public string TagColorOverrides { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the comma-separated list of Premium-disabled canonical tag
+        /// names, e.g. <c>"MAGIC,ASSUME"</c>. Empty string = all enabled.
+        /// </summary>
+        public string TagsDisabled { get; set; } = string.Empty;
+
         // ── Helper: effective values (falls back to defaults when Premium is locked) ──
 
         /// <summary>
@@ -374,6 +407,90 @@ namespace RenderDocComments
         /// </summary>
         public Color EffectiveGradientStop2 => Premium ? ToColor(GradientStop2) : Color.FromArgb(0x50, 0x50, 0x28, 0x96);
 
+        // ── Comment tag cards: effective values ──────────────────────────────────
+
+        /// <summary>
+        /// Gets the effective tag colour for a canonical tag name.<br/>
+        /// Returns the Premium override when unlocked and one exists; otherwise the
+        /// factory default from <see cref="TagBadgeCatalog"/>.
+        /// </summary>
+        /// <param name="canonicalName">Canonical uppercase tag name (e.g., <c>"TODO"</c>).</param>
+        public Color EffectiveTagColor(string canonicalName)
+        {
+            if (Premium && ParseColorOverrides().TryGetValue(canonicalName, out int argb))
+                return ToColor(argb);
+            return TagBadgeCatalog.GetDefaultColor(canonicalName);
+        }
+
+        /// <summary>
+        /// Gets whether a canonical tag should currently render as a card.<br/>
+        /// When Premium is locked every known tag is enabled; when unlocked,
+        /// tags listed in <see cref="TagsDisabled"/> are suppressed.
+        /// </summary>
+        /// <param name="canonicalName">Canonical uppercase tag name.</param>
+        public bool EffectiveTagEnabled(string canonicalName)
+            => !(Premium && ParseDisabledTags().Contains(canonicalName));
+
+        /// <summary>Cached parse of <see cref="TagColorOverrides"/>, invalidated by value change.</summary>
+        private Dictionary<string, int> ParseColorOverrides()
+        {
+            if (_overridesCache != null && _overridesCacheKey == TagColorOverrides)
+                return _overridesCache;
+
+            var map = new Dictionary<string, int>(StringComparer.Ordinal);
+            if (!string.IsNullOrWhiteSpace(TagColorOverrides))
+            {
+                foreach (var pair in TagColorOverrides.Split(';'))
+                {
+                    var parts = pair.Split('=');
+                    if (parts.Length != 2) continue;
+                    var name = parts[0].Trim();
+                    if (!int.TryParse(parts[1].Trim(),
+                            NumberStyles.HexNumber, CultureInfo.InvariantCulture, out int argb))
+                        continue;
+                    // Only accept names the catalogue knows — guards against stale data.
+                    if (TagBadgeCatalog.TryNormalize(name, out string canon))
+                        map[canon] = argb;
+                }
+            }
+
+            _overridesCacheKey = TagColorOverrides;
+            _overridesCache = map;
+            return map;
+        }
+
+        /// <summary>Cache backing for <see cref="ParseColorOverrides"/>.</summary>
+        private Dictionary<string, int> _overridesCache;
+        /// <summary>Raw-value cache key for <see cref="_overridesCache"/>.</summary>
+        private string _overridesCacheKey;
+
+        /// <summary>Cached parse of <see cref="TagsDisabled"/>, invalidated by value change.</summary>
+        private HashSet<string> ParseDisabledTags()
+        {
+            if (_disabledCache != null && _disabledCacheKey == TagsDisabled)
+                return _disabledCache;
+
+            var set = new HashSet<string>(StringComparer.Ordinal);
+            if (!string.IsNullOrWhiteSpace(TagsDisabled))
+            {
+                foreach (var name in TagsDisabled.Split(','))
+                {
+                    var trimmed = name.Trim();
+                    if (trimmed.Length > 0)
+                        set.Add(trimmed);
+                }
+            }
+
+            _disabledCacheKey = TagsDisabled;
+            _disabledCache = set;
+            return set;
+        }
+
+        /// <summary>Cache backing for <see cref="ParseDisabledTags"/>.</summary>
+        private HashSet<string> _disabledCache;
+        /// <summary>Raw-value cache key for <see cref="_disabledCache"/>.</summary>
+        private string _disabledCacheKey;
+
         /// <summary>
         /// Computes the effective control width based on the current viewport and indentation.<br/>
         /// When <see cref="UseFixedWidth"/> is <c>true</c> and Premium is unlocked, caps the result at <see cref="ClampedFixedWidth"/>.<br/>
@@ -447,6 +564,15 @@ namespace RenderDocComments
                 GradientStop0 = ReadInt(store, nameof(GradientStop0), GradientStop0);
                 GradientStop1 = ReadInt(store, nameof(GradientStop1), GradientStop1);
                 GradientStop2 = ReadInt(store, nameof(GradientStop2), GradientStop2);
+
+                // Comment tag cards
+                TagBadgesEnabled = ReadBool(store, nameof(TagBadgesEnabled), TagBadgesEnabled);
+                TagColorOverrides = store.PropertyExists(CollectionPath, nameof(TagColorOverrides))
+                                            ? store.GetString(CollectionPath, nameof(TagColorOverrides))
+                                            : TagColorOverrides;
+                TagsDisabled = store.PropertyExists(CollectionPath, nameof(TagsDisabled))
+                                            ? store.GetString(CollectionPath, nameof(TagsDisabled))
+                                            : TagsDisabled;
             }
             catch { /* non-critical */ }
         }
@@ -505,6 +631,11 @@ namespace RenderDocComments
                 store.SetInt32(CollectionPath, nameof(GradientStop0), GradientStop0);
                 store.SetInt32(CollectionPath, nameof(GradientStop1), GradientStop1);
                 store.SetInt32(CollectionPath, nameof(GradientStop2), GradientStop2);
+
+                // Comment tag cards
+                store.SetBoolean(CollectionPath, nameof(TagBadgesEnabled), TagBadgesEnabled);
+                store.SetString(CollectionPath, nameof(TagColorOverrides), TagColorOverrides ?? string.Empty);
+                store.SetString(CollectionPath, nameof(TagsDisabled), TagsDisabled ?? string.Empty);
             }
             catch { /* non-critical */ }
         }
