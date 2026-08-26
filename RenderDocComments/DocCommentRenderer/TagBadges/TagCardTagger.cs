@@ -267,8 +267,16 @@ namespace RenderDocComments.DocCommentRenderer.TagBadges
                     if (!tailByLine.ContainsKey(lineNo))
                         tailByLine[lineNo] = ExtractTail(text, m.Index + m.Length);
 
-                    // Collapse only the comment region on this line.
-                    int s = Math.Max(range.Start, line.Start.Position);
+                    // Collapse only the comment region on this line. For interior
+                    // block lines, anchor past the leading whitespace so the card
+                    // aligns with the code indent instead of column 0.
+                    var lineText = line.GetText();
+                    int firstNonWs = 0;
+                    while (firstNonWs < lineText.Length && char.IsWhiteSpace(lineText[firstNonWs]))
+                        firstNonWs++;
+                    int lineContentStart = line.Start.Position + firstNonWs;
+
+                    int s = Math.Max(range.Start, lineContentStart);
                     int e = Math.Min(range.End, line.End.Position);
                     if (spanByLine.TryGetValue(lineNo, out var cur))
                         spanByLine[lineNo] = (Math.Min(cur.start, s), Math.Max(cur.end, e));
