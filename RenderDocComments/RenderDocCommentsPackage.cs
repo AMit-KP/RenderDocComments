@@ -103,6 +103,9 @@ namespace RenderDocComments
 
             // Fire-and-forget: shows the "rate this extension" InfoBar when due.
             _ = ReviewPromptBar.TryShowAsync(this);
+
+            // Fire-and-forget: one-time welcome InfoBar pointing to the options menu.
+            _ = WelcomeBar.TryShowAsync(this);
         }
 
 
