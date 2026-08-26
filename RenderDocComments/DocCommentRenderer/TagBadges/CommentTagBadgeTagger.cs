@@ -200,14 +200,16 @@ namespace RenderDocComments.DocCommentRenderer.TagBadges
 
         /// <summary>
         /// Determines whether a match is <b>anchored</b>: every character between the
-        /// start of the comment content and the match must be whitespace or a block
-        /// decorator (<c>*</c>). This restricts badging to tags that open the comment
-        /// (or open a line inside a block), so ordinary words in prose — e.g. the
-        /// "WARN" inside <c>// WARNING: alias of WARN</c> — never render.
+        /// start of the comment <i>content</i> and the match must be whitespace or a
+        /// block decorator (<c>*</c>). <paramref name="contentStart"/> skips the
+        /// comment opener recorded in the range (e.g. <c>//</c>, <c>'</c>, <c>/*</c>),
+        /// so tags opening the comment — or opening a line inside a block — render,
+        /// while ordinary words in prose (e.g. the "WARN" inside
+        /// <c>// WARNING: alias of WARN</c>) never do.
         /// </summary>
-        private static bool IsAnchored(string text, int matchIndex)
+        private static bool IsAnchored(string text, int contentStart, int matchIndex)
         {
-            for (int i = 0; i < matchIndex; i++)
+            for (int i = contentStart; i < matchIndex; i++)
             {
                 char c = text[i];
                 if (char.IsWhiteSpace(c) || c == '*') continue;
@@ -253,7 +255,7 @@ namespace RenderDocComments.DocCommentRenderer.TagBadges
 
                 foreach (Match m in _tagRegex.Matches(text))
                 {
-                    if (!IsAnchored(text, m.Index)) continue;
+                    if (!IsAnchored(text, range.PrefixLen, m.Index)) continue;
                     if (!TagBadgeCatalog.TryNormalize(m.Value, out var canonical)) continue;
                     if (!opts.EffectiveTagEnabled(canonical)) continue;
 
@@ -308,12 +310,23 @@ namespace RenderDocComments.DocCommentRenderer.TagBadges
 
         // ── Comment-range collection ──────────────────────────────────────────────
 
-        /// <summary>A contiguous comment region in buffer coordinates.</summary>
+        /// <summary>
+        /// A contiguous comment region in buffer coordinates.<br/>
+        /// <see cref="PrefixLen"/> is the length of the comment opener at the very
+        /// start of the region text (<c>//</c>, <c>'</c>, <c>/*</c>, <c>(*</c>) —
+        /// anchoring must ignore it so the opener itself doesn't unanchor matches.
+        /// </summary>
         private struct CommentRange
         {
             public int Start;
             public int End;
-            public CommentRange(int start, int end) { Start = start; End = end; }
+            public int PrefixLen;
+            public CommentRange(int start, int end, int prefixLen)
+            {
+                Start = start;
+                End = end;
+                PrefixLen = prefixLen;
+            }
         }
 
         /// <summary>
@@ -348,6 +361,7 @@ namespace RenderDocComments.DocCommentRenderer.TagBadges
             char close1 = '/';        // block closer first char  ('/' or '*')
             char close2 = '/';        // block closer second char
             int blockStartAbs = -1;   // buffer position of the active block opener
+            int blockPrefixLen = 2;   // opener length at the start of the range text
 
             int lineCount = snapshot.LineCount;
             for (int ln = 0; ln < lineCount; ln++)
@@ -367,10 +381,11 @@ namespace RenderDocComments.DocCommentRenderer.TagBadges
                     {
                         if (i + 1 < n && t[i] == close1 && t[i + 1] == close2)
                         {
-                            if (inBlock)
-                                ranges.Add(new CommentRange(
-                                    blockStartAbs,
-                                    line.Start.Position + i + 2));
+                    if (inBlock)
+                        ranges.Add(new CommentRange(
+                            blockStartAbs,
+                            line.Start.Position + i + 2,
+                            blockPrefixLen));
                             inBlock = false;
                             inDocBlock = false;
                             i += 2;
@@ -398,7 +413,7 @@ namespace RenderDocComments.DocCommentRenderer.TagBadges
                             if (i + 2 < n && t[i + 1] == '\'' && t[i + 2] == '\'')
                                 break; // doc comment — skip rest of line entirely
                             ranges.Add(new CommentRange(line.Start.Position + i,
-                                                         line.End.Position));
+                                                         line.End.Position, 1));
                             break;     // rest of line consumed by the comment
                         }
                         i++;
@@ -415,7 +430,7 @@ namespace RenderDocComments.DocCommentRenderer.TagBadges
                             bool isDoc = i + 2 < n && (t[i + 2] == '/' || t[i + 2] == '!');
                             if (isDoc) break;               // /// //// //! — skip line
                             ranges.Add(new CommentRange(line.Start.Position + i,
-                                                         line.End.Position));
+                                                         line.End.Position, 2));
                             break;
                         }
 
