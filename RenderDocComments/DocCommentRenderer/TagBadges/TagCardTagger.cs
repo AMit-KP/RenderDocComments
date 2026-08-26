@@ -195,6 +195,16 @@ namespace RenderDocComments.DocCommentRenderer.TagBadges
         /// </summary>
         private const int MaxTooltipTailLength = 200;
 
+        /// <summary>Newline characters used to cut multi-line block tails.</summary>
+        private static readonly char[] _newlineChars = { '\r', '\n' };
+
+        /// <summary>
+        /// Matches a trailing block-comment closer (and surrounding whitespace) so
+        /// single-line tails like <c>"broken */"</c> end cleanly at the prose.
+        /// </summary>
+        private static readonly Regex _trailingCloser = new Regex(
+            @"\s*\*/\s*$", RegexOptions.Compiled);
+
         /// <summary>
         /// Maximum rendered description lines before trimming kicks in.
         /// </summary>
@@ -284,14 +294,23 @@ namespace RenderDocComments.DocCommentRenderer.TagBadges
         }
 
         /// <summary>
-        /// Extracts the human-readable remainder of a comment following a matched tag,
-        /// trimming an optional colon and whitespace, capped at
+        /// Extracts the human-readable remainder of a comment following a matched tag:<br/>
+        /// cut at the first newline (block ranges span lines — following lines must
+        /// never leak into the description), trailing <c>*/</c> closer removed,
+        /// optional colon and whitespace trimmed, capped at
         /// <see cref="MaxTooltipTailLength"/> characters.
         /// </summary>
         private static string ExtractTail(string rangeText, int tailStart)
         {
             if (tailStart >= rangeText.Length) return string.Empty;
-            var tail = rangeText.Substring(tailStart).TrimStart(':', ' ', '\t');
+            var tail = rangeText.Substring(tailStart);
+
+            int nl = tail.IndexOfAny(_newlineChars);
+            if (nl >= 0) tail = tail.Substring(0, nl);
+
+            tail = _trailingCloser.Replace(tail, string.Empty);
+            tail = tail.TrimStart(':', ' ', '\t');
+
             if (tail.Length > MaxTooltipTailLength)
                 tail = tail.Substring(0, MaxTooltipTailLength) + "…";
             return tail;
