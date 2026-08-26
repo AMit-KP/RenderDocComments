@@ -56,7 +56,21 @@ namespace RenderDocComments
         {
             _serviceProvider = serviceProvider;
             InitializeComponent();
+            FitToWorkingArea();
             Loaded += OnWindowLoaded;
+        }
+
+        /// <summary>
+        /// Clamps the window height to the screen's working area (screen minus<br/>
+        /// taskbar) so that on short displays (e.g. 768p) the pinned footer with<br/>
+        /// the Save/Close buttons always remains visible; the body then scrolls.
+        /// </summary>
+        private void FitToWorkingArea()
+        {
+            // WorkArea is in DIPs, the same unit as Window.Height/MaxHeight.
+            double available = SystemParameters.WorkArea.Height - 32;
+            MaxHeight = Math.Max(320, available);
+            Height = Math.Min(700, MaxHeight);
         }
 
         // ── Initialisation ────────────────────────────────────────────────────────

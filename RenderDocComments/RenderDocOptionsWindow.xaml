@@ -4,12 +4,12 @@
 	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
 	Title="RenderDocComments Options"
 	Width="600"
+	Height="700"
 	Background="#1E1E1E"
 	FontFamily="Segoe UI"
 	FontSize="13"
 	Foreground="#D4D4D4"
 	ResizeMode="NoResize"
-	SizeToContent="Height"
 	WindowStartupLocation="CenterScreen">
 
 	<Window.Resources>
@@ -99,8 +99,15 @@
 		</Style>
 	</Window.Resources>
 
-	<ScrollViewer VerticalScrollBarVisibility="Auto">
-		<StackPanel Margin="20,12,20,16">
+	<Grid>
+		<Grid.RowDefinitions>
+			<RowDefinition Height="Auto" />
+			<RowDefinition Height="*" />
+			<RowDefinition Height="Auto" />
+		</Grid.RowDefinitions>
+
+		<!--  ── Header (always visible)  -->
+		<StackPanel Grid.Row="0" Margin="20,12,20,8">
 
 			<!--  ══ Title  -->
 			<StackPanel VerticalAlignment="Center" Orientation="Horizontal">
@@ -119,361 +126,376 @@
 
 			<Separator Margin="0,8,0,0" Background="#444" />
 
-			<!--  ══ Licence  -->
-			<TextBlock Style="{StaticResource SectionHeader}" Text="Licence" />
+		</StackPanel>
 
-			<StackPanel
-				Margin="0,2,0,6"
-				VerticalAlignment="Center"
-				Orientation="Horizontal">
-				<Border
-					x:Name="PremiumStatusBadge"
-					Margin="0,0,10,0"
-					Padding="8,3"
+		<!--  ── Body (scrolls)  -->
+		<ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Hidden">
+			<StackPanel Margin="20,4,20,16">
+
+				<!--  ══ Licence  -->
+				<TextBlock Style="{StaticResource SectionHeader}" Text="Licence" />
+
+				<StackPanel
+					Margin="0,2,0,6"
 					VerticalAlignment="Center"
-					CornerRadius="4">
-					<TextBlock
-						x:Name="PremiumStatusText"
-						FontSize="12"
-						FontWeight="SemiBold" />
-				</Border>
-
-				<!--  Free: open the purchase/activation window  -->
-				<Button
-					x:Name="GetPremiumButton"
-					Click="OnGetPremiumClicked"
-					Content="Get Premium…"
-					Style="{StaticResource PrimaryButton}"
-					Visibility="Collapsed" />
-
-				<!--  Premium: deactivate this machine  -->
-				<Button
-					x:Name="DeactivateButton"
-					Click="OnDeactivateClicked"
-					Content="Deactivate this machine"
-					Style="{StaticResource SecondaryButton}"
-					Visibility="Collapsed" />
-			</StackPanel>
-
-			<TextBlock
-				x:Name="LicenseMessageText"
-				Margin="0,0,0,4"
-				FontSize="11"
-				Foreground="#F48771"
-				TextWrapping="Wrap"
-				Visibility="Collapsed" />
-
-			<Separator Margin="0,4,0,0" Background="#444" />
-
-			<!--  ══ FREE: Global render toggle  -->
-			<TextBlock Style="{StaticResource SectionHeader}" Text="General (Free)" />
-
-			<CheckBox
-				x:Name="RenderEnabledCheck"
-				Checked="OnSettingChanged"
-				Content="Enable doc comment rendering"
-				Unchecked="OnSettingChanged" />
-
-			<!--  ══ Premium section  -->
-			<StackPanel Orientation="Horizontal">
-				<TextBlock
-					Margin="0,10,6,3"
-					Style="{StaticResource SectionHeader}"
-					Text="Premium Features" />
-				<Border
-					Height="16"
-					Margin="0,8,0,0"
-					VerticalAlignment="Center"
-					Style="{StaticResource PremiumBadge}">
-					<TextBlock
-						FontSize="9"
-						FontWeight="Bold"
-						Foreground="White"
-						Text="PREMIUM" />
-				</Border>
-			</StackPanel>
-
-			<TextBlock
-				Margin="0,0,0,6"
-				FontSize="11"
-				Foreground="#888"
-				Text="Requires a Premium licence. Options are shown but disabled without one."
-				TextWrapping="Wrap" />
-
-			<StackPanel x:Name="PremiumOptionsPanel" Margin="0,0,0,6">
-
-				<!--  Glyph toggle  -->
-				<TextBlock Style="{StaticResource SectionHeader}" Text="Margin Glyph Toggle" />
-				<StackPanel Margin="6,4,6,6">
-					<RadioButton
-						x:Name="CaretModeRadio"
-						Margin="0,0,0,4"
-						Checked="OnToggleModeChanged"
-						Content="Caret-based (free) — caret in block shows raw XML"
-						Foreground="#D4D4D4" />
-					<RadioButton
-						x:Name="GlyphModeRadio"
-						Checked="OnToggleModeChanged"
-						Content="Margin glyph button (Premium) — click to toggle per comment"
-						Foreground="#D4D4D4" />
-				</StackPanel>
-
-				<!--  Auto theme refresh  -->
-				<TextBlock Style="{StaticResource SectionHeader}" Text="Theme Auto-Refresh" />
-				<CheckBox
-					x:Name="AutoRefreshCheck"
-					Checked="OnSettingChanged"
-					Content="Auto-refresh colours when VS colour theme changes"
-					Unchecked="OnSettingChanged" />
-
-				<!--  Fixed width  -->
-				<TextBlock Style="{StaticResource SectionHeader}" Text="Comment Width" />
-				<CheckBox
-					x:Name="UseFixedWidthCheck"
-					Checked="OnFixedWidthChanged"
-					Content="Use fixed width"
-					Unchecked="OnFixedWidthChanged" />
-				<StackPanel Margin="20,2,0,6" Orientation="Horizontal">
-					<TextBlock Style="{StaticResource OptionLabel}" Text="Fixed width (px):" />
-					<TextBox
-						x:Name="FixedWidthText"
-						Width="70"
-						TextAlignment="Left"
-						TextChanged="OnFixedWidthTextChanged" />
-				</StackPanel>
-
-				<!--  Font  -->
-				<TextBlock Style="{StaticResource SectionHeader}" Text="Rendered Font" />
-				<StackPanel Margin="0,2,0,2" Orientation="Horizontal">
-					<TextBlock Style="{StaticResource OptionLabel}" Text="Font family:" />
-					<ComboBox
-						x:Name="FontFamilyCombo"
-						Width="200"
-						Foreground="Black"
-						SelectionChanged="OnFontFamilyChanged" />
-					<TextBlock
-						x:Name="FontPreviewText"
-						Margin="10,0,0,0"
+					Orientation="Horizontal">
+					<Border
+						x:Name="PremiumStatusBadge"
+						Margin="0,0,10,0"
+						Padding="8,3"
 						VerticalAlignment="Center"
-						Foreground="#BE6EF0"
-						Text="AaBbCc 123" />
+						CornerRadius="4">
+						<TextBlock
+							x:Name="PremiumStatusText"
+							FontSize="12"
+							FontWeight="SemiBold" />
+					</Border>
+
+					<!--  Free: open the purchase/activation window  -->
+					<Button
+						x:Name="GetPremiumButton"
+						Click="OnGetPremiumClicked"
+						Content="Get Premium…"
+						Style="{StaticResource PrimaryButton}"
+						Visibility="Collapsed" />
+
+					<!--  Premium: deactivate this machine  -->
+					<Button
+						x:Name="DeactivateButton"
+						Click="OnDeactivateClicked"
+						Content="Deactivate this machine"
+						Style="{StaticResource SecondaryButton}"
+						Visibility="Collapsed" />
 				</StackPanel>
 
-				<!--  Border sides  -->
-				<TextBlock Style="{StaticResource SectionHeader}" Text="Accent Bar Sides" />
-				<StackPanel Margin="0,2,0,2" Orientation="Horizontal">
-					<CheckBox
-						x:Name="BorderLeftCheck"
-						Margin="0,0,14,0"
-						Checked="OnSettingChanged"
-						Content="Left"
-						Unchecked="OnSettingChanged" />
-					<CheckBox
-						x:Name="BorderTopCheck"
-						Margin="0,0,14,0"
-						Checked="OnSettingChanged"
-						Content="Top"
-						Unchecked="OnSettingChanged" />
-					<CheckBox
-						x:Name="BorderRightCheck"
-						Margin="0,0,14,0"
-						Checked="OnSettingChanged"
-						Content="Right"
-						Unchecked="OnSettingChanged" />
-					<CheckBox
-						x:Name="BorderBottomCheck"
-						Checked="OnSettingChanged"
-						Content="Bottom"
-						Unchecked="OnSettingChanged" />
-				</StackPanel>
-
-				<!--  Colours  -->
-				<TextBlock Style="{StaticResource SectionHeader}" Text="Colours" />
 				<TextBlock
+					x:Name="LicenseMessageText"
 					Margin="0,0,0,4"
 					FontSize="11"
-					Foreground="#888"
-					Text="Click a swatch to open the colour picker." />
+					Foreground="#F48771"
+					TextWrapping="Wrap"
+					Visibility="Collapsed" />
 
-				<Grid Margin="0,0,0,4">
-					<Grid.ColumnDefinitions>
-						<ColumnDefinition Width="*" />
-						<ColumnDefinition Width="*" />
-					</Grid.ColumnDefinitions>
-					<Grid.RowDefinitions>
-						<RowDefinition Height="Auto" />
-						<RowDefinition Height="Auto" />
-						<RowDefinition Height="Auto" />
-					</Grid.RowDefinitions>
+				<Separator Margin="0,4,0,0" Background="#444" />
 
-					<StackPanel
-						Grid.Row="0"
-						Grid.Column="0"
-						Margin="0,2"
-						Orientation="Horizontal">
-						<Button
-							x:Name="SwatchCodeFg"
-							Click="OnSwatchClicked"
-							Style="{StaticResource SwatchButton}"
-							Tag="CodeFg" />
-						<TextBlock
-							Margin="5,0,0,0"
-							Style="{StaticResource OptionLabel}"
-							Text="Inline code / quoted" />
-					</StackPanel>
-					<StackPanel
-						Grid.Row="0"
-						Grid.Column="1"
-						Margin="0,2"
-						Orientation="Horizontal">
-						<Button
-							x:Name="SwatchSummaryFg"
-							Click="OnSwatchClicked"
-							Style="{StaticResource SwatchButton}"
-							Tag="SummaryFg" />
-						<TextBlock
-							Margin="5,0,0,0"
-							Style="{StaticResource OptionLabel}"
-							Text="Summary text" />
-					</StackPanel>
-					<StackPanel
-						Grid.Row="1"
-						Grid.Column="0"
-						Margin="0,2"
-						Orientation="Horizontal">
-						<Button
-							x:Name="SwatchParamName"
-							Click="OnSwatchClicked"
-							Style="{StaticResource SwatchButton}"
-							Tag="ParamName" />
-						<TextBlock
-							Margin="5,0,0,0"
-							Style="{StaticResource OptionLabel}"
-							Text="Parameter names" />
-					</StackPanel>
-					<StackPanel
-						Grid.Row="1"
-						Grid.Column="1"
-						Margin="0,2"
-						Orientation="Horizontal">
-						<Button
-							x:Name="SwatchLink"
-							Click="OnSwatchClicked"
-							Style="{StaticResource SwatchButton}"
-							Tag="Link" />
-						<TextBlock
-							Margin="5,0,0,0"
-							Style="{StaticResource OptionLabel}"
-							Text="Links / crefs" />
-					</StackPanel>
-					<StackPanel
-						Grid.Row="2"
-						Grid.Column="0"
-						Margin="0,2"
-						Orientation="Horizontal">
-						<Button
-							x:Name="SwatchSectionLabel"
-							Click="OnSwatchClicked"
-							Style="{StaticResource SwatchButton}"
-							Tag="SectionLabel" />
-						<TextBlock
-							Margin="5,0,0,0"
-							Style="{StaticResource OptionLabel}"
-							Text="Section headings" />
-					</StackPanel>
-				</Grid>
-				<!--  Gradient  -->
-				<TextBlock
-					Margin="0,6,0,3"
-					FontSize="11"
-					FontWeight="SemiBold"
-					Foreground="#D4D4D4"
-					Text="Gradient bar:" />
+				<!--  ══ FREE: Global render toggle  -->
+				<TextBlock Style="{StaticResource SectionHeader}" Text="General (Free)" />
 
-				<StackPanel Margin="0,0,0,4" Orientation="Horizontal">
-					<TextBlock Style="{StaticResource OptionLabel}" Text="Presets:" />
-					<Button
-						Padding="6,3"
-						Click="OnGradientPresetClicked"
-						Content="Purple"
-						Style="{StaticResource SecondaryButton}"
-						Tag="Purple" />
-					<Button
-						Padding="6,3"
-						Click="OnGradientPresetClicked"
-						Content="Ocean"
-						Style="{StaticResource SecondaryButton}"
-						Tag="Ocean" />
-					<Button
-						Padding="6,3"
-						Click="OnGradientPresetClicked"
-						Content="Sunset"
-						Style="{StaticResource SecondaryButton}"
-						Tag="Sunset" />
-					<Button
-						Padding="6,3"
-						Click="OnGradientPresetClicked"
-						Content="Forest"
-						Style="{StaticResource SecondaryButton}"
-						Tag="Forest" />
-					<Button
-						Padding="6,3"
-						Click="OnGradientPresetClicked"
-						Content="Rose Gold"
-						Style="{StaticResource SecondaryButton}"
-						Tag="RoseGold" />
-				</StackPanel>
+				<CheckBox
+					x:Name="RenderEnabledCheck"
+					Checked="OnSettingChanged"
+					Content="Enable doc comment rendering"
+					Unchecked="OnSettingChanged" />
 
-				<StackPanel Margin="0,2,0,6" Orientation="Horizontal">
-					<Button
-						x:Name="SwatchGrad0"
-						Width="32"
-						Click="OnSwatchClicked"
-						Style="{StaticResource SwatchButton}"
-						Tag="Grad0" />
+				<!--  ══ Premium section  -->
+				<StackPanel Orientation="Horizontal">
 					<TextBlock
-						Margin="3,0,12,0"
-						VerticalAlignment="Center"
-						FontSize="11"
-						Foreground="#888"
-						Text="Stop 1" />
-					<Button
-						x:Name="SwatchGrad1"
-						Width="32"
-						Click="OnSwatchClicked"
-						Style="{StaticResource SwatchButton}"
-						Tag="Grad1" />
-					<TextBlock
-						Margin="3,0,12,0"
-						VerticalAlignment="Center"
-						FontSize="11"
-						Foreground="#888"
-						Text="Stop 2" />
-					<Button
-						x:Name="SwatchGrad2"
-						Width="32"
-						Click="OnSwatchClicked"
-						Style="{StaticResource SwatchButton}"
-						Tag="Grad2" />
-					<TextBlock
-						Margin="3,0,12,0"
-						VerticalAlignment="Center"
-						FontSize="11"
-						Foreground="#888"
-						Text="Stop 3" />
+						Margin="0,10,6,3"
+						Style="{StaticResource SectionHeader}"
+						Text="Premium Features" />
 					<Border
-						x:Name="GradientPreviewBar"
-						Width="220"
-						Height="20"
-						Margin="8,0,0,0"
-						CornerRadius="3" />
+						Height="16"
+						Margin="0,8,0,0"
+						VerticalAlignment="Center"
+						Style="{StaticResource PremiumBadge}">
+						<TextBlock
+							FontSize="9"
+							FontWeight="Bold"
+							Foreground="White"
+							Text="PREMIUM" />
+					</Border>
 				</StackPanel>
+
+				<TextBlock
+					Margin="0,0,0,6"
+					FontSize="11"
+					Foreground="#888"
+					Text="Requires a Premium licence. Options are shown but disabled without one."
+					TextWrapping="Wrap" />
+
+				<StackPanel x:Name="PremiumOptionsPanel" Margin="0,0,0,6">
+
+					<!--  Glyph toggle  -->
+					<TextBlock Style="{StaticResource SectionHeader}" Text="Margin Glyph Toggle" />
+					<StackPanel Margin="6,4,6,6">
+						<RadioButton
+							x:Name="CaretModeRadio"
+							Margin="0,0,0,4"
+							Checked="OnToggleModeChanged"
+							Content="Caret-based (free) — caret in block shows raw XML"
+							Foreground="#D4D4D4" />
+						<RadioButton
+							x:Name="GlyphModeRadio"
+							Checked="OnToggleModeChanged"
+							Content="Margin glyph button (Premium) — click to toggle per comment"
+							Foreground="#D4D4D4" />
+					</StackPanel>
+
+					<!--  Auto theme refresh  -->
+					<TextBlock Style="{StaticResource SectionHeader}" Text="Theme Auto-Refresh" />
+					<CheckBox
+						x:Name="AutoRefreshCheck"
+						Checked="OnSettingChanged"
+						Content="Auto-refresh colours when VS colour theme changes"
+						Unchecked="OnSettingChanged" />
+
+					<!--  Fixed width  -->
+					<TextBlock Style="{StaticResource SectionHeader}" Text="Comment Width" />
+					<CheckBox
+						x:Name="UseFixedWidthCheck"
+						Checked="OnFixedWidthChanged"
+						Content="Use fixed width"
+						Unchecked="OnFixedWidthChanged" />
+					<StackPanel Margin="20,2,0,6" Orientation="Horizontal">
+						<TextBlock Style="{StaticResource OptionLabel}" Text="Fixed width (px):" />
+						<TextBox
+							x:Name="FixedWidthText"
+							Width="70"
+							TextAlignment="Left"
+							TextChanged="OnFixedWidthTextChanged" />
+					</StackPanel>
+
+					<!--  Font  -->
+					<TextBlock Style="{StaticResource SectionHeader}" Text="Rendered Font" />
+					<StackPanel Margin="0,2,0,2" Orientation="Horizontal">
+						<TextBlock Style="{StaticResource OptionLabel}" Text="Font family:" />
+						<ComboBox
+							x:Name="FontFamilyCombo"
+							Width="200"
+							Foreground="Black"
+							SelectionChanged="OnFontFamilyChanged" />
+						<TextBlock
+							x:Name="FontPreviewText"
+							Margin="10,0,0,0"
+							VerticalAlignment="Center"
+							Foreground="#BE6EF0"
+							Text="AaBbCc 123" />
+					</StackPanel>
+
+					<!--  Border sides  -->
+					<TextBlock Style="{StaticResource SectionHeader}" Text="Accent Bar Sides" />
+					<StackPanel Margin="0,2,0,2" Orientation="Horizontal">
+						<CheckBox
+							x:Name="BorderLeftCheck"
+							Margin="0,0,14,0"
+							Checked="OnSettingChanged"
+							Content="Left"
+							Unchecked="OnSettingChanged" />
+						<CheckBox
+							x:Name="BorderTopCheck"
+							Margin="0,0,14,0"
+							Checked="OnSettingChanged"
+							Content="Top"
+							Unchecked="OnSettingChanged" />
+						<CheckBox
+							x:Name="BorderRightCheck"
+							Margin="0,0,14,0"
+							Checked="OnSettingChanged"
+							Content="Right"
+							Unchecked="OnSettingChanged" />
+						<CheckBox
+							x:Name="BorderBottomCheck"
+							Checked="OnSettingChanged"
+							Content="Bottom"
+							Unchecked="OnSettingChanged" />
+					</StackPanel>
+
+					<!--  Colours  -->
+					<TextBlock Style="{StaticResource SectionHeader}" Text="Colours" />
+					<TextBlock
+						Margin="0,0,0,4"
+						FontSize="11"
+						Foreground="#888"
+						Text="Click a swatch to open the colour picker." />
+
+					<Grid Margin="0,0,0,4">
+						<Grid.ColumnDefinitions>
+							<ColumnDefinition Width="*" />
+							<ColumnDefinition Width="*" />
+						</Grid.ColumnDefinitions>
+						<Grid.RowDefinitions>
+							<RowDefinition Height="Auto" />
+							<RowDefinition Height="Auto" />
+							<RowDefinition Height="Auto" />
+						</Grid.RowDefinitions>
+
+						<StackPanel
+							Grid.Row="0"
+							Grid.Column="0"
+							Margin="0,2"
+							Orientation="Horizontal">
+							<Button
+								x:Name="SwatchCodeFg"
+								Click="OnSwatchClicked"
+								Style="{StaticResource SwatchButton}"
+								Tag="CodeFg" />
+							<TextBlock
+								Margin="5,0,0,0"
+								Style="{StaticResource OptionLabel}"
+								Text="Inline code / quoted" />
+						</StackPanel>
+						<StackPanel
+							Grid.Row="0"
+							Grid.Column="1"
+							Margin="0,2"
+							Orientation="Horizontal">
+							<Button
+								x:Name="SwatchSummaryFg"
+								Click="OnSwatchClicked"
+								Style="{StaticResource SwatchButton}"
+								Tag="SummaryFg" />
+							<TextBlock
+								Margin="5,0,0,0"
+								Style="{StaticResource OptionLabel}"
+								Text="Summary text" />
+						</StackPanel>
+						<StackPanel
+							Grid.Row="1"
+							Grid.Column="0"
+							Margin="0,2"
+							Orientation="Horizontal">
+							<Button
+								x:Name="SwatchParamName"
+								Click="OnSwatchClicked"
+								Style="{StaticResource SwatchButton}"
+								Tag="ParamName" />
+							<TextBlock
+								Margin="5,0,0,0"
+								Style="{StaticResource OptionLabel}"
+								Text="Parameter names" />
+						</StackPanel>
+						<StackPanel
+							Grid.Row="1"
+							Grid.Column="1"
+							Margin="0,2"
+							Orientation="Horizontal">
+							<Button
+								x:Name="SwatchLink"
+								Click="OnSwatchClicked"
+								Style="{StaticResource SwatchButton}"
+								Tag="Link" />
+							<TextBlock
+								Margin="5,0,0,0"
+								Style="{StaticResource OptionLabel}"
+								Text="Links / crefs" />
+						</StackPanel>
+						<StackPanel
+							Grid.Row="2"
+							Grid.Column="0"
+							Margin="0,2"
+							Orientation="Horizontal">
+							<Button
+								x:Name="SwatchSectionLabel"
+								Click="OnSwatchClicked"
+								Style="{StaticResource SwatchButton}"
+								Tag="SectionLabel" />
+							<TextBlock
+								Margin="5,0,0,0"
+								Style="{StaticResource OptionLabel}"
+								Text="Section headings" />
+						</StackPanel>
+					</Grid>
+					<!--  Gradient  -->
+					<TextBlock
+						Margin="0,6,0,3"
+						FontSize="11"
+						FontWeight="SemiBold"
+						Foreground="#D4D4D4"
+						Text="Gradient bar:" />
+
+					<StackPanel Margin="0,0,0,4" Orientation="Horizontal">
+						<TextBlock Style="{StaticResource OptionLabel}" Text="Presets:" />
+						<Button
+							Padding="6,3"
+							Click="OnGradientPresetClicked"
+							Content="Purple"
+							Style="{StaticResource SecondaryButton}"
+							Tag="Purple" />
+						<Button
+							Padding="6,3"
+							Click="OnGradientPresetClicked"
+							Content="Ocean"
+							Style="{StaticResource SecondaryButton}"
+							Tag="Ocean" />
+						<Button
+							Padding="6,3"
+							Click="OnGradientPresetClicked"
+							Content="Sunset"
+							Style="{StaticResource SecondaryButton}"
+							Tag="Sunset" />
+						<Button
+							Padding="6,3"
+							Click="OnGradientPresetClicked"
+							Content="Forest"
+							Style="{StaticResource SecondaryButton}"
+							Tag="Forest" />
+						<Button
+							Padding="6,3"
+							Click="OnGradientPresetClicked"
+							Content="Rose Gold"
+							Style="{StaticResource SecondaryButton}"
+							Tag="RoseGold" />
+					</StackPanel>
+
+					<StackPanel Margin="0,2,0,6" Orientation="Horizontal">
+						<Button
+							x:Name="SwatchGrad0"
+							Width="32"
+							Click="OnSwatchClicked"
+							Style="{StaticResource SwatchButton}"
+							Tag="Grad0" />
+						<TextBlock
+							Margin="3,0,12,0"
+							VerticalAlignment="Center"
+							FontSize="11"
+							Foreground="#888"
+							Text="Stop 1" />
+						<Button
+							x:Name="SwatchGrad1"
+							Width="32"
+							Click="OnSwatchClicked"
+							Style="{StaticResource SwatchButton}"
+							Tag="Grad1" />
+						<TextBlock
+							Margin="3,0,12,0"
+							VerticalAlignment="Center"
+							FontSize="11"
+							Foreground="#888"
+							Text="Stop 2" />
+						<Button
+							x:Name="SwatchGrad2"
+							Width="32"
+							Click="OnSwatchClicked"
+							Style="{StaticResource SwatchButton}"
+							Tag="Grad2" />
+						<TextBlock
+							Margin="3,0,12,0"
+							VerticalAlignment="Center"
+							FontSize="11"
+							Foreground="#888"
+							Text="Stop 3" />
+						<Border
+							x:Name="GradientPreviewBar"
+							Width="220"
+							Height="20"
+							Margin="8,0,0,0"
+							CornerRadius="3" />
+					</StackPanel>
+
+				</StackPanel>
+				<!--  /PremiumOptionsPanel  -->
 
 			</StackPanel>
-			<!--  /PremiumOptionsPanel  -->
+		</ScrollViewer>
 
-			<!--  ── Footer  -->
-			<Grid Margin="-4,6,0,0">
+		<!--  ── Footer (always visible)  -->
+		<Border
+			Grid.Row="2"
+			Padding="20,8"
+			Background="#252526"
+			BorderBrush="#444"
+			BorderThickness="0,1,0,0">
+			<Grid>
 				<StackPanel HorizontalAlignment="Left" Orientation="Horizontal">
 					<Button
 						Click="RatingButton_Click"
@@ -497,7 +519,7 @@
 						Style="{StaticResource SecondaryButton}" />
 				</StackPanel>
 			</Grid>
+		</Border>
 
-		</StackPanel>
-	</ScrollViewer>
+	</Grid>
 </Window>
