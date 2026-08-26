@@ -537,7 +537,7 @@ namespace RenderDocComments.DocCommentRenderer.TagBadges
                     Text = canonicalName,
                     FontFamily = fontFamily,
                     FontSize = fontSize,
-                    FontWeight = FontWeights.Bold,
+                    FontWeight = FontWeights.SemiBold,
                     Foreground = fgBrush,
                     VerticalAlignment = VerticalAlignment.Center,
                 },
