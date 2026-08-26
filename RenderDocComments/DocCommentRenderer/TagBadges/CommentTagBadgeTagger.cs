@@ -1,16 +1,16 @@
 /* ═══════════════════════════════════════════════════════════════════════════════
  *  File:    CommentTagBadgeTagger.cs
  *  Purpose: Scans plain (non-doc) comments for conventional tag keywords
- *           (TODO, FIXME, HACK, …) and produces zero-width intra-text adornment
- *           tags that render coloured pills at the end of the tagged line.
+ *           (TODO, FIXME, HACK, …) and replaces each tag token IN PLACE with a
+ *           rounded stadium pill — "// TODO: fix" renders as "// [TODO] fix".
  *
  *  Architecture Role:
  *    Implements ITagger<IntraTextAdornmentTag> — the same contract as the
- *    documentation-card tagger — but additive rather than replacing: the pill
- *    occupies no buffer space and never hides source text. Instantiated once per
- *    VIEW by CommentTagBadgeTaggerProvider; subscribed to buffer changes, view
- *    closure, and settings broadcasts. Caret movement is deliberately ignored —
- *    badges remain visible while the user edits inside a comment.
+ *    documentation-card tagger. Each tag token's SPAN is collapsed by the editor
+ *    and the pill renders exactly where the word stood; surrounding comment text
+ *    and code are untouched. Instantiated once per VIEW by
+ *    CommentTagBadgeTaggerProvider; subscribed to buffer changes, caret movement,
+ *    view closure, and settings broadcasts.
  *
  *  Detection Pipeline (per snapshot rebuild):
  *    1. CollectCommentRanges  — single char-walk over every line classifying
@@ -19,11 +19,14 @@
  *       (///, ''', /**, /*! , //!, (*$) which the card renderer owns.
  *    2. Tag regex             — compiled UPPERCASE-only alternation matched
  *       inside each collected range; WARNING normalises onto WARN.
- *    3. Per-line grouping     — matches grouped by containing line, deduped by
- *       canonical name, filtered by Premium enable-flags and dismissal state.
- *    4. Pill construction     — one horizontal StackPanel of Border pills per
- *       line; adaptive label contrast from TagBadgeCatalog; click toggles
- *       dismissal via TagBadgeToggleState + settings broadcast.
+ *    3. Pill construction     — one stadium pill per match, spanning the token
+ *       (plus an immediately following colon); adaptive label contrast from
+ *       TagBadgeCatalog; click toggles dismissal via TagBadgeToggleState +
+ *       settings broadcast.
+ *
+ *  Visibility Model:
+ *    Caret-based hide at line granularity: when the caret is on a pill's line the
+ *    raw token reappears for editing; moving away re-renders the pill.
  *
  *  Key Classes:
  *    CommentTagBadgeTagger — ITagger implementation with snapshot cache.
@@ -37,7 +40,7 @@
  *  When to Edit:
  *    • Badges appear on non-comments / miss comments — fix CollectCommentRanges.
  *    • A tag is not recognised — check _tagRegex against TagBadgeCatalog.Tags.
- *    • Pill styling changes — CreateBadgeStack.
+ *    • Pill styling changes — CreatePill.
  *    • Dismissal behaves oddly after edits — see TagBadgeToggleState key choice.
  * ═══════════════════════════════════════════════════════════════════════════════ */
 using System;
@@ -46,7 +49,6 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using Microsoft.VisualStudio.Text;
@@ -56,13 +58,13 @@ using Microsoft.VisualStudio.Text.Tagging;
 namespace RenderDocComments.DocCommentRenderer.TagBadges
 {
     /// <summary>
-    /// Produces end-of-line badge adornments for plain comments containing
-    /// conventional tag keywords across C#, VB.NET, F#, and C++ buffers.
+    /// Replaces tag keywords inside plain comments with rounded stadium pills
+    /// across C#, VB.NET, F#, and C++ buffers.
     /// </summary>
     /// <remarks>
-    /// <para>The tagger emits <b>zero-width</b> <see cref="IntraTextAdornmentTag"/>s
-    /// positioned immediately after the last non-whitespace character of each tagged
-    /// line, so pills occupy empty space and never obscure code or comment text.</para>
+    /// <para><b>In-place replacement:</b> each tag token's span (plus an immediately
+    /// following colon, if present) is collapsed and the pill renders exactly where
+    /// the word stood — <c>// TODO: fix</c> becomes <c>// [TODO] fix</c>.</para>
     /// <para><b>Caching:</b> identical strategy to <c>DocCommentAdornmentTagger</c> —
     /// results are cached per snapshot and invalidated by a static settings-generation
     /// counter that is bumped whenever <see cref="SettingsChangedBroadcast.SettingsChanged"/>
@@ -80,6 +82,7 @@ namespace RenderDocComments.DocCommentRenderer.TagBadges
 
         private static int _settingsGeneration = 0;
         private bool _forceEmpty = false;
+        private volatile int _caretLine = -1;
 
         /// <summary>
         /// Raised when the set of badges changes so the editor re-queries tags.
@@ -88,7 +91,7 @@ namespace RenderDocComments.DocCommentRenderer.TagBadges
 
         /// <summary>
         /// Creates a tagger bound to a specific view/buffer pair and subscribes to
-        /// buffer changes, view closure, and settings broadcasts.
+        /// buffer changes, caret movement, view closure, and settings broadcasts.
         /// </summary>
         /// <param name="buffer">The text buffer to scan.</param>
         /// <param name="view">The WPF view hosting rendered pills (font metrics source).</param>
@@ -98,6 +101,7 @@ namespace RenderDocComments.DocCommentRenderer.TagBadges
             _view = view;
 
             _buffer.Changed += OnBufferChanged;
+            _view.Caret.PositionChanged += OnCaretPositionChanged;
             _view.Closed += OnViewClosed;
             SettingsChangedBroadcast.SettingsChanged += OnSettingsChanged;
         }
@@ -105,8 +109,9 @@ namespace RenderDocComments.DocCommentRenderer.TagBadges
         // ── GetTags ───────────────────────────────────────────────────────────────
 
         /// <summary>
-        /// Yields badge adornment tags intersecting the requested spans after applying
-        /// master-toggle, per-file-override, force-empty, and intersection filters.
+        /// Yields pill tags intersecting the requested spans after applying
+        /// master-toggle, per-file-override, force-empty, caret-hide, and
+        /// intersection filters.
         /// </summary>
         public IEnumerable<ITagSpan<IntraTextAdornmentTag>> GetTags(
             NormalizedSnapshotSpanCollection spans)
@@ -122,8 +127,18 @@ namespace RenderDocComments.DocCommentRenderer.TagBadges
             var tags = GetOrBuildTags(snapshot);
 
             foreach (var tag in tags)
+            {
+                // Caret-based hide: the raw token returns while the user edits its line.
+                if (_caretLine >= 0)
+                {
+                    int s = snapshot.GetLineNumberFromPosition(tag.Span.Start);
+                    int e = snapshot.GetLineNumberFromPosition(tag.Span.End);
+                    if (_caretLine >= s && _caretLine <= e) continue;
+                }
+
                 if (spans.IntersectsWith(new NormalizedSnapshotSpanCollection(tag.Span)))
                     yield return tag;
+            }
         }
 
         /// <summary>
@@ -196,8 +211,10 @@ namespace RenderDocComments.DocCommentRenderer.TagBadges
         // ── BuildTags ─────────────────────────────────────────────────────────────
 
         /// <summary>
-        /// Single full pass: collect comment ranges, match tags, group per line,
-        /// and build one pill-stack adornment per qualifying line.
+        /// Single full pass: collect comment ranges, match tags, and emit one
+        /// in-place pill per match — spanning the token (plus an immediately
+        /// following colon) so the editor collapses the word and renders the
+        /// pill exactly where it stood.
         /// </summary>
         private IReadOnlyList<TagSpan<IntraTextAdornmentTag>> BuildTags(ITextSnapshot snapshot)
         {
@@ -207,10 +224,6 @@ namespace RenderDocComments.DocCommentRenderer.TagBadges
             var lang = GetLanguage(_buffer);
             var ranges = new List<CommentRange>();
             CollectCommentRanges(snapshot, lang, ranges);
-
-            // Accumulate ordered unique canonical names + tooltip tails per line.
-            var namesByLine = new Dictionary<int, List<string>>();
-            var tailByLine = new Dictionary<int, string>();
 
             foreach (var range in ranges)
             {
@@ -225,62 +238,30 @@ namespace RenderDocComments.DocCommentRenderer.TagBadges
                     if (!TagBadgeCatalog.TryNormalize(m.Value, out var canonical)) continue;
                     if (!opts.EffectiveTagEnabled(canonical)) continue;
 
-                    int absPos = range.Start + m.Index;
-                    int lineNo = snapshot.GetLineNumberFromPosition(absPos);
+                    var line = snapshot.GetLineFromLineNumber(
+                        snapshot.GetLineNumberFromPosition(range.Start + m.Index));
+                    var trimmedLine = line.GetText().Trim();
 
-                    if (!namesByLine.TryGetValue(lineNo, out var names))
-                        namesByLine[lineNo] = names = new List<string>();
+                    // Respect click-dismissal (text-keyed; survives edits above).
+                    if (TagBadgeToggleState.IsHidden(trimmedLine)) continue;
 
-                    if (!names.Contains(canonical))
-                        names.Add(canonical);
+                    // Swallow an immediately following colon: "// TODO: fix" →
+                    // "// [pill] fix" rather than "// [pill]: fix".
+                    int tokenLen = m.Length;
+                    if (m.Index + tokenLen < text.Length && text[m.Index + tokenLen] == ':')
+                        tokenLen++;
 
-                    if (!tailByLine.ContainsKey(lineNo))
-                        tailByLine[lineNo] = ExtractTail(text, m.Index + m.Length);
+                    var panel = CreatePill(canonical, ExtractTail(text, m.Index + m.Length), trimmedLine);
+                    if (panel == null) continue;
+
+                    int start = range.Start + m.Index;
+                    var span = new SnapshotSpan(snapshot, start, tokenLen);
+                    var tag = new IntraTextAdornmentTag(panel, null, PositionAffinity.Predecessor);
+                    result.Add(new TagSpan<IntraTextAdornmentTag>(span, tag));
                 }
-            }
-
-            if (namesByLine.Count == 0) return result;
-
-            foreach (var kvp in namesByLine)
-            {
-                var line = snapshot.GetLineFromLineNumber(kvp.Key);
-                var lineText = line.GetText();
-                var trimmed = lineText.Trim();
-
-                // Respect click-dismissal (text-keyed; survives edits above).
-                if (TagBadgeToggleState.IsHidden(trimmed)) continue;
-
-                var panel = CreateBadgeStack(kvp.Value, tailByLine[kvp.Key], trimmed);
-                if (panel == null) continue;
-
-                // Zero-width span just past the last non-whitespace character so the
-                // pill lands in free space even when the line has trailing padding.
-                int anchor = LastNonWhitespaceEnd(lineText, line.Start);
-
-                var span = new SnapshotSpan(snapshot, anchor, 0);
-                var tag = new IntraTextAdornmentTag(panel, null, PositionAffinity.Predecessor);
-                result.Add(new TagSpan<IntraTextAdornmentTag>(span, tag));
             }
 
             return result;
-        }
-
-        /// <summary>
-        /// Computes the buffer position directly after the final non-whitespace
-        /// character of <paramref name="lineText"/>, falling back to the raw line end.
-        /// </summary>
-        private static int LastNonWhitespaceEnd(string lineText, int lineStart)
-        {
-            int end = lineStart + lineText.Length;
-            for (int i = lineText.Length - 1; i >= 0; i--)
-            {
-                if (!char.IsWhiteSpace(lineText[i]))
-                {
-                    end = lineStart + i + 1;
-                    break;
-                }
-            }
-            return end;
         }
 
         /// <summary>
@@ -464,17 +445,16 @@ namespace RenderDocComments.DocCommentRenderer.TagBadges
         // ── Pill construction ─────────────────────────────────────────────────────
 
         /// <summary>
-        /// Builds a horizontal stack of clickable pills, one per unique canonical tag.
+        /// Builds a single stadium-shaped (fully rounded) clickable pill that
+        /// replaces the tag token in the comment text.
         /// </summary>
-        /// <param name="canonicalNames">Ordered unique tag names for the line.</param>
-        /// <param name="tooltipTail">Comment text following the (first) tag.</param>
+        /// <param name="canonicalName">Canonical tag name (e.g., <c>"TODO"</c>).</param>
+        /// <param name="tooltipTail">Comment text following the tag.</param>
         /// <param name="trimmedLineText">Dismissal key captured at build time.</param>
-        /// <returns>The stacked element, or null when nothing should render.</returns>
-        private UIElement CreateBadgeStack(
-            List<string> canonicalNames, string tooltipTail, string trimmedLineText)
+        /// <returns>The pill element.</returns>
+        private UIElement CreatePill(
+            string canonicalName, string tooltipTail, string trimmedLineText)
         {
-            if (canonicalNames == null || canonicalNames.Count == 0) return null;
-
             var opts = RenderDocOptions.Instance;
 
             // Editor-matched typography at ~85 % so the pill reads as annotation.
@@ -492,61 +472,49 @@ namespace RenderDocComments.DocCommentRenderer.TagBadges
             // Never exceed the current line box — keeps line heights stable.
             double maxH = _view.LineHeight > 0 ? _view.LineHeight : fontSize * 1.5;
 
-            var panel = new StackPanel
+            Color bg = opts.EffectiveTagColor(canonicalName);
+
+            var fgBrush = new SolidColorBrush(TagBadgeCatalog.GetAdaptiveForeground(bg));
+            fgBrush.Freeze();
+            var bgBrush = new SolidColorBrush(bg);
+            bgBrush.Freeze();
+
+            var pill = new Border
             {
-                Orientation = Orientation.Horizontal,
-                VerticalAlignment = VerticalAlignment.Center,
+                Background = bgBrush,
+                BorderBrush = TagBadgeCatalog.GetAdaptiveBorderBrush(bg),
+                BorderThickness = new Thickness(1),
+                // Oversized uniform radius is normalised by WPF into a perfect
+                // stadium shape regardless of the final rendered height.
+                CornerRadius = new CornerRadius(999),
+                Padding = new Thickness(7, 0, 7, 0),
+                Margin = new Thickness(2, 0, 2, 0),
                 MaxHeight = maxH,
-                IsHitTestVisible = true,
-            };
-            TextElement.SetFontFamily(panel, fontFamily);
-            TextElement.SetFontSize(panel, fontSize);
-
-            foreach (var name in canonicalNames)
-            {
-                Color bg = opts.EffectiveTagColor(name);
-
-                var fgBrush = new SolidColorBrush(TagBadgeCatalog.GetAdaptiveForeground(bg));
-                fgBrush.Freeze();
-                var bgBrush = new SolidColorBrush(bg);
-                bgBrush.Freeze();
-
-                var label = new TextBlock
+                Cursor = Cursors.Hand,
+                VerticalAlignment = VerticalAlignment.Center,
+                Child = new TextBlock
                 {
-                    Text = name,
+                    Text = canonicalName,
+                    FontFamily = fontFamily,
+                    FontSize = fontSize,
                     Foreground = fgBrush,
                     VerticalAlignment = VerticalAlignment.Center,
-                };
+                },
+            };
 
-                var pill = new Border
-                {
-                    Background = bgBrush,
-                    BorderBrush = TagBadgeCatalog.GetAdaptiveBorderBrush(bg),
-                    BorderThickness = new Thickness(1),
-                    CornerRadius = new CornerRadius(3),
-                    Padding = new Thickness(5, 0, 5, 0),
-                    Margin = new Thickness(6, 0, 0, 0),
-                    Cursor = Cursors.Hand,
-                    Child = label,
-                    VerticalAlignment = VerticalAlignment.Center,
-                };
+            string desc = TagBadgeCatalog.GetDescription(canonicalName);
+            pill.ToolTip = string.IsNullOrEmpty(tooltipTail)
+                ? $"{canonicalName} — {desc}"
+                : $"{canonicalName} — {desc}\n{tooltipTail}";
 
-                string desc = TagBadgeCatalog.GetDescription(name);
-                pill.ToolTip = string.IsNullOrEmpty(tooltipTail)
-                    ? $"{name} — {desc}"
-                    : $"{name} — {desc}\n{tooltipTail}";
+            pill.MouseLeftButtonUp += (s, e) =>
+            {
+                e.Handled = true;
+                TagBadgeToggleState.Toggle(trimmedLineText);
+                SettingsChangedBroadcast.RaiseSettingsChanged();
+            };
 
-                pill.MouseLeftButtonUp += (s, e) =>
-                {
-                    e.Handled = true;
-                    TagBadgeToggleState.Toggle(trimmedLineText);
-                    SettingsChangedBroadcast.RaiseSettingsChanged();
-                };
-
-                panel.Children.Add(pill);
-            }
-
-            return panel;
+            return pill;
         }
 
         // ── Event handlers ────────────────────────────────────────────────────────
@@ -564,8 +532,48 @@ namespace RenderDocComments.DocCommentRenderer.TagBadges
         /// <summary>Clears cached state on view closure.</summary>
         private void OnViewClosed(object sender, EventArgs e)
         {
+            _caretLine = -1;
             _cachedSnapshot = null;
             _cachedTags = null;
+        }
+
+        /// <summary>
+        /// Caret-hide bookkeeping: re-queries the affected lines when the caret moves,
+        /// letting <see cref="GetTags"/> suppress/restore pills on those lines.
+        /// </summary>
+        private void OnCaretPositionChanged(object sender, CaretPositionChangedEventArgs e)
+        {
+            int newLine = e.NewPosition.BufferPosition.GetContainingLine().LineNumber;
+            if (newLine == _caretLine) return;
+            int old = _caretLine;
+            _caretLine = newLine;
+
+            var snap = _buffer.CurrentSnapshot;
+            var cached = _cachedTags;
+
+            void Invalidate(int ln)
+            {
+                if (ln < 0 || ln >= snap.LineCount) return;
+                if (cached != null)
+                {
+                    foreach (var ts in cached)
+                    {
+                        int s = snap.GetLineNumberFromPosition(ts.Span.Start);
+                        int en = snap.GetLineNumberFromPosition(ts.Span.End);
+                        if (ln >= s && ln <= en)
+                        {
+                            TagsChanged?.Invoke(this, new SnapshotSpanEventArgs(ts.Span));
+                            return;
+                        }
+                    }
+                }
+                var l = snap.GetLineFromLineNumber(ln);
+                TagsChanged?.Invoke(this, new SnapshotSpanEventArgs(
+                    new SnapshotSpan(snap, l.Start, l.LengthIncludingLineBreak)));
+            }
+
+            Invalidate(old);
+            Invalidate(newLine);
         }
 
         /// <summary>
@@ -598,6 +606,7 @@ namespace RenderDocComments.DocCommentRenderer.TagBadges
         public void Dispose()
         {
             _buffer.Changed -= OnBufferChanged;
+            _view.Caret.PositionChanged -= OnCaretPositionChanged;
             _view.Closed -= OnViewClosed;
             SettingsChangedBroadcast.SettingsChanged -= OnSettingsChanged;
         }
