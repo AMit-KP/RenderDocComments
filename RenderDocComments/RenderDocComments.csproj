@@ -64,6 +64,7 @@
     <Compile Include="SettingsChangedBroadcast.cs" />
     <Compile Include="RenderDocOptionsCommand.cs" />
     <Compile Include="RenderDocToggleCommand.cs" />
+    <Compile Include="ReviewPromptBar.cs" />
     <Compile Include="RenderDocOptionsWindow.xaml.cs">
       <DependentUpon>RenderDocOptionsWindow.xaml</DependentUpon>
     </Compile>

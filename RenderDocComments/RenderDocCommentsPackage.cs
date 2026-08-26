@@ -100,6 +100,9 @@ namespace RenderDocComments
             LicenseManager.StartPeriodicValidation(this);
 
             VSColorTheme.ThemeChanged += OnVsThemeChanged;
+
+            // Fire-and-forget: shows the "rate this extension" InfoBar when due.
+            _ = ReviewPromptBar.TryShowAsync(this);
         }
 
 
