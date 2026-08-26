@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <CommandTable xmlns="http://schemas.microsoft.com/VisualStudio/2005-10-18/CommandTable"
               xmlns:xs="http://www.w3.org/2001/XMLSchema">
 
@@ -30,14 +30,18 @@
       <Button guid="guidRenderDocCommandSet" id="cmdidToggleRenderPerFile"
               priority="0x0100" type="Button">
         <Parent guid="guidRenderDocCommandSet" id="MyToolbarGroup"/>
-        <CommandFlag>TextOnly</CommandFlag>
+        <Icon guid="guidImages" id="bmpPic1"/>
         <Strings>
-          <ButtonText>Render Doc Comments for this file</ButtonText>
-          <ToolTipText>Toggle Doc Rendering for this file</ToolTipText>
+          <ButtonText>Render XML Doc Comments for this file</ButtonText>
+          <ToolTipText>Render XML Doc Comments for this file</ToolTipText>
         </Strings>
       </Button>
     </Buttons>
-    </Commands>
+
+    <Bitmaps>
+      <Bitmap guid="guidImages" href="Assets\icon_16.png" usedList="bmpPic1"/>
+    </Bitmaps>
+  </Commands>
 
     <CommandPlacements>
     <CommandPlacement guid="guidRenderDocCommandSet" id="cmdidToggleRenderPerFile" priority="0x0100">
@@ -57,6 +61,11 @@
       <IDSymbol name="cmdidToggleRenderPerFile" value="0x0101"/>
       <IDSymbol name="MyToolbarGroup" value="0x1020"/>
       <IDSymbol name="MyContextMenuGroup" value="0x1030"/>
+    </GuidSymbol>
+
+    <GuidSymbol name="guidImages"
+                value="{B1B2C3D4-E5F6-7890-ABCD-EF1234567891}">
+      <IDSymbol name="bmpPic1" value="1"/>
     </GuidSymbol>
   </Symbols>
 
