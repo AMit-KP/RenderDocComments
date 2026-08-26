@@ -263,17 +263,24 @@ namespace RenderDocComments
         /// </summary>
         public int GradientStop2 { get; set; } = unchecked((int)0x50502896);
 
-        // ── Comment tag badges ───────────────────────────────────────────────────
+// ── Comment tags ───────────────────────────────────────────────────────────────
 
         /// <summary>
-        /// Gets or sets the master toggle for end-of-line comment tag badges
+        /// Gets or sets the master toggle for comment tag rendering
         /// (<c>// TODO:</c>, <c>// FIXME:</c>, …). Free feature. Default: <c>true</c>.
         /// </summary>
         /// <remarks>
         /// Independent of <see cref="RenderEnabled"/> so users can disable doc-comment
-        /// cards without losing badges, and vice versa.
+        /// cards without losing tag rendering, and vice versa.
         /// </remarks>
         public bool TagBadgesEnabled { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets the rendering style for comment tags.
+        /// Valid values: <c>"Pills"</c> (replace tag word), <c>"Cards"</c> (replace whole comment).
+        /// Free feature. Default: <c>"Pills"</c>.
+        /// </summary>
+        public string TagStyle { get; set; } = "Pills";
 
         /// <summary>
         /// Gets or sets the serialized Premium per-tag colour overrides.<br/>
@@ -406,10 +413,10 @@ namespace RenderDocComments
         /// </summary>
         public Color EffectiveGradientStop2 => Premium ? ToColor(GradientStop2) : Color.FromArgb(0x50, 0x50, 0x28, 0x96);
 
-        // ── Comment tag badges: effective values ─────────────────────────────────
+// ── Comment tags: effective values ────────────────────────────────────────────
 
         /// <summary>
-        /// Gets the effective badge background colour for a canonical tag name.<br/>
+        /// Gets the effective tag colour for a canonical tag name.<br/>
         /// Returns the Premium override when unlocked and one exists; otherwise the
         /// factory default from <see cref="TagBadgeCatalog"/>.
         /// </summary>
@@ -422,13 +429,18 @@ namespace RenderDocComments
         }
 
         /// <summary>
-        /// Gets whether a canonical tag should currently render as a badge.<br/>
+        /// Gets whether a canonical tag should currently render.
         /// When Premium is locked every known tag is enabled; when unlocked,
         /// tags listed in <see cref="TagsDisabled"/> are suppressed.
         /// </summary>
         /// <param name="canonicalName">Canonical uppercase tag name.</param>
         public bool EffectiveTagEnabled(string canonicalName)
             => !(Premium && ParseDisabledTags().Contains(canonicalName));
+
+        /// <summary>
+        /// Gets the active rendering style for comment tags.
+        /// </summary>
+        public string EffectiveTagStyle => TagStyle;
 
         /// <summary>Cached parse of <see cref="TagColorOverrides"/>, invalidated by value change.</summary>
         private Dictionary<string, int> ParseColorOverrides()
@@ -564,8 +576,11 @@ namespace RenderDocComments
                 GradientStop1 = ReadInt(store, nameof(GradientStop1), GradientStop1);
                 GradientStop2 = ReadInt(store, nameof(GradientStop2), GradientStop2);
 
-                // Comment tag badges
+// Comment tags
                 TagBadgesEnabled = ReadBool(store, nameof(TagBadgesEnabled), TagBadgesEnabled);
+                TagStyle = store.PropertyExists(CollectionPath, nameof(TagStyle))
+                                   ? store.GetString(CollectionPath, nameof(TagStyle))
+                                   : TagStyle;
                 TagColorOverrides = store.PropertyExists(CollectionPath, nameof(TagColorOverrides))
                                             ? store.GetString(CollectionPath, nameof(TagColorOverrides))
                                             : TagColorOverrides;
@@ -631,8 +646,9 @@ namespace RenderDocComments
                 store.SetInt32(CollectionPath, nameof(GradientStop1), GradientStop1);
                 store.SetInt32(CollectionPath, nameof(GradientStop2), GradientStop2);
 
-                // Comment tag badges
+// Comment tags
                 store.SetBoolean(CollectionPath, nameof(TagBadgesEnabled), TagBadgesEnabled);
+                store.SetString(CollectionPath, nameof(TagStyle), TagStyle ?? string.Empty);
                 store.SetString(CollectionPath, nameof(TagColorOverrides), TagColorOverrides ?? string.Empty);
                 store.SetString(CollectionPath, nameof(TagsDisabled), TagsDisabled ?? string.Empty);
             }

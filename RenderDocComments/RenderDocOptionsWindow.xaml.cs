@@ -48,11 +48,11 @@ namespace RenderDocComments
         /// <summary>Backing field for the fixed width setting.</summary>
         private double _fixedWidth = 700.0;
 
-        /// <summary>Per-tag badge enabled state keyed by canonical tag name.</summary>
+/// <summary>Per-tag enabled state keyed by canonical tag name.</summary>
         private readonly Dictionary<string, bool> _tagEnabled =
             new Dictionary<string, bool>(StringComparer.Ordinal);
 
-        /// <summary>Per-tag badge ARGB colour keyed by canonical tag name (may equal defaults).</summary>
+        /// <summary>Per-tag ARGB colour keyed by canonical tag name (may equal defaults).</summary>
         private readonly Dictionary<string, int> _tagColor =
             new Dictionary<string, int>(StringComparer.Ordinal);
 
@@ -164,6 +164,9 @@ namespace RenderDocComments
             _colorGrad2 = o.GradientStop2;
 
             TagBadgesCheck.IsChecked = o.TagBadgesEnabled;
+
+            TagPillsRadio.IsChecked = o.TagStyle == "Pills";
+            TagCardsRadio.IsChecked = o.TagStyle == "Cards";
 
             // Seed per-tag dictionaries with catalogue defaults, then overlay
             // stored Premium overrides and disabled flags.
@@ -374,6 +377,7 @@ namespace RenderDocComments
             o.GradientStop2 = _colorGrad2;
 
             o.TagBadgesEnabled = TagBadgesCheck.IsChecked == true;
+            o.TagStyle = TagCardsRadio.IsChecked == true ? "Cards" : "Pills";
             o.TagColorOverrides = SerializeTagColorOverrides();
             o.TagsDisabled = SerializeDisabledTags();
         }
@@ -442,6 +446,17 @@ namespace RenderDocComments
         {
             if (_loading) return;
             RenderDocOptions.Instance.GlyphToggleEnabled = GlyphModeRadio.IsChecked == true;
+            OnSettingChanged(sender, e);
+        }
+
+        /// <summary>
+        /// Handles the tag style radio button changes (Pills vs Cards), updating
+        /// <see cref="RenderDocOptions.TagStyle"/> and triggering a settings save.
+        /// </summary>
+        private void OnTagStyleChanged(object sender, RoutedEventArgs e)
+        {
+            if (_loading) return;
+            RenderDocOptions.Instance.TagStyle = TagCardsRadio.IsChecked == true ? "Cards" : "Pills";
             OnSettingChanged(sender, e);
         }
 
@@ -757,7 +772,7 @@ namespace RenderDocComments
             OnSettingChanged(sender, null);
         }
 
-        // ── Comment tag badges UI ─────────────────────────────────────────────────
+// ── Comment tag UI ────────────────────────────────────────────────────────────────
 
         /// <summary>
         /// Rebuilds the per-tag rows (checkbox + colour swatch + name + description)
@@ -855,7 +870,8 @@ namespace RenderDocComments
         }
 
         /// <summary>
-        /// Handles the "Reset badge colours to defaults" button click — restores every
+/// <summary>
+        /// Handles the "Reset colours to defaults" button click — restores every
         /// tag's colour from the catalogue (enable flags are untouched).
         /// </summary>
         private void OnResetBadgeColorsClicked(object sender, RoutedEventArgs e)
@@ -961,6 +977,7 @@ namespace RenderDocComments
             o.GradientStop1 = unchecked((int)0xC8784BC8);
             o.GradientStop2 = unchecked((int)0x50502896);
             o.TagBadgesEnabled = true;
+            o.TagStyle = "Pills";
             o.TagColorOverrides = string.Empty;
             o.TagsDisabled = string.Empty;
 
