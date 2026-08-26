@@ -198,6 +198,24 @@ namespace RenderDocComments.DocCommentRenderer.TagBadges
         /// </summary>
         private const int MaxTooltipTailLength = 200;
 
+        /// <summary>
+        /// Determines whether a match is <b>anchored</b>: every character between the
+        /// start of the comment content and the match must be whitespace or a block
+        /// decorator (<c>*</c>). This restricts badging to tags that open the comment
+        /// (or open a line inside a block), so ordinary words in prose — e.g. the
+        /// "WARN" inside <c>// WARNING: alias of WARN</c> — never render.
+        /// </summary>
+        private static bool IsAnchored(string text, int matchIndex)
+        {
+            for (int i = 0; i < matchIndex; i++)
+            {
+                char c = text[i];
+                if (char.IsWhiteSpace(c) || c == '*') continue;
+                return false;
+            }
+            return true;
+        }
+
         /// <summary>Newline characters used to cut multi-line block tails.</summary>
         private static readonly char[] _newlineChars = { '\r', '\n' };
 
@@ -235,6 +253,7 @@ namespace RenderDocComments.DocCommentRenderer.TagBadges
 
                 foreach (Match m in _tagRegex.Matches(text))
                 {
+                    if (!IsAnchored(text, m.Index)) continue;
                     if (!TagBadgeCatalog.TryNormalize(m.Value, out var canonical)) continue;
                     if (!opts.EffectiveTagEnabled(canonical)) continue;
 
@@ -472,6 +491,9 @@ namespace RenderDocComments.DocCommentRenderer.TagBadges
             // Never exceed the current line box — keeps line heights stable.
             double maxH = _view.LineHeight > 0 ? _view.LineHeight : fontSize * 1.5;
 
+            // Softly rounded ends — noticeably pill-like without bulging into ovals.
+            double cornerRadius = Math.Min(6.0, Math.Max(3.0, fontSize * 0.45));
+
             Color bg = opts.EffectiveTagColor(canonicalName);
 
             var fgBrush = new SolidColorBrush(TagBadgeCatalog.GetAdaptiveForeground(bg));
@@ -484,9 +506,7 @@ namespace RenderDocComments.DocCommentRenderer.TagBadges
                 Background = bgBrush,
                 BorderBrush = TagBadgeCatalog.GetAdaptiveBorderBrush(bg),
                 BorderThickness = new Thickness(1),
-                // Oversized uniform radius is normalised by WPF into a perfect
-                // stadium shape regardless of the final rendered height.
-                CornerRadius = new CornerRadius(999),
+                CornerRadius = new CornerRadius(cornerRadius),
                 Padding = new Thickness(7, 0, 7, 0),
                 Margin = new Thickness(2, 0, 2, 0),
                 MaxHeight = maxH,
