@@ -195,6 +195,24 @@ namespace RenderDocComments.DocCommentRenderer.TagBadges
         /// </summary>
         private const int MaxTooltipTailLength = 200;
 
+        /// <summary>
+        /// Determines whether a match is <b>anchored</b>: every character between the
+        /// start of the comment content and the match must be whitespace or a block
+        /// decorator (<c>*</c>). This restricts carding to tags that open the comment
+        /// (or open a line inside a block), so ordinary words in prose — e.g. the
+        /// "WARN" inside <c>// WARNING: alias of WARN</c> — never render.
+        /// </summary>
+        private static bool IsAnchored(string text, int matchIndex)
+        {
+            for (int i = 0; i < matchIndex; i++)
+            {
+                char c = text[i];
+                if (char.IsWhiteSpace(c) || c == '*') continue;
+                return false;
+            }
+            return true;
+        }
+
         /// <summary>Newline characters used to cut multi-line block tails.</summary>
         private static readonly char[] _newlineChars = { '\r', '\n' };
 
@@ -252,6 +270,7 @@ namespace RenderDocComments.DocCommentRenderer.TagBadges
 
                 foreach (Match m in _tagRegex.Matches(text))
                 {
+                    if (!IsAnchored(text, m.Index)) continue;
                     if (!TagBadgeCatalog.TryNormalize(m.Value, out var canonical)) continue;
                     if (!opts.EffectiveTagEnabled(canonical)) continue;
 
