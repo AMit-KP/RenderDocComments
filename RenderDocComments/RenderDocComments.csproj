@@ -53,6 +53,10 @@
     <Compile Include="DocCommentRenderer\DocCommentAdornmentTaggerProvider.cs" />
     <Compile Include="DocCommentRenderer\DocCommentControl.cs" />
     <Compile Include="DocCommentRenderer\DocCommentParser.cs" />
+    <Compile Include="DocCommentRenderer\TagBadges\CommentTagBadgeTagger.cs" />
+    <Compile Include="DocCommentRenderer\TagBadges\CommentTagBadgeTaggerProvider.cs" />
+    <Compile Include="DocCommentRenderer\TagBadges\TagBadgeCatalog.cs" />
+    <Compile Include="DocCommentRenderer\TagBadges\TagBadgeToggleState.cs" />
     <Compile Include="LicenseHttpListener.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="PurchaseActivationWindow.xaml.cs">
