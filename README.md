@@ -37,6 +37,13 @@
 
 > <img width="1623" height="1143" alt="image" src="https://github.com/user-attachments/assets/c8f26866-8b7a-4bb1-83ef-479eaa2d1af8" />
 
+> <img width="478" height="314" alt="image" src="https://github.com/user-attachments/assets/c0f221a4-0bb5-4758-8f5f-a6765dceb827" />
+
+> <img width="398" height="466" alt="image" src="https://github.com/user-attachments/assets/53aa4614-5ed1-4839-9107-f066fa706863" />
+
+
+
+
 </div>
 
 ---
@@ -69,10 +76,13 @@ From here, you can toggle between **Caret-based hiding** and **Margin Glyph cont
 | **Caret-Based Auto-Hide** | ✅ (Always On) | **🔘 Selectable** |
 | **Margin Glyph Toggle** | ❌ | **🔘 Selectable** |
 | **Per-File Toggle (Toolbar Button & Context Menu)** | ✅ | ✅ |
+| **Tag Comments Render** | ✅ | ✅ |
+| **Tag Comments Render Style(Pill/Card)** | 🔘 Selectable | 🔘 Selectable |
 | **Theme Synchronization** | Manual (Reopen) | **⚡ Instant Auto-Sync** |
 | **Typography** | Segoe UI (Fixed) | **🎨 Fully Custom** |
 | **Accent Bars** | Left Side Only | **🔥 Multi-side Layout** |
 | **Color Profiles** | Default | **🌈 Full Customization** |
+| **Tag Comments Render Color** | Default | **🌈 Full Customization** |
 
 ---
 
