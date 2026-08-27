@@ -1,10 +1,12 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Forms;  // ColorDialog — needs System.Windows.Forms ref
 using System.Windows.Media;
+using RenderDocComments.DocCommentRenderer.TagBadges;
 
 namespace RenderDocComments
 {
@@ -45,6 +47,14 @@ namespace RenderDocComments
 
         /// <summary>Backing field for the fixed width setting.</summary>
         private double _fixedWidth = 700.0;
+
+/// <summary>Per-tag enabled state keyed by canonical tag name.</summary>
+        private readonly Dictionary<string, bool> _tagEnabled =
+            new Dictionary<string, bool>(StringComparer.Ordinal);
+
+        /// <summary>Per-tag ARGB colour keyed by canonical tag name (may equal defaults).</summary>
+        private readonly Dictionary<string, int> _tagColor =
+            new Dictionary<string, int>(StringComparer.Ordinal);
 
         /// <summary>
         /// Initializes a new instance of the <see cref="RenderDocOptionsWindow"/> class.
@@ -153,7 +163,32 @@ namespace RenderDocComments
             _colorGrad1 = o.GradientStop1;
             _colorGrad2 = o.GradientStop2;
 
+            TagBadgesCheck.IsChecked = o.TagBadgesEnabled;
+
+            TagPillsRadio.IsChecked = o.TagStyle == "Pills";
+            TagCardsRadio.IsChecked = o.TagStyle == "Cards";
+
+            // Seed per-tag dictionaries with catalogue defaults, then overlay
+            // stored Premium overrides and disabled flags.
+            _tagEnabled.Clear();
+            _tagColor.Clear();
+            foreach (var def in TagBadgeCatalog.Tags)
+            {
+                _tagEnabled[def.Name] = true;
+                _tagColor[def.Name] = def.DefaultColorArgb;
+            }
+            foreach (var pair in ParseSerializedPairs(o.TagColorOverrides))
+                if (_tagColor.ContainsKey(pair.Key)) _tagColor[pair.Key] = pair.Value;
+            foreach (var name in (o.TagsDisabled ?? string.Empty).Split(','))
+            {
+                var t = name.Trim();
+                if (_tagEnabled.ContainsKey(t)) _tagEnabled[t] = false;
+            }
+
+            BuildTagBadgeRows();
+
             RefreshAllSwatches();
+            UpdateTagStyleEnabled();
         }
 
         /// <summary>
@@ -341,6 +376,59 @@ namespace RenderDocComments
             o.GradientStop0 = _colorGrad0;
             o.GradientStop1 = _colorGrad1;
             o.GradientStop2 = _colorGrad2;
+
+            o.TagBadgesEnabled = TagBadgesCheck.IsChecked == true;
+            o.TagStyle = TagCardsRadio.IsChecked == true ? "Cards" : "Pills";
+            o.TagColorOverrides = SerializeTagColorOverrides();
+            o.TagsDisabled = SerializeDisabledTags();
+        }
+
+        /// <summary>
+        /// Serialises per-tag colour entries that differ from the catalogue defaults
+        /// into the <c>NAME=0xAARRGGBB;…</c> format stored in
+        /// <see cref="RenderDocOptions.TagColorOverrides"/>.
+        /// </summary>
+        private string SerializeTagColorOverrides()
+        {
+            var parts = _tagColor
+                .Where(kvp => TagBadgeCatalog.Tags.Any(d => d.Name == kvp.Key) &&
+                              kvp.Value != TagBadgeCatalog.Tags.First(d => d.Name == kvp.Key).DefaultColorArgb)
+                .Select(kvp => $"{kvp.Key}=0x{kvp.Value:X8}");
+            return string.Join(";", parts);
+        }
+
+        /// <summary>
+        /// Serialises disabled tag names into the comma-separated format stored in
+        /// <see cref="RenderDocOptions.TagsDisabled"/>.
+        /// </summary>
+        private string SerializeDisabledTags()
+            => string.Join(",", _tagEnabled.Where(kvp => !kvp.Value).Select(kvp => kvp.Key));
+
+        /// <summary>
+        /// Parses a <c>NAME=0xAARRGGBB;…</c> string into a dictionary, ignoring
+        /// malformed pairs and names the catalogue does not know.
+        /// </summary>
+        private static Dictionary<string, int> ParseSerializedPairs(string serialized)
+        {
+            var map = new Dictionary<string, int>(StringComparer.Ordinal);
+            if (string.IsNullOrWhiteSpace(serialized)) return map;
+            foreach (var pair in serialized.Split(';'))
+            {
+                var parts = pair.Split('=');
+                if (parts.Length != 2) continue;
+                var name = parts[0].Trim();
+                if (!TagBadgeCatalog.TryNormalize(name, out string canonical)) continue;
+                var hex = parts[1].Trim();
+                if (hex.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+                    hex = hex.Substring(2);
+                if (!int.TryParse(hex,
+                        System.Globalization.NumberStyles.HexNumber,
+                        System.Globalization.CultureInfo.InvariantCulture, out int argb))
+                    continue;
+                if (!map.ContainsKey(canonical))
+                    map[canonical] = argb;
+            }
+            return map;
         }
 
         /// <summary>
@@ -363,6 +451,41 @@ namespace RenderDocComments
             if (_loading) return;
             RenderDocOptions.Instance.GlyphToggleEnabled = GlyphModeRadio.IsChecked == true;
             OnSettingChanged(sender, e);
+        }
+
+        /// <summary>
+        /// Handles the tag style radio button changes (Pills vs Cards), updating
+        /// <see cref="RenderDocOptions.TagStyle"/> and triggering a settings save.
+        /// </summary>
+        private void OnTagStyleChanged(object sender, RoutedEventArgs e)
+        {
+            if (_loading) return;
+            RenderDocOptions.Instance.TagStyle = TagCardsRadio.IsChecked == true ? "Cards" : "Pills";
+            OnSettingChanged(sender, e);
+        }
+
+        /// <summary>
+        /// Handles the comment tag master toggle, applying the change and disabling
+        /// the style radio buttons whenever tag rendering is switched off.
+        /// </summary>
+        private void OnTagBadgesChanged(object sender, RoutedEventArgs e)
+        {
+            OnSettingChanged(sender, e);
+            UpdateTagStyleEnabled();
+        }
+
+        /// <summary>
+        /// Enables or disables the Pills/Cards style radio buttons and the
+        /// per-tag colour section based on the "Enable comment tag highlighting"
+        /// master toggle.
+        /// </summary>
+        private void UpdateTagStyleEnabled()
+        {
+            bool enabled = TagBadgesCheck.IsChecked == true;
+            TagPillsRadio.IsEnabled = enabled;
+            TagCardsRadio.IsEnabled = enabled;
+            TagBadgeSectionPanel.IsEnabled = enabled;
+            TagBadgeSectionPanel.Opacity = enabled ? 1.0 : 0.45;
         }
 
         // ── Font ──────────────────────────────────────────────────────────────────
@@ -677,6 +800,116 @@ namespace RenderDocComments
             OnSettingChanged(sender, null);
         }
 
+// ── Comment tag UI ────────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Rebuilds the per-tag rows (checkbox + colour swatch + name + description)
+        /// inside <see cref="TagBadgeListPanel"/> from the current dictionary state.
+        /// </summary>
+        /// <remarks>
+        /// Rows are rebuilt wholesale on any change — trivial cost at 15 entries and
+        /// immune to stale-control bookkeeping. The panel lives inside
+        /// <c>PremiumOptionsPanel</c>, which is disabled and dimmed without a licence.
+        /// </remarks>
+        private void BuildTagBadgeRows()
+        {
+            TagBadgeListPanel.Children.Clear();
+
+            foreach (var def in TagBadgeCatalog.Tags)
+            {
+                var row = new StackPanel
+                {
+                    Orientation = System.Windows.Controls.Orientation.Horizontal,
+                    Margin = new Thickness(0, 1, 0, 1)
+                };
+
+                var enabledCheck = new System.Windows.Controls.CheckBox
+                {
+                    IsChecked = _tagEnabled.TryGetValue(def.Name, out bool en) ? en : true,
+                    Tag = def.Name,
+                    VerticalAlignment = VerticalAlignment.Center,
+                };
+                enabledCheck.Checked += OnTagEnabledChanged;
+                enabledCheck.Unchecked += OnTagEnabledChanged;
+                row.Children.Add(enabledCheck);
+
+                var swatch = new System.Windows.Controls.Button
+                {
+                    Width = 26,
+                    Height = 18,
+                    Margin = new Thickness(6, 0, 0, 0),
+                    Cursor = System.Windows.Input.Cursors.Hand,
+                    BorderBrush = new SolidColorBrush(Color.FromRgb(0x88, 0x88, 0x88)),
+                    Background = new SolidColorBrush(ArgbToWpf(_tagColor[def.Name])),
+                    Tag = def.Name,
+                    VerticalAlignment = VerticalAlignment.Center,
+                };
+                swatch.Click += OnTagSwatchClicked;
+                row.Children.Add(swatch);
+
+                row.Children.Add(new TextBlock
+                {
+                    Text = def.Name,
+                    FontWeight = FontWeights.SemiBold,
+                    Margin = new Thickness(7, 0, 0, 0),
+                    VerticalAlignment = VerticalAlignment.Center,
+                });
+
+                row.Children.Add(new TextBlock
+                {
+                    Text = "— " + def.Description + (def.Name == "WARN" ? "  (WARNING)" : string.Empty),
+                    FontSize = 11,
+                    Foreground = new SolidColorBrush(Color.FromRgb(0x88, 0x88, 0x88)),
+                    Margin = new Thickness(5, 0, 0, 0),
+                    VerticalAlignment = VerticalAlignment.Center,
+                });
+
+                TagBadgeListPanel.Children.Add(row);
+            }
+        }
+
+        /// <summary>
+        /// Handles per-tag enable checkbox toggles by updating the dictionary and
+        /// applying to the options singleton.
+        /// </summary>
+        private void OnTagEnabledChanged(object sender, RoutedEventArgs e)
+        {
+            if (_loading) return;
+            if (!(sender is System.Windows.Controls.CheckBox cb) || !(cb.Tag is string name)) return;
+            _tagEnabled[name] = cb.IsChecked == true;
+            OnSettingChanged(sender, e);
+        }
+
+        /// <summary>
+        /// Handles per-tag colour swatch clicks by opening the shared colour dialog
+        /// and updating both the dictionary and the button visual.
+        /// </summary>
+        private void OnTagSwatchClicked(object sender, RoutedEventArgs e)
+        {
+            if (!(sender is System.Windows.Controls.Button btn) || !(btn.Tag is string name)) return;
+
+            int current = _tagColor.TryGetValue(name, out int c) ? c : unchecked((int)0xFFFFFFFF);
+            var picked = PickColor(current);
+            if (!picked.HasValue) return;
+
+            _tagColor[name] = picked.Value;
+            btn.Background = new SolidColorBrush(ArgbToWpf(picked.Value));
+            OnSettingChanged(sender, null);
+        }
+
+        /// <summary>
+/// <summary>
+        /// Handles the "Reset colours to defaults" button click — restores every
+        /// tag's colour from the catalogue (enable flags are untouched).
+        /// </summary>
+        private void OnResetBadgeColorsClicked(object sender, RoutedEventArgs e)
+        {
+            foreach (var def in TagBadgeCatalog.Tags)
+                _tagColor[def.Name] = def.DefaultColorArgb;
+            BuildTagBadgeRows();
+            OnSettingChanged(sender, null);
+        }
+
         // ── Footer buttons ────────────────────────────────────────────────────────
 
         /// <summary>
@@ -771,6 +1004,10 @@ namespace RenderDocComments
             o.GradientStop0 = unchecked((int)0xFFBE6EF0);
             o.GradientStop1 = unchecked((int)0xC8784BC8);
             o.GradientStop2 = unchecked((int)0x50502896);
+            o.TagBadgesEnabled = true;
+            o.TagStyle = "Pills";
+            o.TagColorOverrides = string.Empty;
+            o.TagsDisabled = string.Empty;
 
             _loading = true;
             LoadFromOptions();
