@@ -188,6 +188,7 @@ namespace RenderDocComments
             BuildTagBadgeRows();
 
             RefreshAllSwatches();
+            UpdateTagStyleEnabled();
         }
 
         /// <summary>
@@ -417,7 +418,10 @@ namespace RenderDocComments
                 if (parts.Length != 2) continue;
                 var name = parts[0].Trim();
                 if (!TagBadgeCatalog.TryNormalize(name, out string canonical)) continue;
-                if (!int.TryParse(parts[1].Trim(),
+                var hex = parts[1].Trim();
+                if (hex.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+                    hex = hex.Substring(2);
+                if (!int.TryParse(hex,
                         System.Globalization.NumberStyles.HexNumber,
                         System.Globalization.CultureInfo.InvariantCulture, out int argb))
                     continue;
@@ -458,6 +462,30 @@ namespace RenderDocComments
             if (_loading) return;
             RenderDocOptions.Instance.TagStyle = TagCardsRadio.IsChecked == true ? "Cards" : "Pills";
             OnSettingChanged(sender, e);
+        }
+
+        /// <summary>
+        /// Handles the comment tag master toggle, applying the change and disabling
+        /// the style radio buttons whenever tag rendering is switched off.
+        /// </summary>
+        private void OnTagBadgesChanged(object sender, RoutedEventArgs e)
+        {
+            OnSettingChanged(sender, e);
+            UpdateTagStyleEnabled();
+        }
+
+        /// <summary>
+        /// Enables or disables the Pills/Cards style radio buttons and the
+        /// per-tag colour section based on the "Enable comment tag highlighting"
+        /// master toggle.
+        /// </summary>
+        private void UpdateTagStyleEnabled()
+        {
+            bool enabled = TagBadgesCheck.IsChecked == true;
+            TagPillsRadio.IsEnabled = enabled;
+            TagCardsRadio.IsEnabled = enabled;
+            TagBadgeSectionPanel.IsEnabled = enabled;
+            TagBadgeSectionPanel.Opacity = enabled ? 1.0 : 0.45;
         }
 
         // ── Font ──────────────────────────────────────────────────────────────────

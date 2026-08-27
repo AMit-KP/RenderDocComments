@@ -263,7 +263,7 @@ namespace RenderDocComments
         /// </summary>
         public int GradientStop2 { get; set; } = unchecked((int)0x50502896);
 
-// ── Comment tags ───────────────────────────────────────────────────────────────
+        // ── Comment tags ───────────────────────────────────────────────────────────────
 
         /// <summary>
         /// Gets or sets the master toggle for comment tag rendering
@@ -456,7 +456,10 @@ namespace RenderDocComments
                     var parts = pair.Split('=');
                     if (parts.Length != 2) continue;
                     var name = parts[0].Trim();
-                    if (!int.TryParse(parts[1].Trim(),
+                    var hex = parts[1].Trim();
+                    if (hex.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+                        hex = hex.Substring(2);
+                    if (!int.TryParse(hex,
                             NumberStyles.HexNumber, CultureInfo.InvariantCulture, out int argb))
                         continue;
                     // Only accept names the catalogue knows — guards against stale data.
@@ -576,7 +579,7 @@ namespace RenderDocComments
                 GradientStop1 = ReadInt(store, nameof(GradientStop1), GradientStop1);
                 GradientStop2 = ReadInt(store, nameof(GradientStop2), GradientStop2);
 
-// Comment tags
+                // Comment tags
                 TagBadgesEnabled = ReadBool(store, nameof(TagBadgesEnabled), TagBadgesEnabled);
                 TagStyle = store.PropertyExists(CollectionPath, nameof(TagStyle))
                                    ? store.GetString(CollectionPath, nameof(TagStyle))
@@ -646,7 +649,7 @@ namespace RenderDocComments
                 store.SetInt32(CollectionPath, nameof(GradientStop1), GradientStop1);
                 store.SetInt32(CollectionPath, nameof(GradientStop2), GradientStop2);
 
-// Comment tags
+                // Comment tags
                 store.SetBoolean(CollectionPath, nameof(TagBadgesEnabled), TagBadgesEnabled);
                 store.SetString(CollectionPath, nameof(TagStyle), TagStyle ?? string.Empty);
                 store.SetString(CollectionPath, nameof(TagColorOverrides), TagColorOverrides ?? string.Empty);

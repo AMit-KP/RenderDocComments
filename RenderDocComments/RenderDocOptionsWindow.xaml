@@ -189,26 +189,33 @@
 
 				<CheckBox
 					x:Name="TagBadgesCheck"
-					Checked="OnSettingChanged"
-Content="Enable comment tag highlighting (// TODO:, // FIXME:, …)"
-					Unchecked="OnSettingChanged" />
+					Checked="OnTagBadgesChanged"
+					Content="Enable comment tag highlighting"
+					Unchecked="OnTagBadgesChanged" />
 
-				<StackPanel Orientation="Horizontal" Margin="0,4,0,8">
-					<TextBlock Style="{StaticResource OptionLabel}" Text="Style:" VerticalAlignment="Center" />
+				<StackPanel Margin="20,4,0,8" Orientation="Horizontal">
+					<TextBlock
+						VerticalAlignment="Center"
+						Style="{StaticResource OptionLabel}"
+						Text="Comment tag Style:" />
 					<RadioButton
 						x:Name="TagPillsRadio"
-						GroupName="TagStyle"
 						Margin="8,0,0,0"
+						VerticalAlignment="Center"
+						VerticalContentAlignment="Center"
 						Checked="OnTagStyleChanged"
-						Content="Pills — replace the tag word"
-						Foreground="#D4D4D4" />
+						Content="Pills"
+						Foreground="#D4D4D4"
+						GroupName="TagStyle" />
 					<RadioButton
 						x:Name="TagCardsRadio"
-						GroupName="TagStyle"
 						Margin="16,0,0,0"
+						VerticalAlignment="Center"
+						VerticalContentAlignment="Center"
 						Checked="OnTagStyleChanged"
-						Content="Cards — replace the whole comment"
-						Foreground="#D4D4D4" />
+						Content="Card"
+						Foreground="#D4D4D4"
+						GroupName="TagStyle" />
 				</StackPanel>
 
 				<!--  ══ Premium section  -->
@@ -245,11 +252,15 @@ Content="Enable comment tag highlighting (// TODO:, // FIXME:, …)"
 						<RadioButton
 							x:Name="CaretModeRadio"
 							Margin="0,0,0,4"
+							VerticalAlignment="Center"
+							VerticalContentAlignment="Center"
 							Checked="OnToggleModeChanged"
 							Content="Caret-based (free) — caret in block shows raw XML"
 							Foreground="#D4D4D4" />
 						<RadioButton
 							x:Name="GlyphModeRadio"
+							VerticalAlignment="Center"
+							VerticalContentAlignment="Center"
 							Checked="OnToggleModeChanged"
 							Content="Margin glyph button (Premium) — click to toggle per comment"
 							Foreground="#D4D4D4" />
@@ -324,25 +335,8 @@ Content="Enable comment tag highlighting (// TODO:, // FIXME:, …)"
 							Unchecked="OnSettingChanged" />
 					</StackPanel>
 
-<!--  Comment Tag Badges  -->
-					<TextBlock Style="{StaticResource SectionHeader}" Text="Comment Tag Badges" />
-					<TextBlock
-						Margin="0,0,0,4"
-						FontSize="11"
-						Foreground="#888"
-						Text="Per-tag visibility and colours for plain comments (TODO, FIXME, …). WARNING is an alias of WARN."
-						TextWrapping="Wrap" />
-					<StackPanel x:Name="TagBadgeListPanel" Margin="6,0,6,4" />
-					<Button
-						HorizontalAlignment="Left"
-						Margin="6,2,0,8"
-						Padding="6,3"
-						Click="OnResetBadgeColorsClicked"
-Content="Reset colours to defaults"
-						Style="{StaticResource SecondaryButton}" />
-
 					<!--  Colours  -->
-					<TextBlock Style="{StaticResource SectionHeader}" Text="Colours" />
+					<TextBlock Style="{StaticResource SectionHeader}" Text="Rendered Colours" />
 					<TextBlock
 						Margin="0,0,0,4"
 						FontSize="11"
@@ -442,7 +436,7 @@ Content="Reset colours to defaults"
 						FontSize="11"
 						FontWeight="SemiBold"
 						Foreground="#D4D4D4"
-						Text="Gradient bar:" />
+						Text="Gradient bar colors:" />
 
 					<StackPanel Margin="0,0,0,4" Orientation="Horizontal">
 						<TextBlock Style="{StaticResource OptionLabel}" Text="Presets:" />
@@ -521,6 +515,25 @@ Content="Reset colours to defaults"
 							Height="20"
 							Margin="8,0,0,0"
 							CornerRadius="3" />
+					</StackPanel>
+
+					<!--  Comment Tag Badges  -->
+					<StackPanel x:Name="TagBadgeSectionPanel">
+						<TextBlock Style="{StaticResource SectionHeader}" Text="Comment Tag Badges" />
+						<TextBlock
+							Margin="0,0,0,4"
+							FontSize="11"
+							Foreground="#888"
+							Text="Per-tag visibility and colours for plain comments (TODO, FIXME, …). WARNING is an alias of WARN."
+							TextWrapping="Wrap" />
+						<StackPanel x:Name="TagBadgeListPanel" Margin="6,0,6,4" />
+						<Button
+							Margin="6,2,0,8"
+							Padding="6,3"
+							HorizontalAlignment="Left"
+							Click="OnResetBadgeColorsClicked"
+							Content="Reset colours to defaults"
+							Style="{StaticResource SecondaryButton}" />
 					</StackPanel>
 
 				</StackPanel>
