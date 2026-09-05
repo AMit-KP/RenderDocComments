@@ -27,6 +27,8 @@ namespace RenderDocComments
     [ProvideMenuResource("Menus.ctmenu", 1)]
     [ProvideAutoLoad(UIContextGuids.NoSolution, PackageAutoLoadFlags.BackgroundLoad)]
     [ProvideAutoLoad(UIContextGuids.SolutionExists, PackageAutoLoadFlags.BackgroundLoad)]
+    [ProvideToolWindow(typeof(CommentTagsToolWindow), MultiInstances = false, Transient = false, Orientation = ToolWindowOrientation.Right, Style = VsDockStyle.Tabbed, Window = ToolWindowGuids80.SolutionExplorer)]
+    [ProvideToolWindowVisibility(typeof(CommentTagsToolWindow), UIContextGuids80.SolutionExists)]
     public sealed class RenderDocCommentsPackage : AsyncPackage
     {
         /// <summary>
@@ -94,6 +96,7 @@ namespace RenderDocComments
 
             await RenderDocOptionsCommand.InitializeAsync(this);
             await RenderDocToggleCommand.InitializeAsync(this);
+            await CommentTagsWindowCommand.InitializeAsync(this);
 
             await LicenseManager.RevalidateOnStartupAsync(this).ConfigureAwait(true);
 

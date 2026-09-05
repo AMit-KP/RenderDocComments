@@ -773,6 +773,7 @@ namespace RenderDocComments
             byte g = (byte)((argb >> 8) & 0xFF);
             byte b = (byte)(argb & 0xFF);
             return Color.FromArgb(a, r, g, b);
+            //TODO a
         }
 
         /// <summary>

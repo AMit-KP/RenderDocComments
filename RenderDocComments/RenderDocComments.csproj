@@ -59,6 +59,14 @@
     <Compile Include="DocCommentRenderer\TagBadges\TagBadgeToggleState.cs" />
     <Compile Include="DocCommentRenderer\TagBadges\TagCardTagger.cs" />
     <Compile Include="DocCommentRenderer\TagBadges\TagCardTaggerProvider.cs" />
+    <Compile Include="CommentNavigator.cs" />
+    <Compile Include="CommentTagsScanner.cs" />
+    <Compile Include="CommentTagsToolWindow.cs" />
+    <Compile Include="CommentTagsToolWindowControl.xaml.cs">
+      <DependentUpon>CommentTagsToolWindowControl.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="CommentTagsTreeViewModel.cs" />
+    <Compile Include="CommentTagsWindowCommand.cs" />
     <Compile Include="LicenseHttpListener.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="PurchaseActivationWindow.xaml.cs">
@@ -75,6 +83,10 @@
     <Compile Include="RenderDocOptionsWindow.xaml.cs">
       <DependentUpon>RenderDocOptionsWindow.xaml</DependentUpon>
     </Compile>
+    <Page Include="CommentTagsToolWindowControl.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
     <Page Include="PurchaseActivationWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
