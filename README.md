@@ -15,6 +15,16 @@
 
 ---
 
+## ✨ The Interactive Experience
+Writing documentation shouldn't feel like looking at a configuration file. Our extension offers two distinct ways to manage your workflow:
+
+1.  **Caret-Based Mode (Default):** The second you click into the comment, it reverts to raw XML for zero-friction editing. Move your cursor away to see the polished preview.
+2.  **Margin Glyph Mode (Premium):** Prefer manual control? Use the dedicated Margin Glyph toggle to switch between raw XML and rendered docs regardless of where your cursor is.
+3.  **Comment Tag Rendering:** Drop a `TODO`, `FIXME`, or `WARN` into any comment and it's instantly rendered as a colour-coded badge inline — no more scanning walls of text for the flags that actually matter.
+4.  **Comment Tags Explorer:** A dedicated tool window rolls up every tagged comment across your solution into one searchable view, grouped by tag or by file, so you can jump straight to any TODO without hunting through the codebase.
+
+---
+
 <div align="center">
 
 *Before*
@@ -35,11 +45,15 @@
 
 > <img width="648" height="1080" alt="Screenshot 2026-03-23 003032" src="https://github.com/user-attachments/assets/a32e1bd3-eeb3-43c9-a958-0796edba353e" />
 
-> <img width="1623" height="1143" alt="image" src="https://github.com/user-attachments/assets/c8f26866-8b7a-4bb1-83ef-479eaa2d1af8" />
+> <img width="600" height="662" alt="image" src="https://github.com/user-attachments/assets/4ca5ad14-7f95-47ea-b52b-29e3d361971c" />
+
 
 > <img width="478" height="314" alt="image" src="https://github.com/user-attachments/assets/c0f221a4-0bb5-4758-8f5f-a6765dceb827" />
 
 > <img width="398" height="466" alt="image" src="https://github.com/user-attachments/assets/53aa4614-5ed1-4839-9107-f066fa706863" />
+
+> <img width="414" height="1022" alt="image" src="https://github.com/user-attachments/assets/ca5e7b4b-b4aa-4e6a-ad0e-03833638e8a2" />
+
 
 
 
@@ -48,19 +62,12 @@
 
 ---
 
-## ✨ The Interactive Experience
-Writing documentation shouldn't feel like looking at a configuration file. Our extension offers two distinct ways to manage your workflow:
-
-1.  **Caret-Based Mode (Default):** The second you click into the comment, it reverts to raw XML for zero-friction editing. Move your cursor away to see the polished preview.
-2.  **Margin Glyph Mode (Premium):** Prefer manual control? Use the dedicated Margin Glyph toggle to switch between raw XML and rendered docs regardless of where your cursor is.
-
-*Note: These modes are exclusive; you can select your preferred interaction style via the options menu.*
-
----
-
 ## ⚙️ How to Customize
 Access all your settings and Premium features via:
 **Extensions > Render Doc Options**
+
+Access Comment Tags Explorer via:
+**View > Other Windows > Comment Tags Explorer**
 
 From here, you can toggle between **Caret-based hiding** and **Margin Glyph control**, customize your typography, and adjust your accent bar styles.
 
@@ -76,9 +83,12 @@ From here, you can toggle between **Caret-based hiding** and **Margin Glyph cont
 | **Caret-Based Auto-Hide** | ✅ (Always On) | **🔘 Selectable** |
 | **Margin Glyph Toggle** | ❌ | **🔘 Selectable** |
 | **Per-File Toggle (Toolbar Button & Context Menu)** | ✅ | ✅ |
-| **Tag Comments Render** | ✅ | ✅ |
-| **Tag Comments Render Style(Pill/Card)** | 🔘 Selectable | 🔘 Selectable |
-| **Theme Synchronization** | Manual (Reopen) | **⚡ Instant Auto-Sync** |
+| **Comment Tag Render** | ✅ | ✅ |
+| **Comment Tag Render Style(Pill/Card)** | 🔘 Selectable | 🔘 Selectable |
+| **Comment Tags Explorer** | ✅ | ✅ |
+| **Theme Synchronization** | Manual (Reopen File) | **⚡ Instant Auto-Sync** |
+| **Rendered Comment Fixed Width** | Only Auto-width | **🔘 Selectable** |
+| **Rendered Comment Use Custom Fixed Width** | ❌ | **⚙️Customizable** |
 | **Typography** | Segoe UI (Fixed) | **🎨 Fully Custom** |
 | **Accent Bars** | Left Side Only | **🔥 Multi-side Layout** |
 | **Color Profiles** | Default | **🌈 Full Customization** |
