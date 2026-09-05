@@ -6,6 +6,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Forms;  // ColorDialog — needs System.Windows.Forms ref
 using System.Windows.Media;
+using Microsoft.VisualStudio.Shell;
 using RenderDocComments.DocCommentRenderer.TagBadges;
 
 namespace RenderDocComments
@@ -39,6 +40,11 @@ namespace RenderDocComments
         /// Used to suppress <see cref="OnSettingChanged"/> during initialization.
         /// </summary>
         private bool _loading = true;
+
+        /// <summary>
+        /// Stores whether tag highlighting was enabled when the window opened.
+        /// </summary>
+        private bool _initialTagBadgesEnabled;
 
         /// <summary>Backing fields for the color swatch values (ARGB integers).</summary>
         private int _colorCodeFg, _colorSummaryFg, _colorParamName,
@@ -115,6 +121,7 @@ namespace RenderDocComments
                 FontFamilyCombo.Items.Add(ff.Source);
 
             LoadFromOptions();
+            _initialTagBadgesEnabled = RenderDocOptions.Instance.TagBadgesEnabled;
             RefreshLicenceBadge();
             RefreshPremiumPanelEnabled();
 
@@ -933,9 +940,21 @@ namespace RenderDocComments
         /// </remarks>
         private void OnSaveClicked(object sender, RoutedEventArgs e)
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
+
             ApplyToOptions();
             RenderDocOptions.Instance.Save(_serviceProvider);
             SettingsChangedBroadcast.RaiseSettingsChanged();
+
+            if (!RenderDocOptions.Instance.TagBadgesEnabled)
+            {
+                CommentTagsWindowCommand.CloseToolWindow();
+            }
+            else if (!_initialTagBadgesEnabled && RenderDocOptions.Instance.TagBadgesEnabled)
+            {
+                CommentTagsWindowCommand.ShowToolWindow();
+            }
+
             Close();
         }
 

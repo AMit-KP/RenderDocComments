@@ -33,6 +33,9 @@ namespace RenderDocComments
         private readonly RunningDocumentTable _rdt;
         private uint _rdtCookie;
         private uint _solutionCookie;
+        private WindowEvents _windowEvents;
+
+        public event EventHandler<FileNodeViewModel> ActiveDocumentFound;
 
         private ITextDocumentFactoryService _textDocumentFactoryService;
         private IVsEditorAdaptersFactoryService _editorAdaptersFactoryService;
@@ -123,6 +126,15 @@ namespace RenderDocComments
                     {
                         _textDocumentFactoryService.TextDocumentCreated += OnTextDocumentCreated;
                         _textDocumentFactoryService.TextDocumentDisposed += OnTextDocumentDisposed;
+                    }
+                }
+
+                if (_dte?.Events != null)
+                {
+                    _windowEvents = _dte.Events.WindowEvents;
+                    if (_windowEvents != null)
+                    {
+                        _windowEvents.WindowActivated += OnWindowActivated;
                     }
                 }
 
@@ -761,14 +773,65 @@ namespace RenderDocComments
             return t[openParenIndex + 2] == '$';
         }
 
+        private void OnWindowActivated(Window gotFocus, Window lostFocus)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            try
+            {
+                string path = gotFocus?.Document?.FullName;
+                if (!string.IsNullOrEmpty(path))
+                {
+                    HighlightActiveDocument(path);
+                }
+            }
+            catch { }
+        }
+
+        public void HighlightActiveDocument(string docPath = null)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            if (string.IsNullOrEmpty(docPath))
+            {
+                try
+                {
+                    docPath = _dte?.ActiveDocument?.FullName;
+                }
+                catch { }
+            }
+
+            // Reset selection, active state, and collapse all files in Files view
+            foreach (var f in _viewModel.Files)
+            {
+                f.IsExpanded = false;
+                f.IsSelected = false;
+                f.IsActiveFile = false;
+            }
+
+            if (string.IsNullOrEmpty(docPath))
+            {
+                ActiveDocumentFound?.Invoke(this, null);
+                return;
+            }
+
+            var fileNode = _viewModel.FindFileNode(docPath);
+            if (fileNode != null)
+            {
+                fileNode.IsExpanded = true;
+                fileNode.IsSelected = true;
+                fileNode.IsActiveFile = true;
+                ActiveDocumentFound?.Invoke(this, fileNode);
+            }
+            else
+            {
+                ActiveDocumentFound?.Invoke(this, null);
+            }
+        }
+
         private void RebuildTreeFromOccurrences()
         {
             ThreadHelper.ThrowIfNotOnUIThread();
 
-            // Preserve current expansion state across live updates
-            bool isFirstLoad = _viewModel.Tags.Count == 0;
-            var expandedTags = new HashSet<string>(_viewModel.Tags.Where(t => t.IsExpanded).Select(t => t.TagName));
-            var expandedFiles = new HashSet<string>(
+            var expandedTagFiles = new HashSet<string>(
                 _viewModel.Tags.SelectMany(t => t.Files).Where(f => f.IsExpanded).Select(f => f.FilePath),
                 StringComparer.OrdinalIgnoreCase);
 
@@ -781,6 +844,7 @@ namespace RenderDocComments
                 }
             }
 
+            // 1. Tags View (Tag -> File -> Occurrences)
             var byTag = allOccurrences
                 .GroupBy(o => o.CanonicalTag, StringComparer.Ordinal)
                 .OrderBy(g => GetTagOrder(g.Key))
@@ -793,10 +857,10 @@ namespace RenderDocComments
             {
                 if (!tagGroup.Any()) continue;
 
+                // TagNodeViewModel restores expansion state from RenderDocOptions.Instance.CollapsedTags
                 var tagNode = new TagNodeViewModel(tagGroup.Key)
                 {
-                    Count = tagGroup.Count(),
-                    IsExpanded = isFirstLoad || expandedTags.Contains(tagGroup.Key)
+                    Count = tagGroup.Count()
                 };
                 total += tagNode.Count;
 
@@ -809,7 +873,7 @@ namespace RenderDocComments
                     var fileNode = new FileNodeViewModel(fileGroup.Key)
                     {
                         Count = fileGroup.Count(),
-                        IsExpanded = isFirstLoad || expandedFiles.Contains(fileGroup.Key)
+                        IsExpanded = expandedTagFiles.Contains(fileGroup.Key)
                     };
 
                     foreach (var item in fileGroup.OrderBy(o => o.LineNumber))
@@ -817,7 +881,8 @@ namespace RenderDocComments
                         fileNode.Comments.Add(new CommentItemNodeViewModel(
                             item.LineNumber,
                             item.CleanText,
-                            item.FilePath));
+                            item.FilePath,
+                            item.CanonicalTag));
                     }
 
                     tagNode.Files.Add(fileNode);
@@ -826,7 +891,37 @@ namespace RenderDocComments
                 _viewModel.Tags.Add(tagNode);
             }
 
+            // 2. Files View (File -> Occurrences arranged by LineNumber)
+            var byFilePath = allOccurrences
+                .GroupBy(o => o.FilePath, StringComparer.OrdinalIgnoreCase)
+                .OrderBy(g => Path.GetFileName(g.Key));
+
+            _viewModel.Files.Clear();
+
+            foreach (var fileGroup in byFilePath)
+            {
+                var fileNode = new FileNodeViewModel(fileGroup.Key)
+                {
+                    Count = fileGroup.Count(),
+                    IsExpanded = false // Keep all files collapsed by default in Files view
+                };
+
+                foreach (var item in fileGroup.OrderBy(o => o.LineNumber))
+                {
+                    fileNode.Comments.Add(new CommentItemNodeViewModel(
+                        item.LineNumber,
+                        item.CleanText,
+                        item.FilePath,
+                        item.CanonicalTag));
+                }
+
+                _viewModel.Files.Add(fileNode);
+            }
+
             _viewModel.TotalCount = total;
+
+            // Highlight active document in Files view if available
+            HighlightActiveDocument();
         }
 
         private static int GetTagOrder(string tagName)
@@ -945,6 +1040,7 @@ namespace RenderDocComments
                 _fileOccurrences.Clear();
             }
             _viewModel.Tags.Clear();
+            _viewModel.Files.Clear();
             _viewModel.TotalCount = 0;
             _viewModel.StatusMessage = "No solution open.";
             return VSConstants.S_OK;
@@ -979,6 +1075,12 @@ namespace RenderDocComments
             ThreadHelper.ThrowIfNotOnUIThread();
             _scanCts?.Cancel();
             _scanCts?.Dispose();
+
+            if (_windowEvents != null)
+            {
+                _windowEvents.WindowActivated -= OnWindowActivated;
+                _windowEvents = null;
+            }
 
             if (_rdtCookie != 0)
             {

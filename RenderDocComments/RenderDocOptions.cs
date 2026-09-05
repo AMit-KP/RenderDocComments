@@ -300,6 +300,59 @@ namespace RenderDocComments
         /// </summary>
         public string TagsDisabled { get; set; } = string.Empty;
 
+        /// <summary>
+        /// Gets or sets the last active view in Comment Tags Explorer tool window.
+        /// Values: <c>"Tags"</c> (default) or <c>"Files"</c>.
+        /// </summary>
+        public string CommentExplorerView { get; set; } = "Tags";
+
+        /// <summary>
+        /// Gets or sets comma-separated list of tags collapsed in Tags View.
+        /// </summary>
+        public string CollapsedTags { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Checks if a tag is collapsed in Tags View.
+        /// </summary>
+        public bool IsTagCollapsed(string tagName)
+        {
+            if (string.IsNullOrEmpty(CollapsedTags) || string.IsNullOrEmpty(tagName)) return false;
+            var items = CollapsedTags.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+            for (int i = 0; i < items.Length; i++)
+            {
+                if (string.Equals(items[i].Trim(), tagName, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Updates the collapsed state for a tag.
+        /// </summary>
+        public void SetTagCollapsed(string tagName, bool collapsed)
+        {
+            if (string.IsNullOrEmpty(tagName)) return;
+            var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (!string.IsNullOrEmpty(CollapsedTags))
+            {
+                var items = CollapsedTags.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+                foreach (var item in items)
+                {
+                    var trimmed = item.Trim();
+                    if (trimmed.Length > 0) set.Add(trimmed);
+                }
+            }
+
+            if (collapsed)
+                set.Add(tagName);
+            else
+                set.Remove(tagName);
+
+            CollapsedTags = string.Join(",", set);
+        }
+
+
+
         // ── Helper: effective values (falls back to defaults when Premium is locked) ──
 
         /// <summary>
@@ -590,6 +643,12 @@ namespace RenderDocComments
                 TagsDisabled = store.PropertyExists(CollectionPath, nameof(TagsDisabled))
                                             ? store.GetString(CollectionPath, nameof(TagsDisabled))
                                             : TagsDisabled;
+                CommentExplorerView = store.PropertyExists(CollectionPath, nameof(CommentExplorerView))
+                                            ? store.GetString(CollectionPath, nameof(CommentExplorerView))
+                                            : CommentExplorerView;
+                CollapsedTags = store.PropertyExists(CollectionPath, nameof(CollapsedTags))
+                                            ? store.GetString(CollectionPath, nameof(CollapsedTags))
+                                            : CollapsedTags;
             }
             catch { /* non-critical */ }
         }
@@ -654,6 +713,8 @@ namespace RenderDocComments
                 store.SetString(CollectionPath, nameof(TagStyle), TagStyle ?? string.Empty);
                 store.SetString(CollectionPath, nameof(TagColorOverrides), TagColorOverrides ?? string.Empty);
                 store.SetString(CollectionPath, nameof(TagsDisabled), TagsDisabled ?? string.Empty);
+                store.SetString(CollectionPath, nameof(CommentExplorerView), CommentExplorerView ?? "Tags");
+                store.SetString(CollectionPath, nameof(CollapsedTags), CollapsedTags ?? string.Empty);
             }
             catch { /* non-critical */ }
         }
@@ -773,7 +834,6 @@ namespace RenderDocComments
             byte g = (byte)((argb >> 8) & 0xFF);
             byte b = (byte)(argb & 0xFF);
             return Color.FromArgb(a, r, g, b);
-            //TODO a
         }
 
         /// <summary>

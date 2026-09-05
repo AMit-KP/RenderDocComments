@@ -59,5 +59,19 @@ namespace RenderDocComments
             var windowFrame = (IVsWindowFrame)window.Frame;
             ErrorHandler.ThrowOnFailure(windowFrame.Show());
         }
+
+        public static void CloseToolWindow()
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+
+            var package = Instance?._package;
+            if (package == null) return;
+
+            ToolWindowPane window = package.FindToolWindow(typeof(CommentTagsToolWindow), 0, false);
+            if (window?.Frame is IVsWindowFrame windowFrame)
+            {
+                windowFrame.CloseFrame((uint)__FRAMECLOSE.FRAMECLOSE_SaveIfDirty);
+            }
+        }
     }
 }

@@ -36,26 +36,61 @@ namespace RenderDocComments
     /// </summary>
     public class CommentItemNodeViewModel : ViewModelBase
     {
+        private Brush _tagColorBrush;
+        private Brush _tagForegroundBrush;
+
         public int LineNumber { get; set; }
         public string CleanCommentText { get; set; }
         public string FilePath { get; set; }
+        public string TagName { get; set; }
+
+        public Brush TagColorBrush
+        {
+            get => _tagColorBrush;
+            private set => SetProperty(ref _tagColorBrush, value);
+        }
+
+        public Brush TagForegroundBrush
+        {
+            get => _tagForegroundBrush;
+            private set => SetProperty(ref _tagForegroundBrush, value);
+        }
 
         public string DisplayTitle => $"Line {LineNumber}: {CleanCommentText}";
 
-        public CommentItemNodeViewModel(int lineNumber, string cleanCommentText, string filePath)
+        public CommentItemNodeViewModel(int lineNumber, string cleanCommentText, string filePath, string tagName = null)
         {
             LineNumber = lineNumber;
             CleanCommentText = cleanCommentText;
             FilePath = filePath;
+            TagName = tagName;
+            UpdateColors();
+        }
+
+        public void UpdateColors()
+        {
+            if (string.IsNullOrEmpty(TagName)) return;
+
+            Color color = RenderDocOptions.Instance.EffectiveTagColor(TagName);
+            var bgBrush = new SolidColorBrush(color);
+            bgBrush.Freeze();
+            TagColorBrush = bgBrush;
+
+            Color fgColor = TagBadgeCatalog.GetAdaptiveForeground(color);
+            var fgBrush = new SolidColorBrush(fgColor);
+            fgBrush.Freeze();
+            TagForegroundBrush = fgBrush;
         }
     }
 
     /// <summary>
-    /// Represents a file node containing one or more tag occurrences under a root tag node.
+    /// Represents a file node containing one or more tag occurrences.
     /// </summary>
     public class FileNodeViewModel : ViewModelBase
     {
-        private bool _isExpanded = true;
+        private bool _isExpanded;
+        private bool _isSelected;
+        private bool _isActiveFile;
         private int _count;
 
         public string FileName { get; set; }
@@ -71,6 +106,18 @@ namespace RenderDocComments
         {
             get => _isExpanded;
             set => SetProperty(ref _isExpanded, value);
+        }
+
+        public bool IsSelected
+        {
+            get => _isSelected;
+            set => SetProperty(ref _isSelected, value);
+        }
+
+        public bool IsActiveFile
+        {
+            get => _isActiveFile;
+            set => SetProperty(ref _isActiveFile, value);
         }
 
         public ObservableCollection<CommentItemNodeViewModel> Comments { get; } = new ObservableCollection<CommentItemNodeViewModel>();
@@ -103,7 +150,13 @@ namespace RenderDocComments
         public bool IsExpanded
         {
             get => _isExpanded;
-            set => SetProperty(ref _isExpanded, value);
+            set
+            {
+                if (SetProperty(ref _isExpanded, value))
+                {
+                    RenderDocOptions.Instance.SetTagCollapsed(TagName, !value);
+                }
+            }
         }
 
         public Brush TagColorBrush
@@ -123,6 +176,7 @@ namespace RenderDocComments
         public TagNodeViewModel(string tagName)
         {
             TagName = tagName;
+            _isExpanded = !RenderDocOptions.Instance.IsTagCollapsed(tagName);
             UpdateColors();
         }
 
@@ -148,8 +202,16 @@ namespace RenderDocComments
         private bool _isScanning;
         private string _statusMessage = "Ready";
         private int _totalCount;
+        private int _selectedTabIndex;
 
         public ObservableCollection<TagNodeViewModel> Tags { get; } = new ObservableCollection<TagNodeViewModel>();
+        public ObservableCollection<FileNodeViewModel> Files { get; } = new ObservableCollection<FileNodeViewModel>();
+
+        public int SelectedTabIndex
+        {
+            get => _selectedTabIndex;
+            set => SetProperty(ref _selectedTabIndex, value);
+        }
 
         public bool IsScanning
         {
@@ -171,10 +233,21 @@ namespace RenderDocComments
 
         public void ExpandAll()
         {
-            foreach (var tag in Tags)
+            if (SelectedTabIndex == 0)
             {
-                tag.IsExpanded = true;
-                foreach (var file in tag.Files)
+                foreach (var tag in Tags)
+                {
+                    tag.IsExpanded = true;
+                    RenderDocOptions.Instance.SetTagCollapsed(tag.TagName, false);
+                    foreach (var file in tag.Files)
+                    {
+                        file.IsExpanded = true;
+                    }
+                }
+            }
+            else
+            {
+                foreach (var file in Files)
                 {
                     file.IsExpanded = true;
                 }
@@ -183,10 +256,21 @@ namespace RenderDocComments
 
         public void CollapseAll()
         {
-            foreach (var tag in Tags)
+            if (SelectedTabIndex == 0)
             {
-                tag.IsExpanded = false;
-                foreach (var file in tag.Files)
+                foreach (var tag in Tags)
+                {
+                    tag.IsExpanded = false;
+                    RenderDocOptions.Instance.SetTagCollapsed(tag.TagName, true);
+                    foreach (var file in tag.Files)
+                    {
+                        file.IsExpanded = false;
+                    }
+                }
+            }
+            else
+            {
+                foreach (var file in Files)
                 {
                     file.IsExpanded = false;
                 }
@@ -199,6 +283,19 @@ namespace RenderDocComments
             {
                 tag.UpdateColors();
             }
+            foreach (var file in Files)
+            {
+                foreach (var comment in file.Comments)
+                {
+                    comment.UpdateColors();
+                }
+            }
+        }
+
+        public FileNodeViewModel FindFileNode(string filePath)
+        {
+            if (string.IsNullOrEmpty(filePath)) return null;
+            return Files.FirstOrDefault(f => string.Equals(f.FilePath, filePath, StringComparison.OrdinalIgnoreCase));
         }
     }
 

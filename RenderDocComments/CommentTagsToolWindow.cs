@@ -18,8 +18,6 @@ namespace RenderDocComments
         {
             Caption = "Comment Tags Explorer";
             Content = new CommentTagsToolWindowControl();
-            //FIXME
-            //WARN a
         }
 
         protected override void Dispose(bool disposing)

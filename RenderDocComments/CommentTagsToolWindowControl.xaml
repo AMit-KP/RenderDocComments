@@ -44,6 +44,42 @@
             </Setter>
         </Style>
 
+        <!-- Tab RadioButton Style (Segmented Control) -->
+        <Style TargetType="RadioButton" x:Key="TabRadioButtonStyle">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource {x:Static vsshell:VsBrushes.ToolWindowTextKey}}"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Padding" Value="8,3"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="border"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="Transparent"
+                                BorderThickness="1"
+                                CornerRadius="3"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" TargetName="border" Value="{DynamicResource {x:Static vsshell:VsBrushes.CommandBarHoverKey}}"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter Property="Background" TargetName="border" Value="{DynamicResource {x:Static vsshell:VsBrushes.CommandBarSelectedKey}}"/>
+                                <Setter Property="BorderBrush" TargetName="border" Value="{DynamicResource {x:Static vsshell:VsBrushes.CommandBarBorderKey}}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource {x:Static vsshell:VsBrushes.ToolWindowTextKey}}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- Count Badge Style -->
         <Style TargetType="Border" x:Key="CountBadgeStyle">
             <Setter Property="Background" Value="{DynamicResource {x:Static vsshell:VsBrushes.CommandBarBorderKey}}"/>
@@ -63,6 +99,7 @@
         <!-- TreeViewItem styling -->
         <Style TargetType="TreeViewItem">
             <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
+            <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}"/>
             <Setter Property="Padding" Value="2,2"/>
             <Setter Property="Foreground" Value="{DynamicResource {x:Static vsshell:VsBrushes.ToolWindowTextKey}}"/>
         </Style>
@@ -71,11 +108,12 @@
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- Top Header / Quick Actions -->
+        <!-- Row 0: Top Header / Quick Actions -->
         <Grid Grid.Row="0" Margin="6,6,6,4">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
@@ -97,101 +135,211 @@
                     ToolTip="Rescan solution files for comment tags"/>
         </Grid>
 
-        <!-- Main Comment Tags TreeView -->
-        <TreeView Grid.Row="1" 
-                  x:Name="TagsTreeView"
-                  ItemsSource="{Binding Tags}"
-                  Background="Transparent"
-                  BorderThickness="0"
-                  Margin="2"
-                  MouseDoubleClick="OnTreeViewDoubleClick"
-                  KeyDown="OnTreeViewKeyDown">
-            <TreeView.Resources>
-                <!-- Root Tag Template -->
-                <HierarchicalDataTemplate DataType="{x:Type local:TagNodeViewModel}" ItemsSource="{Binding Files}">
-                    <Grid Margin="0,3">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
+        <!-- Row 1: View Mode Switcher (Tags vs Files) -->
+        <Border Grid.Row="1" 
+                Margin="6,2,6,4"
+                Background="{DynamicResource {x:Static vsshell:VsBrushes.CommandBarGradientBeginKey}}"
+                BorderBrush="{DynamicResource {x:Static vsshell:VsBrushes.CommandBarBorderKey}}"
+                BorderThickness="1"
+                CornerRadius="4"
+                Padding="2">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
 
-                        <!-- Tag Badge Pill -->
-                        <Border Grid.Column="0" 
-                                Background="{Binding TagColorBrush}" 
-                                CornerRadius="4" 
-                                Padding="5,1,5,1" 
-                                Margin="0,0,6,0"
-                                VerticalAlignment="Center">
-                            <TextBlock Text="{Binding TagName}" 
-                                       Foreground="{Binding TagForegroundBrush}" 
-                                       FontWeight="Bold" 
-                                       FontSize="11"/>
-                        </Border>
+                <RadioButton x:Name="TagsTabRadio"
+                             Grid.Column="0"
+                             GroupName="ViewModeGroup"
+                             Content="🏷️ Tags View"
+                             IsChecked="True"
+                             Style="{StaticResource TabRadioButtonStyle}"
+                             Click="OnTabRadioClicked"/>
 
-                        <!-- Tag Count -->
-                        <Border Grid.Column="2" Style="{StaticResource CountBadgeStyle}">
-                            <TextBlock Text="{Binding Count}" Style="{StaticResource CountBadgeTextStyle}"/>
-                        </Border>
-                    </Grid>
-                </HierarchicalDataTemplate>
+                <RadioButton x:Name="FilesTabRadio"
+                             Grid.Column="1"
+                             GroupName="ViewModeGroup"
+                             Content="📁 Files View"
+                             Style="{StaticResource TabRadioButtonStyle}"
+                             Click="OnTabRadioClicked"/>
+            </Grid>
+        </Border>
 
-                <!-- File Template -->
-                <HierarchicalDataTemplate DataType="{x:Type local:FileNodeViewModel}" ItemsSource="{Binding Comments}">
-                    <Grid Margin="0,2" ToolTip="{Binding FilePath}">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
+        <!-- Row 2: TreeViews Container -->
+        <Grid Grid.Row="2" Margin="2">
+            <!-- 1. Tags TreeView (Grouped by Tag -> File -> Occurrences) -->
+            <TreeView x:Name="TagsTreeView"
+                      ItemsSource="{Binding Tags}"
+                      Background="Transparent"
+                      BorderThickness="0"
+                      Visibility="Visible"
+                      MouseDoubleClick="OnTreeViewDoubleClick"
+                      KeyDown="OnTreeViewKeyDown">
+                <TreeView.Resources>
+                    <!-- Root Tag Template -->
+                    <HierarchicalDataTemplate DataType="{x:Type local:TagNodeViewModel}" ItemsSource="{Binding Files}">
+                        <Grid Margin="0,3">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
 
-                        <TextBlock Grid.Column="0" 
-                                   Text="📄 " 
-                                   FontSize="11" 
-                                   VerticalAlignment="Center"/>
+                            <!-- Tag Badge Pill -->
+                            <Border Grid.Column="0" 
+                                    Background="{Binding TagColorBrush}" 
+                                    CornerRadius="4" 
+                                    Padding="5,1,5,1" 
+                                    Margin="0,0,6,0"
+                                    VerticalAlignment="Center">
+                                <TextBlock Text="{Binding TagName}" 
+                                           Foreground="{Binding TagForegroundBrush}" 
+                                           FontWeight="Bold" 
+                                           FontSize="11"/>
+                            </Border>
 
-                        <TextBlock Grid.Column="1" 
-                                   Text="{Binding FileName}" 
-                                   FontSize="12" 
-                                   FontWeight="Medium"
-                                   VerticalAlignment="Center"
-                                   TextTrimming="CharacterEllipsis"/>
+                            <!-- Tag Count -->
+                            <Border Grid.Column="2" Style="{StaticResource CountBadgeStyle}">
+                                <TextBlock Text="{Binding Count}" Style="{StaticResource CountBadgeTextStyle}"/>
+                            </Border>
+                        </Grid>
+                    </HierarchicalDataTemplate>
 
-                        <!-- File Occurrence Count -->
-                        <Border Grid.Column="2" Style="{StaticResource CountBadgeStyle}">
-                            <TextBlock Text="{Binding Count}" Style="{StaticResource CountBadgeTextStyle}"/>
-                        </Border>
-                    </Grid>
-                </HierarchicalDataTemplate>
+                    <!-- File Template (under Tag) -->
+                    <HierarchicalDataTemplate DataType="{x:Type local:FileNodeViewModel}" ItemsSource="{Binding Comments}">
+                        <Grid Margin="0,2" ToolTip="{Binding FilePath}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
 
-                <!-- Comment Item Leaf Template -->
-                <DataTemplate DataType="{x:Type local:CommentItemNodeViewModel}">
-                    <Grid Margin="0,1" Cursor="Hand">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" 
+                                       Text="📄 " 
+                                       FontSize="11" 
+                                       VerticalAlignment="Center"/>
 
-                        <TextBlock Grid.Column="0" 
-                                   Text="{Binding LineNumber, StringFormat='Line {0}: '}" 
-                                   FontWeight="SemiBold"
-                                   FontSize="11"
-                                   Opacity="0.75"
-                                   VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="1" 
+                                       Text="{Binding FileName}" 
+                                       FontSize="12" 
+                                       FontWeight="Medium"
+                                       VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis"/>
 
-                        <TextBlock Grid.Column="1" 
-                                   Text="{Binding CleanCommentText}" 
-                                   FontSize="11"
-                                   VerticalAlignment="Center"
-                                   TextTrimming="CharacterEllipsis"
-                                   ToolTip="{Binding CleanCommentText}"/>
-                    </Grid>
-                </DataTemplate>
-            </TreeView.Resources>
-        </TreeView>
+                            <!-- File Occurrence Count -->
+                            <Border Grid.Column="2" Style="{StaticResource CountBadgeStyle}">
+                                <TextBlock Text="{Binding Count}" Style="{StaticResource CountBadgeTextStyle}"/>
+                            </Border>
+                        </Grid>
+                    </HierarchicalDataTemplate>
 
-        <!-- Bottom Action Bar -->
-        <Border Grid.Row="2" 
+                    <!-- Comment Item Leaf Template -->
+                    <DataTemplate DataType="{x:Type local:CommentItemNodeViewModel}">
+                        <Grid Margin="0,1" Cursor="Hand">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Column="0" 
+                                       Text="{Binding LineNumber, StringFormat='Line {0}: '}" 
+                                       FontWeight="SemiBold" 
+                                       FontSize="11" 
+                                       Opacity="0.75" 
+                                       VerticalAlignment="Center"/>
+
+                            <TextBlock Grid.Column="1" 
+                                       Text="{Binding CleanCommentText}" 
+                                       FontSize="11" 
+                                       VerticalAlignment="Center" 
+                                       TextTrimming="CharacterEllipsis" 
+                                       ToolTip="{Binding CleanCommentText}"/>
+                        </Grid>
+                    </DataTemplate>
+                </TreeView.Resources>
+            </TreeView>
+
+            <!-- 2. Files TreeView (Grouped by File -> Tag Occurrences by Line Number) -->
+            <TreeView x:Name="FilesTreeView"
+                      ItemsSource="{Binding Files}"
+                      Background="Transparent"
+                      BorderThickness="0"
+                      Visibility="Collapsed"
+                      MouseDoubleClick="OnTreeViewDoubleClick"
+                      KeyDown="OnTreeViewKeyDown">
+                <TreeView.Resources>
+                    <!-- Root File Template -->
+                    <HierarchicalDataTemplate DataType="{x:Type local:FileNodeViewModel}" ItemsSource="{Binding Comments}">
+                        <Grid Margin="0,2" ToolTip="{Binding FilePath}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Column="0" 
+                                       Text="📄 " 
+                                       FontSize="11" 
+                                       VerticalAlignment="Center"/>
+
+                            <TextBlock Grid.Column="1" 
+                                       Text="{Binding FileName}" 
+                                       FontSize="12" 
+                                       FontWeight="Medium"
+                                       VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis"/>
+
+                            <!-- File Occurrence Count -->
+                            <Border Grid.Column="2" Style="{StaticResource CountBadgeStyle}">
+                                <TextBlock Text="{Binding Count}" Style="{StaticResource CountBadgeTextStyle}"/>
+                            </Border>
+                        </Grid>
+                    </HierarchicalDataTemplate>
+
+                    <!-- Comment Item Leaf Template (with Tag Badge pill + line number + text) -->
+                    <DataTemplate DataType="{x:Type local:CommentItemNodeViewModel}">
+                        <Grid Margin="0,1" Cursor="Hand">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Tag Badge Pill -->
+                            <Border Grid.Column="0" 
+                                    Background="{Binding TagColorBrush}" 
+                                    CornerRadius="3" 
+                                    Padding="4,1,4,1" 
+                                    Margin="0,0,6,0"
+                                    VerticalAlignment="Center">
+                                <TextBlock Text="{Binding TagName}" 
+                                           Foreground="{Binding TagForegroundBrush}" 
+                                           FontWeight="Bold" 
+                                           FontSize="10"/>
+                            </Border>
+
+                            <TextBlock Grid.Column="1" 
+                                       Text="{Binding LineNumber, StringFormat='Line {0}: '}" 
+                                       FontWeight="SemiBold" 
+                                       FontSize="11" 
+                                       Opacity="0.75" 
+                                       VerticalAlignment="Center"/>
+
+                            <TextBlock Grid.Column="2" 
+                                       Text="{Binding CleanCommentText}" 
+                                       FontSize="11" 
+                                       VerticalAlignment="Center" 
+                                       TextTrimming="CharacterEllipsis" 
+                                       ToolTip="{Binding CleanCommentText}"/>
+                        </Grid>
+                    </DataTemplate>
+                </TreeView.Resources>
+            </TreeView>
+        </Grid>
+
+        <!-- Row 3: Bottom Action Bar -->
+        <Border Grid.Row="3" 
                 BorderThickness="0,1,0,0" 
                 BorderBrush="{DynamicResource {x:Static vsshell:VsBrushes.CommandBarBorderKey}}" 
                 Padding="6,6"
@@ -219,7 +367,7 @@
                            Text="{Binding TotalCount, StringFormat='Total: {0}'}" 
                            VerticalAlignment="Center" 
                            FontSize="11" 
-                           FontWeight="SemiBold"
+                           FontWeight="SemiBold" 
                            Opacity="0.85"/>
             </Grid>
         </Border>
