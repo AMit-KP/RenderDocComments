@@ -36,6 +36,14 @@
           <ToolTipText>Render XML Doc Comments for this file</ToolTipText>
         </Strings>
       </Button>
+      <Button guid="guidRenderDocCommandSet" id="cmdidCommentTagsWindow"
+              priority="0x0105" type="Button">
+        <Parent guid="guidSHLMainMenu" id="IDG_VS_WNDO_OTRWNDWS1"/>
+        <Icon guid="guidImages" id="bmpPic1"/>
+        <Strings>
+          <ButtonText>Comment Tags Explorer</ButtonText>
+        </Strings>
+      </Button>
     </Buttons>
 
     <Bitmaps>
@@ -43,7 +51,7 @@
     </Bitmaps>
   </Commands>
 
-    <CommandPlacements>
+  <CommandPlacements>
     <CommandPlacement guid="guidRenderDocCommandSet" id="cmdidToggleRenderPerFile" priority="0x0100">
       <Parent guid="guidRenderDocCommandSet" id="MyContextMenuGroup"/>
     </CommandPlacement>
@@ -59,6 +67,7 @@
                 value="{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}">
       <IDSymbol name="cmdidRenderDocOptions" value="0x0100"/>
       <IDSymbol name="cmdidToggleRenderPerFile" value="0x0101"/>
+      <IDSymbol name="cmdidCommentTagsWindow" value="0x0102"/>
       <IDSymbol name="MyToolbarGroup" value="0x1020"/>
       <IDSymbol name="MyContextMenuGroup" value="0x1030"/>
     </GuidSymbol>
