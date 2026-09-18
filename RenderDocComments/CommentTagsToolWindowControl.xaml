@@ -288,12 +288,15 @@
 		<!--  Row 2: TreeViews Container  -->
 		<Grid Grid.Row="2">
 			<!--  1. Tags TreeView (Grouped by Tag -> File -> Occurrences)  -->
-			<!--  HorizontalScrollBarVisibility=Disabled constrains rows to the window width
-			      so TextTrimming trims long descriptions instead of overflowing.  -->
+			<!--
+				HorizontalScrollBarVisibility=Disabled constrains rows to the window width
+				so TextTrimming trims long descriptions instead of overflowing.
+			-->
 			<TreeView
 				x:Name="TagsTreeView"
 				Background="Transparent"
 				BorderThickness="0"
+				Grid.IsSharedSizeScope="True"
 				ItemsSource="{Binding Tags}"
 				KeyDown="OnTreeViewKeyDown"
 				MouseDoubleClick="OnTreeViewDoubleClick"
@@ -370,12 +373,13 @@
 					<DataTemplate DataType="{x:Type local:CommentItemNodeViewModel}">
 						<Grid Margin="0,2" Cursor="Hand">
 							<Grid.ColumnDefinitions>
-								<ColumnDefinition Width="Auto" />
+								<ColumnDefinition Width="Auto" SharedSizeGroup="LineChip" />
 								<ColumnDefinition Width="*" />
 							</Grid.ColumnDefinitions>
 
 							<Border
 								Grid.Column="0"
+								MinWidth="42"
 								Margin="0,0,6,0"
 								Padding="5,1"
 								VerticalAlignment="Center"
@@ -385,7 +389,8 @@
 									FontSize="10"
 									FontWeight="SemiBold"
 									Opacity="0.7"
-									Text="{Binding LineNumber, StringFormat='Ln {0}'}" />
+									Text="{Binding LineNumber, StringFormat='Ln {0}'}"
+									TextAlignment="Center" />
 							</Border>
 
 							<TextBlock
@@ -406,6 +411,7 @@
 				x:Name="FilesTreeView"
 				Background="Transparent"
 				BorderThickness="0"
+				Grid.IsSharedSizeScope="True"
 				ItemsSource="{Binding Files}"
 				KeyDown="OnTreeViewKeyDown"
 				MouseDoubleClick="OnTreeViewDoubleClick"
@@ -456,7 +462,7 @@
 					<DataTemplate DataType="{x:Type local:CommentItemNodeViewModel}">
 						<Grid Margin="0,2" Cursor="Hand">
 							<Grid.ColumnDefinitions>
-								<ColumnDefinition Width="Auto" />
+								<ColumnDefinition Width="Auto" SharedSizeGroup="LineChip" />
 								<ColumnDefinition Width="Auto" />
 								<ColumnDefinition Width="*" />
 							</Grid.ColumnDefinitions>
@@ -475,6 +481,7 @@
 
 							<Border
 								Grid.Column="1"
+								Width="46"
 								Margin="0,0,6,0"
 								Padding="5,1"
 								VerticalAlignment="Center"
@@ -484,7 +491,8 @@
 									FontSize="10"
 									FontWeight="SemiBold"
 									Opacity="0.7"
-									Text="{Binding LineNumber, StringFormat='Ln {0}'}" />
+									Text="{Binding LineNumber, StringFormat='Ln {0}'}"
+									TextAlignment="Center" />
 							</Border>
 
 							<TextBlock
