@@ -3,8 +3,9 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using Microsoft.VisualStudio.Shell;
+using RenderDocComments.Options;
 
-namespace RenderDocComments
+namespace RenderDocComments.CommentTagsExplorer
 {
     /// <summary>
     /// Interaction logic for CommentTagsToolWindowControl.xaml.

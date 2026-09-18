@@ -11,8 +11,9 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using RenderDocComments.DocCommentRenderer.TagBadges;
+using RenderDocComments.Options;
 
-namespace RenderDocComments
+namespace RenderDocComments.CommentTagsExplorer
 {
     /// <summary>
     /// Base class for ViewModels implementing INotifyPropertyChanged.

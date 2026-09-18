@@ -2,7 +2,7 @@ using System;
 using System.ComponentModel.Design;
 using Microsoft.VisualStudio.Shell;
 
-namespace RenderDocComments
+namespace RenderDocComments.Options
 {
     /// <summary>
     /// Registers and handles the "Extensions &gt; Render Doc Options" menu command.<br/>

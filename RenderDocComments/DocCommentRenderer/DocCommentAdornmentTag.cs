@@ -37,6 +37,8 @@ using System.Windows.Media;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Classification;
 using Microsoft.VisualStudio.Text.Editor;
+using RenderDocComments.Licensing;
+using RenderDocComments.Options;
 
 namespace RenderDocComments.DocCommentRenderer
 {

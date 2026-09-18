@@ -5,8 +5,9 @@ using System.Windows.Media;
 using Microsoft.VisualStudio.Settings;
 using Microsoft.VisualStudio.Shell.Settings;
 using RenderDocComments.DocCommentRenderer.TagBadges;
+using RenderDocComments.Licensing;
 
-namespace RenderDocComments
+namespace RenderDocComments.Options
 {
     /// <summary>
     /// Persisted settings for the RenderDocComments extension, managing both free and Premium features.<br/>

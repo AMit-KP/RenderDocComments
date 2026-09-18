@@ -16,9 +16,10 @@ using Microsoft.VisualStudio.Shell.Interop;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.TextManager.Interop;
 using RenderDocComments.DocCommentRenderer.TagBadges;
+using RenderDocComments.Options;
 using Task = System.Threading.Tasks.Task;
 
-namespace RenderDocComments
+namespace RenderDocComments.CommentTagsExplorer
 {
     /// <summary>
     /// Scans solution files for conventional comment tags (TODO, FIXME, etc.) with real-time live typing updates,

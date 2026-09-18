@@ -2,7 +2,7 @@ using System;
 using System.Runtime.InteropServices;
 using Microsoft.VisualStudio.Shell;
 
-namespace RenderDocComments
+namespace RenderDocComments.CommentTagsExplorer
 {
     /// <summary>
     /// This class implements the tool window for Comment Tags Explorer.

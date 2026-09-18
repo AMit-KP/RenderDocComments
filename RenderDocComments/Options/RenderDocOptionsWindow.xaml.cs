@@ -7,9 +7,11 @@ using System.Windows.Controls;
 using System.Windows.Forms;  // ColorDialog — needs System.Windows.Forms ref
 using System.Windows.Media;
 using Microsoft.VisualStudio.Shell;
+using RenderDocComments.CommentTagsExplorer;
 using RenderDocComments.DocCommentRenderer.TagBadges;
+using RenderDocComments.Licensing;
 
-namespace RenderDocComments
+namespace RenderDocComments.Options
 {
     /// <summary>
     /// Code-behind for the Render Doc Options window, opened via the<br/>

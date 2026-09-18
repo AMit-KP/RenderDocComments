@@ -4,7 +4,7 @@ using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
 using Microsoft.VisualStudio.TextManager.Interop;
 
-namespace RenderDocComments
+namespace RenderDocComments.CommentTagsExplorer
 {
     /// <summary>
     /// Utility service for navigating to a specific file and line inside Visual Studio editor.
