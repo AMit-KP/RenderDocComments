@@ -122,6 +122,7 @@
 			<Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}" />
 			<Setter Property="Padding" Value="4,3" />
 			<Setter Property="Margin" Value="0,1" />
+			<Setter Property="HorizontalContentAlignment" Value="Stretch" />
 			<Setter Property="Foreground" Value="{DynamicResource {x:Static vsshell:VsBrushes.ToolWindowTextKey}}" />
 			<Setter Property="Template">
 				<Setter.Value>
@@ -287,6 +288,8 @@
 		<!--  Row 2: TreeViews Container  -->
 		<Grid Grid.Row="2">
 			<!--  1. Tags TreeView (Grouped by Tag -> File -> Occurrences)  -->
+			<!--  HorizontalScrollBarVisibility=Disabled constrains rows to the window width
+			      so TextTrimming trims long descriptions instead of overflowing.  -->
 			<TreeView
 				x:Name="TagsTreeView"
 				Background="Transparent"
@@ -294,6 +297,7 @@
 				ItemsSource="{Binding Tags}"
 				KeyDown="OnTreeViewKeyDown"
 				MouseDoubleClick="OnTreeViewDoubleClick"
+				ScrollViewer.HorizontalScrollBarVisibility="Disabled"
 				Visibility="Visible">
 				<TreeView.Resources>
 
@@ -405,6 +409,7 @@
 				ItemsSource="{Binding Files}"
 				KeyDown="OnTreeViewKeyDown"
 				MouseDoubleClick="OnTreeViewDoubleClick"
+				ScrollViewer.HorizontalScrollBarVisibility="Disabled"
 				Visibility="Collapsed">
 				<TreeView.Resources>
 
