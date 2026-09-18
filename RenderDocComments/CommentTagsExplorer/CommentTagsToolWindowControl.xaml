@@ -79,13 +79,22 @@
 							<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
 						</Border>
 						<ControlTemplate.Triggers>
-							<Trigger Property="IsMouseOver" Value="True">
+							<MultiTrigger>
+								<MultiTrigger.Conditions>
+									<Condition Property="IsMouseOver" Value="True" />
+									<Condition Property="IsEnabled" Value="True" />
+								</MultiTrigger.Conditions>
 								<Setter TargetName="border" Property="Background" Value="{StaticResource HoverBrush}" />
-							</Trigger>
+							</MultiTrigger>
 							<Trigger Property="IsChecked" Value="True">
 								<Setter TargetName="border" Property="Background" Value="{StaticResource AccentBrush}" />
 								<Setter Property="Opacity" Value="1" />
 								<Setter Property="Foreground" Value="White" />
+							</Trigger>
+							<!--  Locked Premium tab: dimmed, no pointer cursor, no hover highlight  -->
+							<Trigger Property="IsEnabled" Value="False">
+								<Setter Property="Cursor" Value="Arrow" />
+								<Setter Property="Opacity" Value="0.55" />
 							</Trigger>
 						</ControlTemplate.Triggers>
 					</ControlTemplate>
@@ -107,6 +116,16 @@
 			<Setter Property="FontWeight" Value="SemiBold" />
 			<Setter Property="Foreground" Value="{DynamicResource {x:Static vsshell:VsBrushes.ToolWindowTextKey}}" />
 			<Setter Property="Opacity" Value="0.7" />
+		</Style>
+
+		<!--  Premium pill badge (marks locked Premium-only UI)  -->
+		<SolidColorBrush x:Key="PremiumBrush" Color="#B15CF0" />
+		<Style x:Key="PremiumPillStyle" TargetType="Border">
+			<Setter Property="Background" Value="{StaticResource PremiumBrush}" />
+			<Setter Property="CornerRadius" Value="8" />
+			<Setter Property="Padding" Value="5,1" />
+			<Setter Property="Margin" Value="6,0,0,0" />
+			<Setter Property="VerticalAlignment" Value="Center" />
 		</Style>
 
 		<!--  Colored tag chip  -->
@@ -279,9 +298,42 @@
 					x:Name="FilesTabRadio"
 					Grid.Column="1"
 					Click="OnTabRadioClicked"
-					Content="Files"
 					GroupName="ViewModeGroup"
-					Style="{StaticResource TabRadioButtonStyle}" />
+					Style="{StaticResource TabRadioButtonStyle}">
+					<StackPanel VerticalAlignment="Center" Orientation="Horizontal">
+
+						<!--  Padlock shown only while Premium is locked  -->
+						<Grid
+							x:Name="FilesTabLockIcon"
+							Width="10"
+							Height="11"
+							Margin="0,0,4,0"
+							VerticalAlignment="Center"
+							Visibility="Collapsed">
+							<Path
+								Data="M 2.4 5 L 2.4 3.2 A 2.6 2.6 0 0 1 7.6 3.2 L 7.6 5"
+								Stroke="{DynamicResource {x:Static vsshell:VsBrushes.ToolWindowTextKey}}"
+								StrokeEndLineCap="Round"
+								StrokeStartLineCap="Round"
+								StrokeThickness="1.3" />
+							<Path Data="M 0.8 5 L 9.2 5 L 9.2 10.4 L 0.8 10.4 Z" Fill="{DynamicResource {x:Static vsshell:VsBrushes.ToolWindowTextKey}}" />
+						</Grid>
+
+						<TextBlock VerticalAlignment="Center" Text="Files" />
+
+						<!--  Premium pill shown only while Premium is locked  -->
+						<Border
+							x:Name="FilesTabPremiumPill"
+							Style="{StaticResource PremiumPillStyle}"
+							Visibility="Collapsed">
+							<TextBlock
+								FontSize="8"
+								FontWeight="Bold"
+								Foreground="White"
+								Text="PREMIUM" />
+						</Border>
+					</StackPanel>
+				</RadioButton>
 			</Grid>
 		</Border>
 
