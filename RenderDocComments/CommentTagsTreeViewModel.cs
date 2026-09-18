@@ -1,11 +1,15 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Windows;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using RenderDocComments.DocCommentRenderer.TagBadges;
 
 namespace RenderDocComments
@@ -84,6 +88,60 @@ namespace RenderDocComments
     }
 
     /// <summary>
+    /// Provides cached Windows shell icons for file types (one icon per extension).
+    /// </summary>
+    public static class FileIconProvider
+    {
+        private static readonly ConcurrentDictionary<string, ImageSource> IconCache =
+            new ConcurrentDictionary<string, ImageSource>(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// Returns the shell icon for the given file, cached per extension.
+        /// Returns null when the file or its associated icon cannot be resolved.
+        /// </summary>
+        public static ImageSource GetForPath(string filePath)
+        {
+            if (string.IsNullOrEmpty(filePath)) return null;
+
+            string extension = System.IO.Path.GetExtension(filePath);
+            if (string.IsNullOrEmpty(extension)) return null;
+
+            return IconCache.GetOrAdd(extension, _ => TryExtractAssociatedIcon(filePath));
+        }
+
+        private static ImageSource TryExtractAssociatedIcon(string filePath)
+        {
+            try
+            {
+                if (!System.IO.File.Exists(filePath))
+                {
+                    return null;
+                }
+
+                using (System.Drawing.Icon icon = System.Drawing.Icon.ExtractAssociatedIcon(filePath))
+                {
+                    if (icon == null)
+                    {
+                        return null;
+                    }
+
+                    var source = Imaging.CreateBitmapSourceFromHIcon(
+                        icon.Handle,
+                        Int32Rect.Empty,
+                        BitmapSizeOptions.FromEmptyOptions());
+                    source.Freeze();
+                    return source;
+                }
+            }
+            catch (Exception)
+            {
+                // Missing file, no shell association, locked file, etc.: fall back to no icon.
+                return null;
+            }
+        }
+    }
+
+    /// <summary>
     /// Represents a file node containing one or more tag occurrences.
     /// </summary>
     public class FileNodeViewModel : ViewModelBase
@@ -95,6 +153,11 @@ namespace RenderDocComments
 
         public string FileName { get; set; }
         public string FilePath { get; set; }
+
+        /// <summary>
+        /// Windows shell icon for this file's type, or null when it cannot be resolved.
+        /// </summary>
+        public ImageSource FileIcon { get; }
 
         public int Count
         {
@@ -126,6 +189,7 @@ namespace RenderDocComments
         {
             FilePath = filePath;
             FileName = System.IO.Path.GetFileName(filePath);
+            FileIcon = FileIconProvider.GetForPath(filePath);
         }
     }
 

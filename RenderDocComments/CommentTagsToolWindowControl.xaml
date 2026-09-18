@@ -346,13 +346,20 @@
 								Margin="0,0,6,0"
 								Background="{StaticResource CardBrush}"
 								CornerRadius="4">
-								<Path
-									Width="9"
-									Height="9"
-									Data="M 3 0 L 9 0 L 12 3 L 12 14 L 3 14 Z"
-									Fill="{DynamicResource {x:Static vsshell:VsBrushes.ToolWindowTextKey}}"
-									Opacity="0.55"
-									Stretch="Uniform" />
+								<Border.Style>
+									<Style TargetType="Border">
+										<Style.Triggers>
+											<DataTrigger Binding="{Binding FileIcon}" Value="{x:Null}">
+												<Setter Property="Visibility" Value="Collapsed" />
+											</DataTrigger>
+										</Style.Triggers>
+									</Style>
+								</Border.Style>
+								<Image
+									Width="16"
+									Height="16"
+									RenderOptions.BitmapScalingMode="HighQuality"
+									Source="{Binding FileIcon}" />
 							</Border>
 
 							<TextBlock
@@ -435,13 +442,20 @@
 								Margin="0,0,6,0"
 								Background="{StaticResource CardBrush}"
 								CornerRadius="4">
-								<Path
-									Width="9"
-									Height="9"
-									Data="M 3 0 L 9 0 L 12 3 L 12 14 L 3 14 Z"
-									Fill="{DynamicResource {x:Static vsshell:VsBrushes.ToolWindowTextKey}}"
-									Opacity="0.55"
-									Stretch="Uniform" />
+								<Border.Style>
+									<Style TargetType="Border">
+										<Style.Triggers>
+											<DataTrigger Binding="{Binding FileIcon}" Value="{x:Null}">
+												<Setter Property="Visibility" Value="Collapsed" />
+											</DataTrigger>
+										</Style.Triggers>
+									</Style>
+								</Border.Style>
+								<Image
+									Width="16"
+									Height="16"
+									RenderOptions.BitmapScalingMode="HighQuality"
+									Source="{Binding FileIcon}" />
 							</Border>
 
 							<TextBlock
