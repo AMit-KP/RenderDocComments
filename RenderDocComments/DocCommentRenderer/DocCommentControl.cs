@@ -1410,37 +1410,44 @@ namespace RenderDocComments.DocCommentRenderer
                 }
                 catch { }
             }
-            else if (!string.IsNullOrEmpty(cref))
-            {
-                var symbolName = DocCommentParser.SimplifyCref(cref);
-                hl.Click += (s, e) =>
+                else if (!string.IsNullOrEmpty(cref))
                 {
-                    try
+                    var symbolName = DocCommentParser.SimplifyCref(cref);
+                    hl.Click += (s, e) =>
                     {
-                        var dte = Microsoft.VisualStudio.Shell.Package
-                            .GetGlobalService(typeof(EnvDTE.DTE)) as EnvDTE80.DTE2;
-                        if (dte == null) return;
+                        _ = RenderDocCommentsPackage.SharedJoinableTaskFactory.RunAsync(async () =>
+                        {
+                            // DTE automation is main-thread-affine.
+                            await Microsoft.VisualStudio.Shell.ThreadHelper
+                                .JoinableTaskFactory.SwitchToMainThreadAsync();
 
-                        var doc = dte.ActiveDocument;
-                        var sel = doc?.Selection as EnvDTE.TextSelection;
-                        if (sel == null) return;
+                            try
+                            {
+                                var dte = Microsoft.VisualStudio.Shell.Package
+                                    .GetGlobalService(typeof(EnvDTE.DTE)) as EnvDTE80.DTE2;
+                                if (dte == null) return;
 
-                        var find = dte.Find;
-                        find.FindWhat = symbolName;
-                        find.MatchCase = true;
-                        find.MatchWholeWord = true;
-                        find.Target = EnvDTE.vsFindTarget.vsFindTargetCurrentDocument;
-                        find.Action = EnvDTE.vsFindAction.vsFindActionFind;
-                        var findResult = find.Execute();
+                                var doc = dte.ActiveDocument;
+                                var sel = doc?.Selection as EnvDTE.TextSelection;
+                                if (sel == null) return;
 
-                        dte.ExecuteCommand(
-                            findResult == EnvDTE.vsFindResult.vsFindResultFound
-                                ? "Edit.GoToDefinition"
-                                : "Edit.NavigateTo");
-                    }
-                    catch { }
-                };
-            }
+                                var find = dte.Find;
+                                find.FindWhat = symbolName;
+                                find.MatchCase = true;
+                                find.MatchWholeWord = true;
+                                find.Target = EnvDTE.vsFindTarget.vsFindTargetCurrentDocument;
+                                find.Action = EnvDTE.vsFindAction.vsFindActionFind;
+                                var findResult = find.Execute();
+
+                                dte.ExecuteCommand(
+                                    findResult == EnvDTE.vsFindResult.vsFindResultFound
+                                        ? "Edit.GoToDefinition"
+                                        : "Edit.NavigateTo");
+                            }
+                            catch { }
+                        });
+                    };
+                }
 
             return hl;
         }

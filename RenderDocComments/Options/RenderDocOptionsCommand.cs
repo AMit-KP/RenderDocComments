@@ -108,7 +108,11 @@ namespace RenderDocComments.Options
         /// <para>The options window is created with the package as its service provider,<br/>
         /// enabling the window to access Visual Studio services for settings persistence.</para>
         /// </remarks>
-        private void Execute(object sender, EventArgs e) => ShowOptionsDialog();
+        private void Execute(object sender, EventArgs e)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            ShowOptionsDialog();
+        }
 
         /// <summary>
         /// Opens the Render Doc Options window as a modal dialog.<br/>

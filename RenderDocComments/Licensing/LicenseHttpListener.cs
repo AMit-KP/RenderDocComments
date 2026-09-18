@@ -110,7 +110,8 @@ namespace RenderDocComments.Licensing
             _listener.Prefixes.Add($"http://127.0.0.1:{Port}/auth/");
             _listener.Start();
 
-            Task.Run(() => ListenLoop(_cts.Token));
+            // Fire-and-forget: the loop observes cancellation internally and never throws.
+            _ = Task.Run(() => ListenLoopAsync(_cts.Token));
         }
 
         /// <summary>
@@ -138,7 +139,7 @@ namespace RenderDocComments.Licensing
         /// <para>The loop exits when the cancellation token is triggered (via <see cref="Stop"/>)<br/>
         /// or when <see cref="HttpListener.GetContextAsync"/> throws (indicating the listener has been stopped).</para>
         /// </remarks>
-        private static async Task ListenLoop(CancellationToken ct)
+        private static async Task ListenLoopAsync(CancellationToken ct)
         {
             while (!ct.IsCancellationRequested)
             {
@@ -208,10 +209,12 @@ namespace RenderDocComments.Licensing
                 }
                 else if (status.Equals("processing", StringComparison.OrdinalIgnoreCase))
                 {
-                    _ = Task.Delay(TimeSpan.FromMinutes(5), ct).ContinueWith(_ =>
-                    {
-                        if (_listener != null) Stop();
-                    });
+                    _ = Task.Delay(TimeSpan.FromMinutes(5), ct).ContinueWith(
+                        _ =>
+                        {
+                            if (_listener != null) Stop();
+                        },
+                        TaskScheduler.Default);
                 }
                 else
                 {

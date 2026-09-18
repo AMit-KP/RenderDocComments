@@ -4,6 +4,7 @@ using System.Threading;
 using Microsoft.VisualStudio.PlatformUI;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
+using Microsoft.VisualStudio.Threading;
 using Task = System.Threading.Tasks.Task;
 using RenderDocComments.CommentTagsExplorer;
 using RenderDocComments.Licensing;
@@ -40,6 +41,19 @@ namespace RenderDocComments
         /// Must match the GUID declared in the <c>.vsct</c> file and <c>source.extension.vsixmanifest</c>.
         /// </summary>
         public const string PackageGuidString = "6381b007-68f8-48f1-9db5-f450f3a1a6b0";
+
+        /// <summary>
+        /// A <see cref="JoinableTaskFactory"/> shared with components (taggers, scanner, tool window)<br/>
+        /// that need fire-and-forget background work tracked by the IDE. Unlike<br/>
+        /// <see cref="ThreadHelper.JoinableTaskFactory"/>, tasks started from this factory are joined to<br/>
+        /// the package's collection, so a VS shutdown waits for them instead of abandoning them mid-write.
+        /// </summary>
+        /// <remarks>
+        /// Falls back to <see cref="ThreadHelper.JoinableTaskFactory"/> until
+        /// <see cref="InitializeAsync"/> assigns the package's own factory.
+        /// </remarks>
+        public static JoinableTaskFactory SharedJoinableTaskFactory { get; private set; }
+            = ThreadHelper.JoinableTaskFactory;
 
         /// <summary>
         /// Asynchronously initializes the package, loading settings, registering commands,<br/>
@@ -94,6 +108,7 @@ namespace RenderDocComments
             IProgress<ServiceProgressData> progress)
         {
             await base.InitializeAsync(cancellationToken, progress);
+            SharedJoinableTaskFactory = JoinableTaskFactory;
             await JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
 
             RenderDocOptions.Instance.Load(this);

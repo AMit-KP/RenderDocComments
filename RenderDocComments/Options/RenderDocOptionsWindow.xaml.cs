@@ -277,7 +277,7 @@ namespace RenderDocComments.Options
         }
 
         /// <summary>
-        /// Handles the "Deactivate" button click by calling <see cref="LicenseManager.Deactivate"/><br/>
+        /// Handles the "Deactivate" button click by calling <see cref="LicenseManager.DeactivateAsync"/><br/>
         /// and updating the UI to reflect the deactivated state.
         /// </summary>
         /// <param name="sender">
@@ -297,7 +297,10 @@ namespace RenderDocComments.Options
         /// </remarks>
         private void OnDeactivateClicked(object sender, RoutedEventArgs e)
         {
-            LicenseManager.Deactivate();
+            ThreadHelper.JoinableTaskFactory.Run(async () =>
+            {
+                await LicenseManager.DeactivateAsync();
+            });
             RenderDocOptions.Instance.Save(_serviceProvider);
             RefreshLicenceBadge();
             RefreshPremiumPanelEnabled();
