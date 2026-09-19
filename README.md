@@ -85,7 +85,7 @@ From here, you can toggle between **Caret-based hiding** and **Margin Glyph cont
 | **Per-File Toggle (Toolbar Button & Context Menu)** | ✅ | ✅ |
 | **Comment Tag Render** | ✅ | ✅ |
 | **Comment Tag Render Style(Pill/Card)** | 🔘 Selectable | 🔘 Selectable |
-| **Comment Tags Explorer** | ✅ | ✅ |
+| **Comment Tags Explorer** | Tag Explorer | Tag + File Explorer |
 | **Theme Synchronization** | Manual (Reopen File) | **⚡ Instant Auto-Sync** |
 | **Rendered Comment Fixed Width** | Only Auto-width | **🔘 Selectable** |
 | **Rendered Comment Use Custom Fixed Width** | ❌ | **⚙️Customizable** |

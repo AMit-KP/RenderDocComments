@@ -1,9 +1,9 @@
 <UserControl
-	x:Class="RenderDocComments.CommentTagsToolWindowControl"
+	x:Class="RenderDocComments.CommentTagsExplorer.CommentTagsToolWindowControl"
 	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
 	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
 	xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-	xmlns:local="clr-namespace:RenderDocComments"
+	xmlns:local="clr-namespace:RenderDocComments.CommentTagsExplorer"
 	xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
 	xmlns:vsshell="clr-namespace:Microsoft.VisualStudio.Shell;assembly=Microsoft.VisualStudio.Shell.15.0"
 	d:DesignHeight="500"
@@ -79,13 +79,22 @@
 							<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
 						</Border>
 						<ControlTemplate.Triggers>
-							<Trigger Property="IsMouseOver" Value="True">
+							<MultiTrigger>
+								<MultiTrigger.Conditions>
+									<Condition Property="IsMouseOver" Value="True" />
+									<Condition Property="IsEnabled" Value="True" />
+								</MultiTrigger.Conditions>
 								<Setter TargetName="border" Property="Background" Value="{StaticResource HoverBrush}" />
-							</Trigger>
+							</MultiTrigger>
 							<Trigger Property="IsChecked" Value="True">
 								<Setter TargetName="border" Property="Background" Value="{StaticResource AccentBrush}" />
 								<Setter Property="Opacity" Value="1" />
 								<Setter Property="Foreground" Value="White" />
+							</Trigger>
+							<!--  Locked Premium tab: dimmed, no pointer cursor, no hover highlight  -->
+							<Trigger Property="IsEnabled" Value="False">
+								<Setter Property="Cursor" Value="Arrow" />
+								<Setter Property="Opacity" Value="0.55" />
 							</Trigger>
 						</ControlTemplate.Triggers>
 					</ControlTemplate>
@@ -109,6 +118,16 @@
 			<Setter Property="Opacity" Value="0.7" />
 		</Style>
 
+		<!--  Premium pill badge (marks locked Premium-only UI)  -->
+		<SolidColorBrush x:Key="PremiumBrush" Color="#B15CF0" />
+		<Style x:Key="PremiumPillStyle" TargetType="Border">
+			<Setter Property="Background" Value="{StaticResource PremiumBrush}" />
+			<Setter Property="CornerRadius" Value="8" />
+			<Setter Property="Padding" Value="5,1" />
+			<Setter Property="Margin" Value="6,0,0,0" />
+			<Setter Property="VerticalAlignment" Value="Center" />
+		</Style>
+
 		<!--  Colored tag chip  -->
 		<Style x:Key="TagChipStyle" TargetType="Border">
 			<Setter Property="CornerRadius" Value="10" />
@@ -122,6 +141,7 @@
 			<Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}" />
 			<Setter Property="Padding" Value="4,3" />
 			<Setter Property="Margin" Value="0,1" />
+			<Setter Property="HorizontalContentAlignment" Value="Stretch" />
 			<Setter Property="Foreground" Value="{DynamicResource {x:Static vsshell:VsBrushes.ToolWindowTextKey}}" />
 			<Setter Property="Template">
 				<Setter.Value>
@@ -278,22 +298,61 @@
 					x:Name="FilesTabRadio"
 					Grid.Column="1"
 					Click="OnTabRadioClicked"
-					Content="Files"
 					GroupName="ViewModeGroup"
-					Style="{StaticResource TabRadioButtonStyle}" />
+					Style="{StaticResource TabRadioButtonStyle}">
+					<StackPanel VerticalAlignment="Center" Orientation="Horizontal">
+
+						<!--  Padlock shown only while Premium is locked  -->
+						<Grid
+							x:Name="FilesTabLockIcon"
+							Width="10"
+							Height="11"
+							Margin="0,0,4,0"
+							VerticalAlignment="Center"
+							Visibility="Collapsed">
+							<Path
+								Data="M 2.4 5 L 2.4 3.2 A 2.6 2.6 0 0 1 7.6 3.2 L 7.6 5"
+								Stroke="{DynamicResource {x:Static vsshell:VsBrushes.ToolWindowTextKey}}"
+								StrokeEndLineCap="Round"
+								StrokeStartLineCap="Round"
+								StrokeThickness="1.3" />
+							<Path Data="M 0.8 5 L 9.2 5 L 9.2 10.4 L 0.8 10.4 Z" Fill="{DynamicResource {x:Static vsshell:VsBrushes.ToolWindowTextKey}}" />
+						</Grid>
+
+						<TextBlock VerticalAlignment="Center" Text="Files" />
+
+						<!--  Premium pill shown only while Premium is locked  -->
+						<Border
+							x:Name="FilesTabPremiumPill"
+							Style="{StaticResource PremiumPillStyle}"
+							Visibility="Collapsed">
+							<TextBlock
+								FontSize="8"
+								FontWeight="Bold"
+								Foreground="White"
+								Text="PREMIUM" />
+						</Border>
+					</StackPanel>
+				</RadioButton>
 			</Grid>
 		</Border>
 
 		<!--  Row 2: TreeViews Container  -->
 		<Grid Grid.Row="2">
 			<!--  1. Tags TreeView (Grouped by Tag -> File -> Occurrences)  -->
+			<!--
+				HorizontalScrollBarVisibility=Disabled constrains rows to the window width
+				so TextTrimming trims long descriptions instead of overflowing.
+			-->
 			<TreeView
 				x:Name="TagsTreeView"
 				Background="Transparent"
 				BorderThickness="0"
+				Grid.IsSharedSizeScope="True"
 				ItemsSource="{Binding Tags}"
 				KeyDown="OnTreeViewKeyDown"
 				MouseDoubleClick="OnTreeViewDoubleClick"
+				ScrollViewer.HorizontalScrollBarVisibility="Disabled"
 				Visibility="Visible">
 				<TreeView.Resources>
 
@@ -339,13 +398,20 @@
 								Margin="0,0,6,0"
 								Background="{StaticResource CardBrush}"
 								CornerRadius="4">
-								<Path
-									Width="9"
-									Height="9"
-									Data="M 3 0 L 9 0 L 12 3 L 12 14 L 3 14 Z"
-									Fill="{DynamicResource {x:Static vsshell:VsBrushes.ToolWindowTextKey}}"
-									Opacity="0.55"
-									Stretch="Uniform" />
+								<Border.Style>
+									<Style TargetType="Border">
+										<Style.Triggers>
+											<DataTrigger Binding="{Binding FileIcon}" Value="{x:Null}">
+												<Setter Property="Visibility" Value="Collapsed" />
+											</DataTrigger>
+										</Style.Triggers>
+									</Style>
+								</Border.Style>
+								<Image
+									Width="16"
+									Height="16"
+									RenderOptions.BitmapScalingMode="HighQuality"
+									Source="{Binding FileIcon}" />
 							</Border>
 
 							<TextBlock
@@ -366,12 +432,13 @@
 					<DataTemplate DataType="{x:Type local:CommentItemNodeViewModel}">
 						<Grid Margin="0,2" Cursor="Hand">
 							<Grid.ColumnDefinitions>
-								<ColumnDefinition Width="Auto" />
+								<ColumnDefinition Width="Auto" SharedSizeGroup="LineChip" />
 								<ColumnDefinition Width="*" />
 							</Grid.ColumnDefinitions>
 
 							<Border
 								Grid.Column="0"
+								MinWidth="42"
 								Margin="0,0,6,0"
 								Padding="5,1"
 								VerticalAlignment="Center"
@@ -381,7 +448,8 @@
 									FontSize="10"
 									FontWeight="SemiBold"
 									Opacity="0.7"
-									Text="{Binding LineNumber, StringFormat='Ln {0}'}" />
+									Text="{Binding LineNumber, StringFormat='Ln {0}'}"
+									TextAlignment="Center" />
 							</Border>
 
 							<TextBlock
@@ -402,9 +470,11 @@
 				x:Name="FilesTreeView"
 				Background="Transparent"
 				BorderThickness="0"
+				Grid.IsSharedSizeScope="True"
 				ItemsSource="{Binding Files}"
 				KeyDown="OnTreeViewKeyDown"
 				MouseDoubleClick="OnTreeViewDoubleClick"
+				ScrollViewer.HorizontalScrollBarVisibility="Disabled"
 				Visibility="Collapsed">
 				<TreeView.Resources>
 
@@ -424,13 +494,20 @@
 								Margin="0,0,6,0"
 								Background="{StaticResource CardBrush}"
 								CornerRadius="4">
-								<Path
-									Width="9"
-									Height="9"
-									Data="M 3 0 L 9 0 L 12 3 L 12 14 L 3 14 Z"
-									Fill="{DynamicResource {x:Static vsshell:VsBrushes.ToolWindowTextKey}}"
-									Opacity="0.55"
-									Stretch="Uniform" />
+								<Border.Style>
+									<Style TargetType="Border">
+										<Style.Triggers>
+											<DataTrigger Binding="{Binding FileIcon}" Value="{x:Null}">
+												<Setter Property="Visibility" Value="Collapsed" />
+											</DataTrigger>
+										</Style.Triggers>
+									</Style>
+								</Border.Style>
+								<Image
+									Width="16"
+									Height="16"
+									RenderOptions.BitmapScalingMode="HighQuality"
+									Source="{Binding FileIcon}" />
 							</Border>
 
 							<TextBlock
@@ -451,7 +528,7 @@
 					<DataTemplate DataType="{x:Type local:CommentItemNodeViewModel}">
 						<Grid Margin="0,2" Cursor="Hand">
 							<Grid.ColumnDefinitions>
-								<ColumnDefinition Width="Auto" />
+								<ColumnDefinition Width="Auto" SharedSizeGroup="LineChip" />
 								<ColumnDefinition Width="Auto" />
 								<ColumnDefinition Width="*" />
 							</Grid.ColumnDefinitions>
@@ -470,6 +547,7 @@
 
 							<Border
 								Grid.Column="1"
+								Width="46"
 								Margin="0,0,6,0"
 								Padding="5,1"
 								VerticalAlignment="Center"
@@ -479,7 +557,8 @@
 									FontSize="10"
 									FontWeight="SemiBold"
 									Opacity="0.7"
-									Text="{Binding LineNumber, StringFormat='Ln {0}'}" />
+									Text="{Binding LineNumber, StringFormat='Ln {0}'}"
+									TextAlignment="Center" />
 							</Border>
 
 							<TextBlock

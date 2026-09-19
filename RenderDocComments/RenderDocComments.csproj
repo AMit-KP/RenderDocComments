@@ -59,39 +59,39 @@
     <Compile Include="DocCommentRenderer\TagBadges\TagBadgeToggleState.cs" />
     <Compile Include="DocCommentRenderer\TagBadges\TagCardTagger.cs" />
     <Compile Include="DocCommentRenderer\TagBadges\TagCardTaggerProvider.cs" />
-    <Compile Include="CommentNavigator.cs" />
-    <Compile Include="CommentTagsScanner.cs" />
-    <Compile Include="CommentTagsToolWindow.cs" />
-    <Compile Include="CommentTagsToolWindowControl.xaml.cs">
+    <Compile Include="CommentTagsExplorer\CommentNavigator.cs" />
+    <Compile Include="CommentTagsExplorer\CommentTagsScanner.cs" />
+    <Compile Include="CommentTagsExplorer\CommentTagsToolWindow.cs" />
+    <Compile Include="CommentTagsExplorer\CommentTagsToolWindowControl.xaml.cs">
       <DependentUpon>CommentTagsToolWindowControl.xaml</DependentUpon>
     </Compile>
-    <Compile Include="CommentTagsTreeViewModel.cs" />
-    <Compile Include="CommentTagsWindowCommand.cs" />
-    <Compile Include="LicenseHttpListener.cs" />
+    <Compile Include="CommentTagsExplorer\CommentTagsTreeViewModel.cs" />
+    <Compile Include="CommentTagsExplorer\CommentTagsWindowCommand.cs" />
+    <Compile Include="Licensing\LicenseHttpListener.cs" />
+    <Compile Include="Licensing\LicenseManager.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="PurchaseActivationWindow.xaml.cs">
+    <Compile Include="Licensing\PurchaseActivationWindow.xaml.cs">
       <DependentUpon>PurchaseActivationWindow.xaml</DependentUpon>
     </Compile>
     <Compile Include="RenderDocCommentsPackage.cs" />
-    <Compile Include="RenderDocOptions.cs" />
-    <Compile Include="LicenseManager.cs" />
+    <Compile Include="Options\RenderDocOptions.cs" />
     <Compile Include="SettingsChangedBroadcast.cs" />
-    <Compile Include="RenderDocOptionsCommand.cs" />
+    <Compile Include="Options\RenderDocOptionsCommand.cs" />
     <Compile Include="RenderDocToggleCommand.cs" />
-    <Compile Include="ReviewPromptBar.cs" />
-    <Compile Include="WelcomeBar.cs" />
-    <Compile Include="RenderDocOptionsWindow.xaml.cs">
+    <Compile Include="UI\ReviewPromptBar.cs" />
+    <Compile Include="UI\WelcomeBar.cs" />
+    <Compile Include="Options\RenderDocOptionsWindow.xaml.cs">
       <DependentUpon>RenderDocOptionsWindow.xaml</DependentUpon>
     </Compile>
-    <Page Include="CommentTagsToolWindowControl.xaml">
+    <Page Include="CommentTagsExplorer\CommentTagsToolWindowControl.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
-    <Page Include="PurchaseActivationWindow.xaml">
+    <Page Include="Licensing\PurchaseActivationWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
-    <Page Include="RenderDocOptionsWindow.xaml">
+    <Page Include="Options\RenderDocOptionsWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>

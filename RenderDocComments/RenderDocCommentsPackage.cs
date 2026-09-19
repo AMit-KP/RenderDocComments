@@ -5,6 +5,10 @@ using Microsoft.VisualStudio.PlatformUI;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
 using Task = System.Threading.Tasks.Task;
+using RenderDocComments.CommentTagsExplorer;
+using RenderDocComments.Licensing;
+using RenderDocComments.Options;
+using RenderDocComments.UI;
 
 namespace RenderDocComments
 {

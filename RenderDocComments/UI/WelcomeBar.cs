@@ -5,8 +5,9 @@ using Microsoft.VisualStudio.Imaging;
 using Microsoft.VisualStudio.Imaging.Interop;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
+using RenderDocComments.Options;
 
-namespace RenderDocComments
+namespace RenderDocComments.UI
 {
     /// <summary>
     /// Shows a one-time Visual Studio InfoBar (the thin banner docked directly<br/>

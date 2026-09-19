@@ -4,8 +4,9 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Shapes;
 using System.Windows.Threading;
+using RenderDocComments.Options;
 
-namespace RenderDocComments
+namespace RenderDocComments.Licensing
 {
     /// <summary>
     /// Code-behind for the Purchase Activation window, providing license purchase<br/>

@@ -5,8 +5,9 @@ using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using RenderDocComments.Options;
 
-namespace RenderDocComments
+namespace RenderDocComments.Licensing
 {
     /// <summary>
     /// Manages the Premium license lifecycle for the Render Doc Comments extension,<br/>

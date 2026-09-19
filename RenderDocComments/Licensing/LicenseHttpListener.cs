@@ -3,7 +3,7 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace RenderDocComments
+namespace RenderDocComments.Licensing
 {
     /// <summary>
     /// A local HTTP listener that runs on <c>http://127.0.0.1:54321/auth/</c> to receive<br/>
