@@ -645,6 +645,7 @@ namespace RenderDocComments.DocCommentRenderer.TagBadges
                         Text = name,
                         Foreground = fgBrush,
                         FontSize = chipFontSize,
+                        FontFamily = fontFamily,
                         VerticalAlignment = VerticalAlignment.Center,
                     },
                 });
@@ -658,6 +659,7 @@ namespace RenderDocComments.DocCommentRenderer.TagBadges
                     : tooltipTail,
                 Foreground = themeFg,
                 FontWeight = FontWeights.SemiBold,
+                FontFamily = fontFamily,
                 TextWrapping = TextWrapping.Wrap,
                 TextTrimming = TextTrimming.CharacterEllipsis,
                 MaxHeight = MaxDescriptionLines * lineHeight,
