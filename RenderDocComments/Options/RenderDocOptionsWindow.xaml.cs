@@ -855,6 +855,7 @@ namespace RenderDocComments.Options
                     Background = new SolidColorBrush(ArgbToWpf(_tagColor[def.Name])),
                     Tag = def.Name,
                     VerticalAlignment = VerticalAlignment.Center,
+                    Style = (Style)FindResource("SwatchButton"),
                 };
                 swatch.Click += OnTagSwatchClicked;
                 row.Children.Add(swatch);

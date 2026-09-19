@@ -124,10 +124,20 @@ namespace RenderDocComments
             VSColorTheme.ThemeChanged += OnVsThemeChanged;
 
             // Fire-and-forget: shows the "rate this extension" InfoBar when due.
-            _ = ReviewPromptBar.TryShowAsync(this);
+            // Intentionally discard the task to prevent IDE startup disruption.
+            // VSTHRD110: Observing the task would require awaiting, which we don't want here.
+            // CS4014: Fire-and-forget is intentional for non-blocking IDE startup.
+#pragma warning disable VSTHRD110, CS4014 // Observe the awaitable result of this method call
+            ReviewPromptBar.TryShowAsync(this);
+#pragma warning restore VSTHRD110, CS4014
 
             // Fire-and-forget: one-time welcome InfoBar pointing to the options menu.
-            _ = WelcomeBar.TryShowAsync(this);
+            // Intentionally discard the task to prevent IDE startup disruption.
+            // VSTHRD110: Observing the task would require awaiting, which we don't want here.
+            // CS4014: Fire-and-forget is intentional for non-blocking IDE startup.
+#pragma warning disable VSTHRD110, CS4014 // Observe the awaitable result of this method call
+            WelcomeBar.TryShowAsync(this);
+#pragma warning restore VSTHRD110, CS4014
         }
 
 
@@ -157,11 +167,16 @@ namespace RenderDocComments
         {
             if (!RenderDocOptions.Instance.EffectiveAutoRefresh) return;
 
-            _ = JoinableTaskFactory.RunAsync(async () =>
+            // Fire-and-forget: theme changes shouldn't block the IDE.
+            // VSTHRD110: Observing the task would require awaiting, which we don't want here.
+            // CS4014: Fire-and-forget is intentional for non-blocking theme change handling.
+#pragma warning disable VSTHRD110, CS4014 // Observe the awaitable result of this method call
+            JoinableTaskFactory.RunAsync(async () =>
             {
                 await JoinableTaskFactory.SwitchToMainThreadAsync();
                 SettingsChangedBroadcast.RaiseSettingsChanged();
             });
+#pragma warning restore VSTHRD110, CS4014
         }
 
         // ── Cleanup ───────────────────────────────────────────────────────────────

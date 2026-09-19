@@ -122,15 +122,22 @@ namespace RenderDocComments.CommentTagsExplorer
         private void ScrollToFileNode(FileNodeViewModel fileNode)
         {
             if (fileNode == null) return;
-            try
+            // VSTHRD001/VSTHRD110: Dispatcher.BeginInvoke is appropriate for WPF UI threading in this context.
+            // The result is intentionally not observed as this is a fire-and-forget UI update.
+#pragma warning disable VSTHRD001, VSTHRD110
+            Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, new Action(() =>
             {
-                var container = FilesTreeView.ItemContainerGenerator.ContainerFromItem(fileNode) as TreeViewItem;
-                if (container != null)
+                try
                 {
-                    container.BringIntoView();
+                    var container = FilesTreeView.ItemContainerGenerator.ContainerFromItem(fileNode) as TreeViewItem;
+                    if (container != null)
+                    {
+                        container.BringIntoView();
+                    }
                 }
-            }
-            catch { }
+                catch { }
+            }));
+#pragma warning restore VSTHRD001, VSTHRD110
         }
 
         private void OnTabRadioClicked(object sender, RoutedEventArgs e)
