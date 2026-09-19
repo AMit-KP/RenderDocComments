@@ -497,10 +497,13 @@ namespace RenderDocComments.DocCommentRenderer.CommentBoxes
         /// <remarks>
         /// <para><b>Span safety rules:</b></para>
         /// <list type="bullet">
-        /// <item><description>The span starts at the comment opener — code before an
-        /// inline comment (<c>int x; // note</c>) remains visible.</description></item>
-        /// <item><description>The span ends at the closer for closed block comments —
-        /// code after <c>*/</c> on the same line remains visible.</description></item>
+        /// <item><description>Single-line comments span from opener to line end —
+        /// code before an inline comment (<c>int x; // note</c>) remains visible.</description></item>
+        /// <item><description>Multi-line blocks span from the FIRST line's start to
+        /// the LAST line's end (the doc-card pattern — the editor does not render
+        /// intra-text adornments whose multi-line span starts mid-line), and the box
+        /// indents itself to the original opener column. Any code after <c>*/</c> on
+        /// the closing line is stripped from the box text.</description></item>
         /// <item><description>Only full-line line comments on adjacent lines merge;
         /// trailing comments and block comments always stand alone.</description></item>
         /// <item><description>Ranges containing renderable tags are left to the
@@ -517,14 +520,18 @@ namespace RenderDocComments.DocCommentRenderer.CommentBoxes
             var ranges = new List<RawRange>();
             CollectRawRanges(snapshot, lang, ranges);
 
-            // Mark ranges the comment-tag feature will render (pills/cards) — those
-            // are not boxed. Skipped entirely when tag highlighting is off.
+            // Mark SINGLE-LINE ranges the comment-tag feature will render
+            // (pills/cards) — those are not boxed. Skipped entirely when tag
+            // highlighting is off. Multi-line ranges always box: a per-line
+            // pill/card inside a boxed block would overlap the box and leave the
+            // rest of the block raw.
             string tagStyle = opts.TagBadgesEnabled ? opts.EffectiveTagStyle : null;
             if (tagStyle != null)
             {
                 for (int i = 0; i < ranges.Count; i++)
                 {
                     var r = ranges[i];
+                    if (r.StartLine != r.EndLine) continue;   // multi-line → box owns it
                     int len = r.End - r.Start;
                     if (len <= 0) continue;
                     string text;
@@ -556,7 +563,8 @@ namespace RenderDocComments.DocCommentRenderer.CommentBoxes
                 }
 
                 bool groupable = !r.IsBlock && r.IsFullLine;
-                if (groupable && hasOpen && open.EndLine + 1 == r.StartLine)
+                if (groupable && hasOpen && open.IsFullLine && !open.IsBlock &&
+                    open.EndLine + 1 == r.StartLine)
                 {
                     open.End = r.End;
                     open.EndLine = r.EndLine;
@@ -570,10 +578,33 @@ namespace RenderDocComments.DocCommentRenderer.CommentBoxes
 
             foreach (var b in blocks)
             {
-                int len = b.End - b.Start;
+                // ── Resolve the adornment span ────────────────────────────────────
+                // Single-line blocks keep the opener-based span (the editor renders
+                // mid-line single-line spans fine). Multi-line blocks with a full-line
+                // opener use the doc-card pattern: line start → line end, with the box
+                // re-indenting itself to the opener column. Inline-opened multi-line
+                // blocks keep the opener span so surrounding code is never collapsed.
+                var firstLine = snapshot.GetLineFromPosition(b.Start);
+                var lastLine = snapshot.GetLineFromPosition(b.End);
+                bool multiline = b.StartLine != b.EndLine;
+                bool fullLineOpener = b.IsFullLine ||
+                    (b.IsBlock && IsAllWhitespaceBefore(
+                        firstLine.GetText(), b.Start - firstLine.Start));
+
+                int spanStart = b.Start;
+                int spanEnd = b.End;
+                double indent = 0.0;
+                if (multiline && fullLineOpener)
+                {
+                    spanStart = firstLine.Start;
+                    spanEnd = lastLine.End;
+                    indent = MeasureIndent(firstLine.GetText());
+                }
+
+                int len = spanEnd - spanStart;
                 if (len <= 0) continue;
                 string raw;
-                try { raw = snapshot.GetText(b.Start, len); }
+                try { raw = snapshot.GetText(spanStart, len); }
                 catch { continue; }
 
                 var lines = ExtractDisplayLines(raw, b.IsBlock, b.Opener, b.Closer);
@@ -585,15 +616,39 @@ namespace RenderDocComments.DocCommentRenderer.CommentBoxes
                 }
                 if (!hasContent) continue;
 
-                var control = CreateBox(lines, snapshot, b.Start);
+                var control = CreateBox(lines, snapshot, spanStart, indent);
                 if (control == null) continue;
 
-                var span = new SnapshotSpan(snapshot, b.Start, len);
+                var span = new SnapshotSpan(snapshot, spanStart, len);
                 var tag = new IntraTextAdornmentTag(control, null, PositionAffinity.Predecessor);
                 result.Add(new TagSpan<IntraTextAdornmentTag>(span, tag));
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// Measures the pixel width of a line's leading whitespace (tabs counted as
+        /// four columns) using the editor's column width — same approach as the
+        /// doc-card tagger, used to indent line-start box spans back to the
+        /// original opener column.
+        /// </summary>
+        private double MeasureIndent(string lineText)
+        {
+            int spaces = 0;
+            foreach (char c in lineText)
+            {
+                if (c == ' ') { spaces++; continue; }
+                if (c == '\t') { spaces += 4; continue; }
+                break;
+            }
+            try
+            {
+                var cw = _view.FormattedLineSource?.ColumnWidth;
+                if (cw.HasValue && cw.Value > 0) return spaces * cw.Value;
+            }
+            catch { }
+            return spaces * 7.2;
         }
 
         // ── Comment-text extraction ───────────────────────────────────────────────
@@ -632,7 +687,9 @@ namespace RenderDocComments.DocCommentRenderer.CommentBoxes
 
                 if (i == 0)
                 {
-                    // The range starts exactly at the opener.
+                    // Line-start spans carry the first line's indentation; opener
+                    // spans start exactly at the opener. TrimStart covers both.
+                    s = s.TrimStart();
                     if (s.StartsWith(opener, StringComparison.Ordinal))
                         s = s.Substring(opener.Length);
 
@@ -650,12 +707,21 @@ namespace RenderDocComments.DocCommentRenderer.CommentBoxes
 
                     if (i == parts.Length - 1 && closer.Length > 0)
                     {
-                        // Last block line: strip the closer before any '*' decorator
-                        // so a bare " */" line ends up empty rather than "/".
-                        var trimmed = s.TrimEnd();
-                        if (trimmed.EndsWith(closer, StringComparison.Ordinal))
-                            s = trimmed.Substring(0, trimmed.Length - closer.Length);
-                        else if (s.StartsWith("*")) s = s.Substring(1);
+                        // Last block line: strip everything from the closer onward —
+                        // line-end spans may include code after "*/" (which the box
+                        // collapses), and it must never leak into the box text. The
+                        // leading '*' decorator then still needs stripping (unlike
+                        // interior lines, the closer cut happens before it here).
+                        int idx = s.LastIndexOf(closer, StringComparison.Ordinal);
+                        if (idx >= 0)
+                        {
+                            s = s.Substring(0, idx);
+                            if (s.StartsWith("*")) s = s.Substring(1);
+                        }
+                        else if (s.StartsWith("*"))
+                        {
+                            s = s.Substring(1);
+                        }
                     }
                     else if (s.StartsWith("*"))
                     {
@@ -689,10 +755,15 @@ namespace RenderDocComments.DocCommentRenderer.CommentBoxes
         /// per comment line in the effective font.
         /// </summary>
         /// <param name="lines">Cleaned comment text lines.</param>
-        /// <param name="snapshot">Snapshot the box spans (indent measurement).</param>
+        /// <param name="snapshot">Snapshot the box spans (width computation).</param>
         /// <param name="spanStart">Buffer position of the box's span start.</param>
+        /// <param name="indentPx">
+        /// Left indent in pixels — non-zero for line-start spans, aligning the box
+        /// with the original opener column (the doc-card approach).
+        /// </param>
         /// <returns>The box element.</returns>
-        private UIElement CreateBox(IReadOnlyList<string> lines, ITextSnapshot snapshot, int spanStart)
+        private UIElement CreateBox(
+            IReadOnlyList<string> lines, ITextSnapshot snapshot, int spanStart, double indentPx)
         {
             var opts = RenderDocOptions.Instance;
 
@@ -757,8 +828,8 @@ namespace RenderDocComments.DocCommentRenderer.CommentBoxes
                 BorderThickness = new Thickness(1),
                 CornerRadius = new CornerRadius(3),
                 Padding = new Thickness(6, 1, 6, 1),
-                Margin = new Thickness(2, 0, 2, 0),
-                MaxWidth = ComputeMaxWidth(snapshot, spanStart),
+                Margin = new Thickness(indentPx + 2, 0, 2, 0),
+                MaxWidth = ComputeMaxWidth(snapshot, spanStart, indentPx),
                 HorizontalAlignment = HorizontalAlignment.Left,
                 Child = stack,
             };
@@ -813,12 +884,13 @@ namespace RenderDocComments.DocCommentRenderer.CommentBoxes
         }
 
         /// <summary>
-        /// Computes the maximum box width: viewport width minus the horizontal
-        /// offset of the span start within its line (approximated with the editor's
-        /// column width), minus a small margin. Long comment lines wrap inside the
-        /// box rather than spilling past the viewport.
+        /// Computes the maximum box width: viewport width minus the box's horizontal
+        /// offset (the span start's column offset within its line, approximated with
+        /// the editor's column width, plus the explicit indent), minus a small
+        /// margin. Long comment lines wrap inside the box rather than spilling past
+        /// the viewport.
         /// </summary>
-        private double ComputeMaxWidth(ITextSnapshot snapshot, int spanStart)
+        private double ComputeMaxWidth(ITextSnapshot snapshot, int spanStart, double indentPx)
         {
             try
             {
@@ -836,7 +908,7 @@ namespace RenderDocComments.DocCommentRenderer.CommentBoxes
                 }
                 catch { }
 
-                double w = viewport - (charsBefore * colWidth) - 8.0;
+                double w = viewport - (charsBefore * colWidth) - indentPx - 8.0;
                 return w > 200.0 ? w : 200.0;
             }
             catch

@@ -786,7 +786,7 @@
 							<!--  Comment Box Style  -->
 							<StackPanel x:Name="CommentBoxSectionPanel">
 								<TextBlock Style="{StaticResource SectionHeader}" Text="COMMENT BOX STYLE" />
-								<TextBlock Style="{StaticResource HintText}" Text="Renders normal // comments in a thin bordered box. Default: border and text follow the IDE's comment colour; the background always follows the editor. Comments containing tags (TODO, FIXME, …) keep their tag pills/cards instead of a box." />
+								<TextBlock Style="{StaticResource HintText}" Text="Renders normal // comments in a thin bordered box. Default: border and text follow the IDE's comment colour; the background always follows the editor. Single-line comments containing tags (TODO, FIXME, …) keep their tag pills/cards instead of a box; multi-line comments always box." />
 								<CheckBox
 									x:Name="CommentBoxesCheck"
 									Checked="OnCommentBoxesChanged"
