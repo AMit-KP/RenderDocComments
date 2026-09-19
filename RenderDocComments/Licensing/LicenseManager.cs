@@ -17,9 +17,9 @@ namespace RenderDocComments.Licensing
     /// <remarks>
     /// <para>This static class provides the following functionality:</para>
     /// <list type="bullet">
-    /// <item><description><b>Checkout:</b> Creates payment sessions via a Cloudflare Worker proxy to Dodo Payments (<see cref="OpenCheckoutPage"/>).</description></item>
-    /// <item><description><b>Activation:</b> Registers the current machine with a license key (<see cref="Activate"/>).</description></item>
-    /// <item><description><b>Deactivation:</b> Frees the activation slot for use on another machine (<see cref="Deactivate"/>).</description></item>
+        /// <item><description><b>Checkout:</b> Creates payment sessions via a Cloudflare Worker proxy to Dodo Payments (<see cref="OpenCheckoutPageAsync"/>).</description></item>
+        /// <item><description><b>Activation:</b> Registers the current machine with a license key (<see cref="ActivateAsync"/>).</description></item>
+        /// <item><description><b>Deactivation:</b> Frees the activation slot for use on another machine (<see cref="DeactivateAsync"/>).</description></item>
     /// <item><description><b>Validation:</b> Silently verifies license status on startup and every 12 hours (<see cref="RevalidateOnStartupAsync"/>, <see cref="StartPeriodicValidation"/>).</description></item>
     /// </list>
     /// <para>All network communication uses a zero-dependency approach — a shared <see cref="HttpClient"/> instance<br/>
@@ -62,14 +62,14 @@ namespace RenderDocComments.Licensing
         /// then opens the returned checkout URL in the default browser.
         /// </summary>
         /// <returns>
-        /// A tuple containing:
+        /// A task containing a tuple with:
         /// <list type="bullet">
         /// <item><description><c>Success</c> — <c>true</c> if the checkout page was opened successfully.</description></item>
         /// <item><description><c>Message</c> — A user-facing error message if the operation failed, or empty string on success.</description></item>
         /// </list>
         /// </returns>
         /// <remarks>
-        /// <para>The method performs the following steps synchronously (using <see cref="Task.Run"/>):</para>
+        /// <para>The method performs the following steps:</para>
         /// <list type="number">
         /// <item><description>Sends a POST request to <see cref="WorkerUrl"/> with a JSON payload containing <c>quantity: 1</c>.</description></item>
         /// <item><description>Parses the response to extract the checkout URL (checking <c>url</c>, <c>checkout_url</c>, <c>payment_url</c> fields).</description></item>
@@ -78,49 +78,31 @@ namespace RenderDocComments.Licensing
         /// <para>Exceptions are caught and returned as error tuples rather than thrown,<br/>
         /// ensuring the calling UI thread is never disrupted by network failures.</para>
         /// </remarks>
-        public static (bool Success, string Message) OpenCheckoutPage()
+        public static async Task<(bool Success, string Message)> OpenCheckoutPageAsync()
         {
             try
             {
-                return Task.Run(() => OpenCheckoutPageAsync()).GetAwaiter().GetResult();
+                var json = BuildJson(("quantity", "1"));
+                var resp = await PostJsonAsync(WorkerUrl, json).ConfigureAwait(false);
+                var body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+                if (!resp.IsSuccessStatusCode)
+                    return (false, $"Checkout unavailable (HTTP {(int)resp.StatusCode}). Please try again later.");
+
+                var checkoutUrl = ReadStringField(body, "url")
+                               ?? ReadStringField(body, "checkout_url")
+                               ?? ReadStringField(body, "payment_url");
+
+                if (string.IsNullOrEmpty(checkoutUrl))
+                    return (false, $"Checkout unavailable: unexpected server response. Raw: {body}");
+
+                Process.Start(new ProcessStartInfo(checkoutUrl) { UseShellExecute = true });
+                return (true, string.Empty);
             }
             catch (Exception ex)
             {
                 return (false, $"Could not open checkout: {ex.Message}");
             }
-        }
-
-        /// <summary>
-        /// Asynchronously creates a checkout session and opens the payment page in the browser.
-        /// </summary>
-        /// <returns>
-        /// A task containing a tuple of <c>(Success, Message)</c> indicating whether<br/>
-        /// the checkout page was successfully opened.
-        /// </returns>
-        /// <remarks>
-        /// <para>The method sends a POST request with JSON payload <c>{"quantity":"1"}</c> to the<br/>
-        /// Cloudflare Worker at <see cref="WorkerUrl"/>. The worker responds with a JSON object<br/>
-        /// containing the checkout URL.</para>
-        /// <para>Response field detection order: <c>url</c> → <c>checkout_url</c> → <c>payment_url</c>.</para>
-        /// </remarks>
-        private static async Task<(bool Success, string Message)> OpenCheckoutPageAsync()
-        {
-            var json = BuildJson(("quantity", "1"));
-            var resp = await PostJsonAsync(WorkerUrl, json).ConfigureAwait(false);
-            var body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-
-            if (!resp.IsSuccessStatusCode)
-                return (false, $"Checkout unavailable (HTTP {(int)resp.StatusCode}). Please try again later.");
-
-            var checkoutUrl = ReadStringField(body, "url")
-                           ?? ReadStringField(body, "checkout_url")
-                           ?? ReadStringField(body, "payment_url");
-
-            if (string.IsNullOrEmpty(checkoutUrl))
-                return (false, $"Checkout unavailable: unexpected server response. Raw: {body}");
-
-            Process.Start(new ProcessStartInfo(checkoutUrl) { UseShellExecute = true });
-            return (true, string.Empty);
         }
 
         // ── Activate / Deactivate / Validate ─────────────────────────────────────
@@ -151,11 +133,35 @@ namespace RenderDocComments.Licensing
         /// <item><description>Other errors → Generic HTTP error with server message if available.</description></item>
         /// </list>
         /// </remarks>
-        public static (bool Success, string Message) Activate(string licenseKey)
+        public static async Task<(bool Success, string Message)> ActivateAsync(string licenseKey)
         {
             try
             {
-                return Task.Run(() => ActivateAsync(licenseKey)).GetAwaiter().GetResult();
+                var json = BuildJson(("license_key", licenseKey), ("name", BuildDeviceName()));
+                var resp = await PostJsonAsync($"{DodoBase}/licenses/activate", json).ConfigureAwait(false);
+
+                if ((int)resp.StatusCode == 422)
+                    return (false, "Activation limit reached. Please deactivate an existing machine first.");
+
+                if (resp.StatusCode == HttpStatusCode.Forbidden)
+                    return (false, "This licence key is inactive or has been revoked.");
+
+                if (!resp.IsSuccessStatusCode)
+                {
+                    var body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    return (false, $"Activation failed (HTTP {(int)resp.StatusCode}). {ReadStringField(body, "message")}");
+                }
+
+                var responseBody = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                var id = ReadStringField(responseBody, "id");
+                if (id == null)
+                    return (false, "Activation succeeded but the server returned an unexpected response.");
+
+                RenderDocOptions.Instance.LicenseKey = licenseKey;
+                RenderDocOptions.Instance.LicenseInstanceId = id;
+                RenderDocOptions.Instance.SetPremiumUnlocked(true);
+
+                return (true, "Premium activated — Thank you ❤️ for your purchase!");
             }
             catch (Exception ex)
             {
@@ -183,11 +189,35 @@ namespace RenderDocComments.Licensing
         /// <para>If the server-side deactivation fails, the method returns a warning message<br/>
         /// advising the user to contact support if they cannot reactivate elsewhere.</para>
         /// </remarks>
-        public static (bool Success, string Message) Deactivate()
+        public static async Task<(bool Success, string Message)> DeactivateAsync()
         {
             try
             {
-                return Task.Run(() => DeactivateAsync()).GetAwaiter().GetResult();
+                var key = RenderDocOptions.Instance.LicenseKey;
+                var instanceId = RenderDocOptions.Instance.LicenseInstanceId;
+
+                if (string.IsNullOrEmpty(key) || string.IsNullOrEmpty(instanceId))
+                {
+                    RenderDocOptions.Instance.SetPremiumUnlocked(false);
+                    RenderDocOptions.Instance.LicenseKey = null;
+                    RenderDocOptions.Instance.LicenseInstanceId = null;
+                    return (true, "Licence removed from this machine.");
+                }
+
+                var json = BuildJson(
+                    ("license_key", key),
+                    ("license_key_instance_id", instanceId));
+
+                var resp = await PostJsonAsync($"{DodoBase}/licenses/deactivate", json).ConfigureAwait(false);
+
+                RenderDocOptions.Instance.SetPremiumUnlocked(false);
+                RenderDocOptions.Instance.LicenseKey = null;
+                RenderDocOptions.Instance.LicenseInstanceId = null;
+
+                if (!resp.IsSuccessStatusCode)
+                    return (true, "Licence removed locally. Note: server-side deactivation may have failed — contact support if you cannot reactivate.");
+
+                return (true, "Licence deactivated. This machine's slot has been freed.");
             }
             catch (Exception ex)
             {
@@ -267,20 +297,40 @@ namespace RenderDocComments.Licensing
             if (string.IsNullOrEmpty(key)) return;
 
             _validationTimer?.Dispose();
-            _validationTimer = new Timer(async _ =>
+            _validationTimer = new Timer(
+                _ => _ = ValidatePeriodicallyAsync(serviceProvider, key),
+                null, TimeSpan.FromHours(12), TimeSpan.FromHours(12));
+        }
+
+        /// <summary>
+        /// Performs one periodic license validation cycle for the 12-hour timer.<br/>
+        /// Revokes local Premium access if the stored key is no longer valid server-side.
+        /// </summary>
+        /// <param name="serviceProvider">
+        /// The <see cref="IServiceProvider"/> used to save settings if the license is invalidated.
+        /// </param>
+        /// <param name="key">
+        /// The stored license key to re-validate.
+        /// </param>
+        /// <remarks>
+        /// <para>All exceptions are caught silently to prevent background task crashes<br/>
+        /// from affecting the IDE. Returning a <see cref="Task"/> (instead of using an
+        /// async-void delegate) ensures any unexpected fault is observed on the task<br/>
+        /// rather than crashing the process.</para>
+        /// </remarks>
+        private static async Task ValidatePeriodicallyAsync(IServiceProvider serviceProvider, string key)
+        {
+            try
             {
-                try
+                var instanceId = RenderDocOptions.Instance.LicenseInstanceId;
+                bool valid = await ValidateLicenseAsync(key, instanceId).ConfigureAwait(false);
+                if (!valid)
                 {
-                    var instanceId = RenderDocOptions.Instance.LicenseInstanceId;
-                    bool valid = await ValidateLicenseAsync(key, instanceId).ConfigureAwait(false);
-                    if (!valid)
-                    {
-                        RenderDocOptions.Instance.SetPremiumUnlocked(false);
-                        RenderDocOptions.Instance.Save(serviceProvider);
-                    }
+                    RenderDocOptions.Instance.SetPremiumUnlocked(false);
+                    RenderDocOptions.Instance.Save(serviceProvider);
                 }
-                catch { }
-            }, null, TimeSpan.FromHours(12), TimeSpan.FromHours(12));
+            }
+            catch { }
         }
 
         // ── Private implementation ────────────────────────────────────────────────
@@ -299,102 +349,6 @@ namespace RenderDocComments.Licensing
         {
             Timeout = TimeSpan.FromSeconds(15)
         };
-
-        /// <summary>
-        /// Asynchronously activates a license key by sending an activation request to<br/>
-        /// the Dodo Payments API and storing the response on success.
-        /// </summary>
-        /// <param name="licenseKey">
-        /// The license key to activate.
-        /// </param>
-        /// <returns>
-        /// A task containing a tuple of <c>(Success, Message)</c> with the activation result.
-        /// </returns>
-        /// <remarks>
-        /// <para>The activation request is sent to <c>{DodoBase}/licenses/activate</c> with JSON payload:</para>
-        /// <list type="bullet">
-        /// <item><description><c>license_key</c> — The user-provided license key.</description></item>
-        /// <item><description><c>name</c> — A device identifier generated by <see cref="BuildDeviceName"/> (capped at 64 characters).</description></item>
-        /// </list>
-        /// <para>On success, the server returns the instance <c>id</c> which is stored alongside<br/>
-        /// the license key for future deactivation and validation requests.</para>
-        /// </remarks>
-        private static async Task<(bool Success, string Message)> ActivateAsync(string licenseKey)
-        {
-            var json = BuildJson(("license_key", licenseKey), ("name", BuildDeviceName()));
-            var resp = await PostJsonAsync($"{DodoBase}/licenses/activate", json).ConfigureAwait(false);
-
-            if ((int)resp.StatusCode == 422)
-                return (false, "Activation limit reached. Please deactivate an existing machine first.");
-
-            if (resp.StatusCode == HttpStatusCode.Forbidden)
-                return (false, "This licence key is inactive or has been revoked.");
-
-            if (!resp.IsSuccessStatusCode)
-            {
-                var body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-                return (false, $"Activation failed (HTTP {(int)resp.StatusCode}). {ReadStringField(body, "message")}");
-            }
-
-            var responseBody = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-            var id = ReadStringField(responseBody, "id");
-            if (id == null)
-                return (false, "Activation succeeded but the server returned an unexpected response.");
-
-            RenderDocOptions.Instance.LicenseKey = licenseKey;
-            RenderDocOptions.Instance.LicenseInstanceId = id;
-            RenderDocOptions.Instance.SetPremiumUnlocked(true);
-
-            return (true, "Premium activated — Thank you ❤️ for your purchase!");
-        }
-
-        /// <summary>
-        /// Asynchronously deactivates the current machine's license instance,<br/>
-        /// freeing the activation slot for use elsewhere.
-        /// </summary>
-        /// <returns>
-        /// A task containing a tuple of <c>(Success, Message)</c> with the deactivation result.
-        /// </returns>
-        /// <remarks>
-        /// <para>If no license key or instance ID is stored, the method immediately succeeds<br/>
-        /// (idempotent — the machine is already in a "not activated" state).</para>
-        /// <para>The deactivation request is sent to <c>{DodoBase}/licenses/deactivate</c> with JSON payload:</para>
-        /// <list type="bullet">
-        /// <item><description><c>license_key</c> — The stored license key.</description></item>
-        /// <item><description><c>license_key_instance_id</c> — The stored instance ID for this machine.</description></item>
-        /// </list>
-        /// <para>Regardless of server response, the method always clears local license data<br/>
-        /// and sets <see cref="RenderDocOptions.PremiumUnlocked"/> to <c>false</c>. This ensures<br/>
-        /// the user's machine is always freed up even if the server is temporarily unavailable.</para>
-        /// </remarks>
-        private static async Task<(bool Success, string Message)> DeactivateAsync()
-        {
-            var key = RenderDocOptions.Instance.LicenseKey;
-            var instanceId = RenderDocOptions.Instance.LicenseInstanceId;
-
-            if (string.IsNullOrEmpty(key) || string.IsNullOrEmpty(instanceId))
-            {
-                RenderDocOptions.Instance.SetPremiumUnlocked(false);
-                RenderDocOptions.Instance.LicenseKey = null;
-                RenderDocOptions.Instance.LicenseInstanceId = null;
-                return (true, "Licence removed from this machine.");
-            }
-
-            var json = BuildJson(
-                ("license_key", key),
-                ("license_key_instance_id", instanceId));
-
-            var resp = await PostJsonAsync($"{DodoBase}/licenses/deactivate", json).ConfigureAwait(false);
-
-            RenderDocOptions.Instance.SetPremiumUnlocked(false);
-            RenderDocOptions.Instance.LicenseKey = null;
-            RenderDocOptions.Instance.LicenseInstanceId = null;
-
-            if (!resp.IsSuccessStatusCode)
-                return (true, "Licence removed locally. Note: server-side deactivation may have failed — contact support if you cannot reactivate.");
-
-            return (true, "Licence deactivated. This machine's slot has been freed.");
-        }
 
         /// <summary>
         /// Asynchronously validates a license key against the Dodo Payments API<br/>

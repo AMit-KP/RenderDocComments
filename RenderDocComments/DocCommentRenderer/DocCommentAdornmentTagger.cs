@@ -43,9 +43,11 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using System.Xml.XPath;
+using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.Text.Tagging;
+using Microsoft.VisualStudio.Threading;
 using RenderDocComments.Options;
 
 namespace RenderDocComments.DocCommentRenderer
@@ -174,6 +176,16 @@ namespace RenderDocComments.DocCommentRenderer
         public IEnumerable<ITagSpan<IntraTextAdornmentTag>> GetTags(
             NormalizedSnapshotSpanCollection spans)
         {
+            // Tag building touches DTE/COM automation and constructs WPF visuals
+            // (DocCommentControl), both of which are main-thread-affine.
+            ThreadHelper.ThrowIfNotOnUIThread();
+            return GetTagsCore(spans);
+        }
+
+        private IEnumerable<ITagSpan<IntraTextAdornmentTag>> GetTagsCore(
+            NormalizedSnapshotSpanCollection spans)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
             if (spans.Count == 0) yield break;
             if (_forceEmpty) yield break;
             if (!RenderDocOptions.Instance.RenderEnabled) yield break;
@@ -231,6 +243,7 @@ namespace RenderDocComments.DocCommentRenderer
         /// </remarks>
         private IReadOnlyList<TagSpan<IntraTextAdornmentTag>> GetOrBuildTags(ITextSnapshot snapshot)
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
             if (_cachedSnapshot == snapshot &&
                 _cachedSettingsGen == _settingsGeneration &&
                 _cachedTags != null)
@@ -542,6 +555,7 @@ namespace RenderDocComments.DocCommentRenderer
         /// </remarks>
         private IReadOnlyList<TagSpan<IntraTextAdornmentTag>> BuildTags(ITextSnapshot snapshot)
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
             var result = new List<TagSpan<IntraTextAdornmentTag>>();
             int lineCount = snapshot.LineCount;
             var bufLang = GetLanguage(_buffer);
@@ -815,6 +829,7 @@ namespace RenderDocComments.DocCommentRenderer
             string fileDir,
             int depth)
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
             if (depth > 5 || inheritor?.InheritDoc == null) return inheritor;
 
             var cref = inheritor.InheritDoc.Cref;
@@ -972,6 +987,7 @@ namespace RenderDocComments.DocCommentRenderer
         /// </remarks>
         private static ParsedDocComment FindInCsFiles(string fileDir, string targetName)
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
             var files = GetSolutionManagedFiles();
 
             if (files == null || files.Count == 0)
@@ -1034,13 +1050,19 @@ namespace RenderDocComments.DocCommentRenderer
         {
             try
             {
-                var dte = Microsoft.VisualStudio.Shell.Package
-                    .GetGlobalService(typeof(EnvDTE.DTE)) as EnvDTE80.DTE2;
-                if (dte?.Solution == null) return null;
+                // DTE is main-thread-affine; join the main thread for the enumeration.
+                return ThreadHelper.JoinableTaskFactory.Run(async () =>
+                {
+                    await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 
-                var files = new List<string>();
-                CollectProjectItems(dte.Solution.Projects, files);
-                return files;
+                    var dte = Microsoft.VisualStudio.Shell.Package
+                        .GetGlobalService(typeof(EnvDTE.DTE)) as EnvDTE80.DTE2;
+                    if (dte?.Solution == null) return null;
+
+                    var files = new List<string>();
+                    CollectProjectItems(dte.Solution.Projects, files);
+                    return files;
+                });
             }
             catch { return null; }
         }
@@ -1060,6 +1082,7 @@ namespace RenderDocComments.DocCommentRenderer
         /// </remarks>
         private static void CollectProjectItems(EnvDTE.Projects projects, List<string> files)
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
             if (projects == null) return;
             foreach (EnvDTE.Project project in projects)
             {
@@ -1090,6 +1113,7 @@ namespace RenderDocComments.DocCommentRenderer
         /// </remarks>
         private static void CollectItems(EnvDTE.ProjectItems items, List<string> files)
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
             if (items == null) return;
             foreach (EnvDTE.ProjectItem item in items)
             {
@@ -1282,17 +1306,22 @@ namespace RenderDocComments.DocCommentRenderer
         /// </remarks>
         private static List<string> GetSolutionCppFiles(string fileDir)
         {
-            // Try DTE first.
+            // Try DTE first. DTE is main-thread-affine; join the main thread for the enumeration.
             try
             {
-                var dte = Microsoft.VisualStudio.Shell.Package
-                    .GetGlobalService(typeof(EnvDTE.DTE)) as EnvDTE80.DTE2;
-                if (dte?.Solution != null)
+                var dteFiles = ThreadHelper.JoinableTaskFactory.Run(async () =>
                 {
+                    await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+
+                    var dte = Microsoft.VisualStudio.Shell.Package
+                        .GetGlobalService(typeof(EnvDTE.DTE)) as EnvDTE80.DTE2;
+                    if (dte?.Solution == null) return null;
+
                     var files = new List<string>();
                     CollectCppProjectItems(dte.Solution.Projects, files);
-                    if (files.Count > 0) return files;
-                }
+                    return files;
+                });
+                if (dteFiles != null && dteFiles.Count > 0) return dteFiles;
             }
             catch { }
 
@@ -1336,6 +1365,7 @@ namespace RenderDocComments.DocCommentRenderer
         /// </remarks>
         private static void CollectCppProjectItems(EnvDTE.Projects projects, List<string> files)
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
             if (projects == null) return;
             foreach (EnvDTE.Project project in projects)
             {
@@ -1374,6 +1404,7 @@ namespace RenderDocComments.DocCommentRenderer
         /// </remarks>
         private static void CollectCppItems(EnvDTE.ProjectItems items, List<string> files)
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
             if (items == null) return;
             foreach (EnvDTE.ProjectItem item in items)
             {
@@ -2123,15 +2154,18 @@ namespace RenderDocComments.DocCommentRenderer
             TagsChanged?.Invoke(this,
                 new SnapshotSpanEventArgs(new SnapshotSpan(snap, 0, snap.Length)));
 
-            _view.VisualElement.Dispatcher.BeginInvoke(
-                System.Windows.Threading.DispatcherPriority.Normal,
-                new Action(() =>
-                {
-                    _forceEmpty = false;
-                    var snap2 = _buffer.CurrentSnapshot;
-                    TagsChanged?.Invoke(this, new SnapshotSpanEventArgs(
-                        new SnapshotSpan(snap2, 0, snap2.Length)));
-                }));
+            _ = RenderDocCommentsPackage.SharedJoinableTaskFactory.RunAsync(async () =>
+            {
+                await RenderDocCommentsPackage.SharedJoinableTaskFactory
+                    .WithPriority(_view.VisualElement.Dispatcher,
+                        System.Windows.Threading.DispatcherPriority.Normal)
+                    .SwitchToMainThreadAsync();
+
+                _forceEmpty = false;
+                var snap2 = _buffer.CurrentSnapshot;
+                TagsChanged?.Invoke(this, new SnapshotSpanEventArgs(
+                    new SnapshotSpan(snap2, 0, snap2.Length)));
+            });
         }
 
         // ── IDisposable ───────────────────────────────────────────────────────────

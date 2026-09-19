@@ -54,6 +54,7 @@ using System.Windows.Media;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.Text.Tagging;
+using Microsoft.VisualStudio.Threading;
 using RenderDocComments.Options;
 
 namespace RenderDocComments.DocCommentRenderer.TagBadges
@@ -634,15 +635,18 @@ namespace RenderDocComments.DocCommentRenderer.TagBadges
             TagsChanged?.Invoke(this,
                 new SnapshotSpanEventArgs(new SnapshotSpan(snap, 0, snap.Length)));
 
-            _view.VisualElement.Dispatcher.BeginInvoke(
-                System.Windows.Threading.DispatcherPriority.Normal,
-                new Action(() =>
-                {
-                    _forceEmpty = false;
-                    var snap2 = _buffer.CurrentSnapshot;
-                    TagsChanged?.Invoke(this, new SnapshotSpanEventArgs(
-                        new SnapshotSpan(snap2, 0, snap2.Length)));
-                }));
+            _ = RenderDocCommentsPackage.SharedJoinableTaskFactory.RunAsync(async () =>
+            {
+                await RenderDocCommentsPackage.SharedJoinableTaskFactory
+                    .WithPriority(_view.VisualElement.Dispatcher,
+                        System.Windows.Threading.DispatcherPriority.Normal)
+                    .SwitchToMainThreadAsync();
+
+                _forceEmpty = false;
+                var snap2 = _buffer.CurrentSnapshot;
+                TagsChanged?.Invoke(this, new SnapshotSpanEventArgs(
+                    new SnapshotSpan(snap2, 0, snap2.Length)));
+            });
         }
 
         /// <summary>Unsubscribes all events; called when the editor disposes the tagger.</summary>

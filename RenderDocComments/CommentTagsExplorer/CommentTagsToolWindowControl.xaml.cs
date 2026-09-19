@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using Microsoft.VisualStudio.Shell;
+using Microsoft.VisualStudio.Threading;
 using RenderDocComments.Licensing;
 using RenderDocComments.Options;
 
@@ -104,18 +105,26 @@ namespace RenderDocComments.CommentTagsExplorer
 
         private void OnActiveDocumentFound(object sender, FileNodeViewModel fileNode)
         {
-            Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, new Action(() =>
+            // Defer to a Background-priority dispatcher callback so layout settles before scrolling.
+            _ = RenderDocCommentsPackage.SharedJoinableTaskFactory.RunAsync(async () =>
             {
+                await RenderDocCommentsPackage.SharedJoinableTaskFactory
+                    .WithPriority(Dispatcher, System.Windows.Threading.DispatcherPriority.Background)
+                    .SwitchToMainThreadAsync();
+
                 if (_viewModel.SelectedTabIndex == 1 && fileNode != null)
                 {
                     ScrollToFileNode(fileNode);
                 }
-            }));
+            });
         }
 
         private void ScrollToFileNode(FileNodeViewModel fileNode)
         {
             if (fileNode == null) return;
+            // VSTHRD001/VSTHRD110: Dispatcher.BeginInvoke is appropriate for WPF UI threading in this context.
+            // The result is intentionally not observed as this is a fire-and-forget UI update.
+#pragma warning disable VSTHRD001, VSTHRD110
             Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, new Action(() =>
             {
                 try
@@ -128,6 +137,7 @@ namespace RenderDocComments.CommentTagsExplorer
                 }
                 catch { }
             }));
+#pragma warning restore VSTHRD001, VSTHRD110
         }
 
         private void OnTabRadioClicked(object sender, RoutedEventArgs e)
@@ -196,7 +206,7 @@ namespace RenderDocComments.CommentTagsExplorer
         /// </param>
         private void OnSettingsChanged(object sender, EventArgs e)
         {
-            ThreadHelper.JoinableTaskFactory.RunAsync(async () =>
+            ThreadHelper.JoinableTaskFactory.Run(async () =>
             {
                 await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
                 ApplyPremiumState();
@@ -271,9 +281,9 @@ namespace RenderDocComments.CommentTagsExplorer
 
         private void OnTreeViewKeyDown(object sender, KeyEventArgs e)
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
             if (e.Key == Key.Enter)
             {
-                ThreadHelper.ThrowIfNotOnUIThread();
                 NavigateSelectedItem();
                 e.Handled = true;
             }

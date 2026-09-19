@@ -257,7 +257,7 @@ namespace RenderDocComments.CommentTagsExplorer
             }
 
             // Debounce live typing updates (250ms)
-            ThreadHelper.JoinableTaskFactory.RunAsync(async () =>
+            ThreadHelper.JoinableTaskFactory.Run(async () =>
             {
                 await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 
@@ -299,7 +299,7 @@ namespace RenderDocComments.CommentTagsExplorer
                 return;
             }
 
-            ThreadHelper.JoinableTaskFactory.RunAsync(async () =>
+            _ = RenderDocCommentsPackage.SharedJoinableTaskFactory.RunAsync(async () =>
             {
                 List<TagOccurrence> list = null;
                 await Task.Run(() =>
@@ -323,7 +323,7 @@ namespace RenderDocComments.CommentTagsExplorer
 
         private void OnSettingsChanged(object sender, EventArgs e)
         {
-            ThreadHelper.JoinableTaskFactory.RunAsync(async () =>
+            ThreadHelper.JoinableTaskFactory.Run(async () =>
             {
                 await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
                 _viewModel.RefreshColors();
@@ -339,7 +339,7 @@ namespace RenderDocComments.CommentTagsExplorer
             _scanCts = new CancellationTokenSource();
             var token = _scanCts.Token;
 
-            ThreadHelper.JoinableTaskFactory.RunAsync(async () =>
+            _ = RenderDocCommentsPackage.SharedJoinableTaskFactory.RunAsync(async () =>
             {
                 await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
                 _viewModel.IsScanning = true;
@@ -437,7 +437,7 @@ namespace RenderDocComments.CommentTagsExplorer
             if (string.IsNullOrWhiteSpace(filePath) || !IsEligibleFile(filePath, null))
                 return;
 
-            ThreadHelper.JoinableTaskFactory.RunAsync(async () =>
+            _ = RenderDocCommentsPackage.SharedJoinableTaskFactory.RunAsync(async () =>
             {
                 ITextBuffer openBuffer = null;
                 lock (_trackedBuffers)

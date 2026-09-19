@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Shapes;
 using System.Windows.Threading;
+using Microsoft.VisualStudio.Shell;
 using RenderDocComments.Options;
 
 namespace RenderDocComments.Licensing
@@ -34,7 +35,7 @@ namespace RenderDocComments.Licensing
 
         /// <summary>Raised when a key is successfully activated.</summary>
         /// <remarks>
-        /// <para>This event is raised after <see cref="LicenseManager.Activate"/> succeeds and<br/>
+        /// <para>This event is raised after <see cref="LicenseManager.ActivateAsync"/> succeeds and<br/>
         /// the settings have been saved. Subscribers should update their UI to reflect<br/>
         /// the new Premium status (e.g., refresh the license badge, enable premium controls).</para>
         /// </remarks>
@@ -68,7 +69,8 @@ namespace RenderDocComments.Licensing
         /// </param>
         /// <remarks>
         /// <para>This method is called on a background thread by the HTTP listener.<br/>
-        /// It marshals back to the UI thread via <see cref="Dispatcher.InvokeAsync"/> to:</para>
+        /// It switches to the UI thread via
+        /// <see cref="ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync"/> to:</para>
         /// <list type="number">
         /// <item><description>Populate the key text box with the received key.</description></item>
         /// <item><description>Display a status message instructing the user to click "Activate".</description></item>
@@ -79,8 +81,9 @@ namespace RenderDocComments.Licensing
         private void OnLicenseKeyReceived(string key)
         {
             // Jump back to the UI thread
-            Dispatcher.InvokeAsync(() =>
+            ThreadHelper.JoinableTaskFactory.Run(async () =>
             {
+                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
                 KeyBox.Text = key;
                 ShowStatus("Licence key received from checkout. Click Activate to complete.", isError: false);
             });
@@ -104,7 +107,7 @@ namespace RenderDocComments.Licensing
         /// <item><description>Starts <see cref="LicenseHttpListener"/> to listen for the checkout callback.</description></item>
         /// <item><description>Subscribes to <see cref="LicenseHttpListener.ListenerStopped"/> to reset the button state.</description></item>
         /// <item><description>Disables the button and changes its text to "Waiting for payment…".</description></item>
-        /// <item><description>Calls <see cref="LicenseManager.OpenCheckoutPage"/> to open the payment page.</description></item>
+        /// <item><description>Calls <see cref="LicenseManager.OpenCheckoutPageAsync"/> to open the payment page.</description></item>
         /// <item><description>If checkout fails, stops the listener and displays an error message.</description></item>
         /// </list>
         /// </remarks>
@@ -116,7 +119,8 @@ namespace RenderDocComments.Licensing
             BuyNowButton.IsEnabled = false;
             BuyNowButton.Content = "Waiting for payment…";
 
-            var (success, message) = LicenseManager.OpenCheckoutPage();
+            var (success, message) = ThreadHelper.JoinableTaskFactory.Run(
+                () => LicenseManager.OpenCheckoutPageAsync());
             if (!success)
             {
                 LicenseHttpListener.Stop();
@@ -129,8 +133,10 @@ namespace RenderDocComments.Licensing
         /// the "Buy Premium" button to its enabled, default state.
         /// </summary>
         /// <remarks>
-        /// <para>This method is called on a background thread by the HTTP listener.<br/>
-        /// It marshals back to the UI thread via <see cref="Dispatcher.InvokeAsync"/> to:</para>
+        /// <para>This method is raised either on a background thread by the HTTP listener<br/>
+        /// or synchronously on the UI thread when the listener is stopped from a click handler.<br/>
+        /// It switches to the UI thread via
+        /// <see cref="ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync"/> to:</para>
         /// <list type="number">
         /// <item><description>Re-enable the button.</description></item>
         /// <item><description>Restore the button's text to "Buy Premium — Open Checkout ↗".</description></item>
@@ -139,8 +145,9 @@ namespace RenderDocComments.Licensing
         /// </remarks>
         private void OnListenerStopped()
         {
-            Dispatcher.InvokeAsync(() =>
+            ThreadHelper.JoinableTaskFactory.Run(async () =>
             {
+                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
                 BuyNowButton.IsEnabled = true;
                 BuyNowButton.Content = "Buy Premium — Open Checkout ↗";
                 LicenseHttpListener.ListenerStopped -= OnListenerStopped;
@@ -164,7 +171,7 @@ namespace RenderDocComments.Licensing
         /// <list type="number">
         /// <item><description>Validates that the key text box is not empty.</description></item>
         /// <item><description>Disables the button and shows "Contacting licence server…".</description></item>
-        /// <item><description>Calls <see cref="LicenseManager.Activate"/> with the trimmed key text.</description></item>
+        /// <item><description>Calls <see cref="LicenseManager.ActivateAsync"/> with the trimmed key text.</description></item>
         /// <item><description>On success:
         ///   <list type="bullet">
         ///   <item><description>Saves settings via <see cref="RenderDocOptions.Save"/>.</description></item>
@@ -190,7 +197,8 @@ namespace RenderDocComments.Licensing
             ActivateBtn.IsEnabled = false;
             ShowStatus("Contacting licence server…", isError: false);
 
-            var (success, message) = LicenseManager.Activate(key);
+            var (success, message) = ThreadHelper.JoinableTaskFactory.Run(
+                () => LicenseManager.ActivateAsync(key));
             ActivateBtn.IsEnabled = true;
 
             if (success)
