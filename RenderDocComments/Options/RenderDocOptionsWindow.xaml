@@ -453,9 +453,9 @@
 
 						<CheckBox
 							x:Name="RenderEnabledCheck"
-							Checked="OnSettingChanged"
+							Checked="OnRenderEnabledChanged"
 							Content="Enable doc comment rendering"
-							Unchecked="OnSettingChanged" />
+							Unchecked="OnRenderEnabledChanged" />
 
 						<Border Style="{StaticResource Divider}" />
 

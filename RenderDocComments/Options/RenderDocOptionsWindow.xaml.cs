@@ -252,25 +252,22 @@ namespace RenderDocComments.Options
         /// A section is disabled and dimmed either because it is Premium-only and no<br/>
         /// licence is active, or because its feature's master toggle is switched off.
         /// </summary>
-        /// <remarks>
-        /// <para>This method is the single source of truth for section gating and is called<br/>
-        /// during window initialization, after any license state change<br/>
-        /// (activation/deactivation), and whenever a master toggle changes.</para>
-        /// </remarks>
         private void RefreshSectionStates()
         {
             bool premium = LicenseManager.PremiumUnlocked;
+            bool docRenderEnabled = RenderEnabledCheck.IsChecked == true;
             bool tagsEnabled = TagBadgesCheck.IsChecked == true;
             bool boxesEnabled = CommentBoxesCheck.IsChecked == true;
             bool boxCustomColors = boxesEnabled && CommentBoxThemeColorsCheck.IsChecked != true;
 
-            // Doc-comment sections — Premium-gated.
-            SetSectionState(GlyphSectionPanel, premium);
-            SetSectionState(AutoRefreshSectionPanel, premium);
-            SetSectionState(WidthSectionPanel, premium);
-            SetSectionState(FontSectionPanel, premium);
-            SetSectionState(BorderSectionPanel, premium);
-            SetSectionState(ColorsSectionPanel, premium);
+            // Doc-comment sections — require the master toggle; additionally
+            // Premium-gated.
+            SetSectionState(GlyphSectionPanel, docRenderEnabled && premium);
+            SetSectionState(AutoRefreshSectionPanel, docRenderEnabled && premium);
+            SetSectionState(WidthSectionPanel, docRenderEnabled && premium);
+            SetSectionState(FontSectionPanel, docRenderEnabled && premium);
+            SetSectionState(BorderSectionPanel, docRenderEnabled && premium);
+            SetSectionState(ColorsSectionPanel, docRenderEnabled && premium);
 
             // Comment tags — master toggle and style are free; per-tag list is Premium.
             TagPillsRadio.IsEnabled = tagsEnabled;
@@ -535,6 +532,17 @@ namespace RenderDocComments.Options
             if (_loading) return;
             RenderDocOptions.Instance.TagStyle = TagCardsRadio.IsChecked == true ? "Cards" : "Pills";
             OnSettingChanged(sender, e);
+        }
+
+        /// <summary>
+        /// Handles the doc comment master toggle, applying the change and
+        /// refreshing every doc-comment section (visibility mode through
+        /// gradient bar colours), which are disabled while rendering is off.
+        /// </summary>
+        private void OnRenderEnabledChanged(object sender, RoutedEventArgs e)
+        {
+            OnSettingChanged(sender, e);
+            RefreshSectionStates();
         }
 
         /// <summary>
