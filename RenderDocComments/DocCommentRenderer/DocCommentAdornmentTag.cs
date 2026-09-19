@@ -135,12 +135,26 @@ namespace RenderDocComments.DocCommentRenderer
             catch { }
 
             // ── Font ─────────────────────────────────────────────────────────────
-            var ff = new FontFamily(opts.EffectiveFontFamily);
-
             var fontProps = view.FormattedLineSource?.DefaultTextProperties;
             double fs = (fontProps != null && fontProps.FontRenderingEmSize > 0)
                 ? fontProps.FontRenderingEmSize
                 : 13.0;
+
+            // An empty configured family is the "(Editor font)" sentinel: the card
+            // follows the editor's typeface instead of a fixed family.
+            FontFamily ff;
+            string configuredFamily = opts.EffectiveFontFamily;
+            if (string.IsNullOrWhiteSpace(configuredFamily))
+            {
+                ff = fontProps?.Typeface.FontFamily;
+                if (ff == null || string.IsNullOrEmpty(ff.Source))
+                    ff = new FontFamily("Segoe UI");
+            }
+            else
+            {
+                try { ff = new FontFamily(configuredFamily); }
+                catch { ff = new FontFamily("Segoe UI"); }
+            }
 
             // ── Colour brushes ───────────────────────────────────────────────────
             Brush summaryBrush = LicenseManager.PremiumUnlocked

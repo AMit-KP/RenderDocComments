@@ -119,11 +119,12 @@ namespace RenderDocComments.Options
         {
             _loading = true;
 
+            // Index 0 is a sentinel meaning "follow the editor font".
             FontFamilyCombo.Items.Clear();
+            FontFamilyCombo.Items.Add("(Editor font)");
             foreach (var ff in Fonts.SystemFontFamilies.OrderBy(f => f.Source))
                 FontFamilyCombo.Items.Add(ff.Source);
 
-            // Index 0 is a sentinel meaning "follow the editor font".
             CommentBoxFontCombo.Items.Clear();
             CommentBoxFontCombo.Items.Add("(Editor font)");
             foreach (var ff in Fonts.SystemFontFamilies.OrderBy(f => f.Source))
@@ -156,7 +157,10 @@ namespace RenderDocComments.Options
             GlyphModeRadio.IsChecked = o.GlyphToggleEnabled;
             CaretModeRadio.IsChecked = !o.GlyphToggleEnabled;
 
-            int idx = FontFamilyCombo.Items.IndexOf(o.CustomFontFamily);
+            // Index 0 ("(Editor font)") maps to an empty stored family.
+            int idx = string.IsNullOrWhiteSpace(o.CustomFontFamily)
+                ? 0
+                : FontFamilyCombo.Items.IndexOf(o.CustomFontFamily);
             FontFamilyCombo.SelectedIndex = idx >= 0 ? idx : 0;
             UpdateFontPreview();
 
@@ -423,7 +427,10 @@ namespace RenderDocComments.Options
             o.RenderEnabled = RenderEnabledCheck.IsChecked == true;
             o.AutoRefreshOnThemeChange = AutoRefreshCheck.IsChecked == true;
             o.GlyphToggleEnabled = GlyphModeRadio.IsChecked == true;
-            o.CustomFontFamily = FontFamilyCombo.SelectedItem?.ToString() ?? "Segoe UI";
+            // Index 0 ("(Editor font)") stores an empty family.
+            o.CustomFontFamily = FontFamilyCombo.SelectedIndex > 0
+                ? (FontFamilyCombo.SelectedItem?.ToString() ?? "Segoe UI")
+                : string.Empty;
             o.BorderLeft = BorderLeftCheck.IsChecked == true;
             o.BorderTop = BorderTopCheck.IsChecked == true;
             o.BorderRight = BorderRightCheck.IsChecked == true;
@@ -627,7 +634,8 @@ namespace RenderDocComments.Options
 
         /// <summary>
         /// Updates the font family of the preview text block to match the selected<br/>
-        /// font in the combo box, falling back to Segoe UI if the selected font is unavailable.
+        /// font in the combo box, falling back to Segoe UI for the editor-font sentinel<br/>
+        /// (index 0) or if the selected font is unavailable.
         /// </summary>
         /// <remarks>
         /// <para>The method attempts to create a <see cref="FontFamily"/> from the selected name.<br/>
@@ -636,9 +644,15 @@ namespace RenderDocComments.Options
         /// </remarks>
         private void UpdateFontPreview()
         {
-            var name = FontFamilyCombo.SelectedItem?.ToString() ?? "Segoe UI";
-            try { FontPreviewText.FontFamily = new FontFamily(name); }
-            catch { FontPreviewText.FontFamily = new FontFamily("Segoe UI"); }
+            if (FontFamilyCombo.SelectedIndex > 0 && FontFamilyCombo.SelectedItem is string name)
+            {
+                try { FontPreviewText.FontFamily = new FontFamily(name); }
+                catch { FontPreviewText.FontFamily = new FontFamily("Segoe UI"); }
+            }
+            else
+            {
+                FontPreviewText.FontFamily = new FontFamily("Segoe UI");
+            }
         }
 
         // ── Fixed width ───────────────────────────────────────────────────────────

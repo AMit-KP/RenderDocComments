@@ -147,11 +147,14 @@ namespace RenderDocComments.Options
 
         /// <summary>
         /// Gets or sets the font family name used for rendered documentation text. Requires Premium.
+        /// An empty or whitespace value means "follow the editor font".
         /// </summary>
         /// <remarks>
         /// <para>Default value: <c>"Segoe UI"</c> — the Windows default UI font.</para>
         /// <para>When Premium is locked, the effective font family is always <c>"Segoe UI"</c> regardless<br/>
-        /// of this property's stored value. The effective value is exposed via <see cref="EffectiveFontFamily"/>.</para>
+        /// of this property's stored value. The effective value is exposed via <see cref="EffectiveFontFamily"/>.<br/>
+        /// An empty value (the <c>"(Editor font)"</c> combo sentinel) makes the rendered cards use the<br/>
+        /// editor's current typeface.</para>
         /// <para>The font family string should be a valid WPF font family name (e.g., <c>"Consolas"</c>,<br/>
         /// <c>"Cascadia Code"</c>, <c>"Segoe UI"</c>). WPF font fallback chains are supported<br/>
         /// (e.g., <c>"Cascadia Mono, Consolas, Courier New"</c>).</para>
@@ -443,7 +446,9 @@ namespace RenderDocComments.Options
 
         /// <summary>
         /// Gets the effective font family for rendered documentation.<br/>
-        /// Returns <see cref="CustomFontFamily"/> if Premium is unlocked; otherwise, returns <c>"Segoe UI"</c>.
+        /// Returns <see cref="CustomFontFamily"/> if Premium is unlocked; otherwise, returns <c>"Segoe UI"</c>.<br/>
+        /// An empty result (Premium unlocked, <see cref="CustomFontFamily"/> empty) means
+        /// "follow the editor font" and is resolved by the renderer.
         /// </summary>
         public string EffectiveFontFamily => Premium ? CustomFontFamily : "Segoe UI";
 
