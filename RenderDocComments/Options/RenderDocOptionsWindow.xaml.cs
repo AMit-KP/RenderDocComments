@@ -111,7 +111,7 @@ namespace RenderDocComments.Options
         /// <item><description>Populates the font family combo box with all available system fonts (sorted alphabetically).</description></item>
         /// <item><description>Calls <see cref="LoadFromOptions"/> to populate all controls from <see cref="RenderDocOptions.Instance"/>.</description></item>
         /// <item><description>Calls <see cref="RefreshLicenceBadge"/> to update the license status indicator.</description></item>
-        /// <item><description>Calls <see cref="RefreshPremiumPanelEnabled"/> to disable/dim premium controls if not licensed.</description></item>
+        /// <item><description>Calls <see cref="RefreshSectionStates"/> to disable/dim premium sections if not licensed.</description></item>
         /// <item><description>Resets <see cref="_loading"/> to <c>false</c> to enable user interactions.</description></item>
         /// </list>
         /// </remarks>
@@ -132,7 +132,7 @@ namespace RenderDocComments.Options
             LoadFromOptions();
             _initialTagBadgesEnabled = RenderDocOptions.Instance.TagBadgesEnabled;
             RefreshLicenceBadge();
-            RefreshPremiumPanelEnabled();
+            RefreshSectionStates();
 
             _loading = false;
         }
@@ -214,8 +214,7 @@ namespace RenderDocComments.Options
             BuildTagBadgeRows();
 
             RefreshAllSwatches();
-            UpdateTagStyleEnabled();
-            UpdateCommentBoxStyleEnabled();
+            RefreshSectionStates();
         }
 
         /// <summary>
@@ -248,19 +247,55 @@ namespace RenderDocComments.Options
         }
 
         /// <summary>
-        /// Enables or disables the premium options panel based on the current license status.<br/>
-        /// When Premium is locked, the panel is disabled and dimmed (45% opacity).
+        /// Recomputes the enabled/opacity state of every options section from the<br/>
+        /// current licence status and the feature master toggles.<br/>
+        /// A section is disabled and dimmed either because it is Premium-only and no<br/>
+        /// licence is active, or because its feature's master toggle is switched off.
         /// </summary>
         /// <remarks>
-        /// <para>This method is called during window initialization and after any license<br/>
-        /// state change (activation/deactivation) to ensure the UI reflects the current<br/>
-        /// license status.</para>
+        /// <para>This method is the single source of truth for section gating and is called<br/>
+        /// during window initialization, after any license state change<br/>
+        /// (activation/deactivation), and whenever a master toggle changes.</para>
         /// </remarks>
-        private void RefreshPremiumPanelEnabled()
+        private void RefreshSectionStates()
         {
-            bool Premium = LicenseManager.PremiumUnlocked;
-            PremiumOptionsPanel.IsEnabled = Premium;
-            PremiumOptionsPanel.Opacity = Premium ? 1.0 : 0.45;
+            bool premium = LicenseManager.PremiumUnlocked;
+            bool tagsEnabled = TagBadgesCheck.IsChecked == true;
+            bool boxesEnabled = CommentBoxesCheck.IsChecked == true;
+            bool boxCustomColors = boxesEnabled && CommentBoxThemeColorsCheck.IsChecked != true;
+
+            // Doc-comment sections — Premium-gated.
+            SetSectionState(GlyphSectionPanel, premium);
+            SetSectionState(AutoRefreshSectionPanel, premium);
+            SetSectionState(WidthSectionPanel, premium);
+            SetSectionState(FontSectionPanel, premium);
+            SetSectionState(BorderSectionPanel, premium);
+            SetSectionState(ColorsSectionPanel, premium);
+
+            // Comment tags — master toggle and style are free; per-tag list is Premium.
+            TagPillsRadio.IsEnabled = tagsEnabled;
+            TagCardsRadio.IsEnabled = tagsEnabled;
+            SetSectionState(TagCustomSectionPanel, premium && tagsEnabled);
+
+            // Comment boxes — the whole feature is Premium-gated; the custom colour
+            // swatches additionally require theme colours to be switched off.
+            SetSectionState(CommentBoxSectionPanel, premium);
+            CommentBoxThemeColorsCheck.IsEnabled = boxesEnabled;
+            SwatchCommentBoxBorder.IsEnabled = boxCustomColors;
+            SwatchCommentBoxText.IsEnabled = boxCustomColors;
+            CommentBoxFontCombo.IsEnabled = boxesEnabled;
+            CommentBoxFontPreview.Opacity = boxesEnabled ? 1.0 : 0.45;
+        }
+
+        /// <summary>
+        /// Applies a computed enabled state to a section panel, dimming it when disabled.
+        /// </summary>
+        /// <param name="panel">The section panel to update.</param>
+        /// <param name="enabled">Whether the section should be interactive.</param>
+        private static void SetSectionState(System.Windows.Controls.Panel panel, bool enabled)
+        {
+            panel.IsEnabled = enabled;
+            panel.Opacity = enabled ? 1.0 : 0.45;
         }
 
         // ── Licence actions ───────────────────────────────────────────────────────
@@ -288,7 +323,7 @@ namespace RenderDocComments.Options
             win.LicenseActivated += (s, args) =>
             {
                 RefreshLicenceBadge();
-                RefreshPremiumPanelEnabled();
+                RefreshSectionStates();
                 ShowLicenseMessage("Premium activated — Thank you ❤️ for your purchase!", isError: false);
             };
             win.ShowDialog();
@@ -321,7 +356,7 @@ namespace RenderDocComments.Options
             });
             RenderDocOptions.Instance.Save(_serviceProvider);
             RefreshLicenceBadge();
-            RefreshPremiumPanelEnabled();
+            RefreshSectionStates();
             ShowLicenseMessage("Premium licence deactivated.", isError: false);
         }
 
@@ -503,29 +538,13 @@ namespace RenderDocComments.Options
         }
 
         /// <summary>
-        /// Handles the comment tag master toggle, applying the change and disabling
-        /// the style radio buttons whenever tag rendering is switched off.
+        /// Handles the comment tag master toggle, applying the change and refreshing
+        /// the Pills/Cards radio buttons and per-tag customization section.
         /// </summary>
         private void OnTagBadgesChanged(object sender, RoutedEventArgs e)
         {
             OnSettingChanged(sender, e);
-            UpdateTagStyleEnabled();
-        }
-
-        /// <summary>
-        /// Enables or disables the Pills/Cards style radio buttons and the
-        /// per-tag colour section based on the "Enable comment tag highlighting"
-        /// master toggle. Comment boxes suppress pills only at runtime (they would
-        /// overlap); the tag controls themselves stay configurable regardless of
-        /// the comment-box checkbox.
-        /// </summary>
-        private void UpdateTagStyleEnabled()
-        {
-            bool enabled = TagBadgesCheck.IsChecked == true;
-            TagPillsRadio.IsEnabled = enabled;
-            TagCardsRadio.IsEnabled = enabled;
-            TagBadgeSectionPanel.IsEnabled = enabled;
-            TagBadgeSectionPanel.Opacity = enabled ? 1.0 : 0.45;
+            RefreshSectionStates();
         }
 
         // ── Comment box style ─────────────────────────────────────────────────────
@@ -537,7 +556,7 @@ namespace RenderDocComments.Options
         private void OnCommentBoxesChanged(object sender, RoutedEventArgs e)
         {
             OnSettingChanged(sender, e);
-            UpdateCommentBoxStyleEnabled();
+            RefreshSectionStates();
         }
 
         /// <summary>
@@ -547,7 +566,7 @@ namespace RenderDocComments.Options
         private void OnCommentBoxColorsChanged(object sender, RoutedEventArgs e)
         {
             OnSettingChanged(sender, e);
-            UpdateCommentBoxStyleEnabled();
+            RefreshSectionStates();
         }
 
         /// <summary>
@@ -577,24 +596,6 @@ namespace RenderDocComments.Options
             {
                 CommentBoxFontPreview.FontFamily = new FontFamily("Segoe UI");
             }
-        }
-
-        /// <summary>
-        /// Enables or disables the comment box style controls based on the
-        /// "Enable comment box rendering" master toggle; the custom colour swatches
-        /// additionally require theme colours to be switched off. The panel lives
-        /// inside <c>PremiumOptionsPanel</c>, which is disabled and dimmed without
-        /// a licence.
-        /// </summary>
-        private void UpdateCommentBoxStyleEnabled()
-        {
-            bool enabled = CommentBoxesCheck.IsChecked == true;
-            bool customColors = enabled && CommentBoxThemeColorsCheck.IsChecked != true;
-            CommentBoxThemeColorsCheck.IsEnabled = enabled;
-            SwatchCommentBoxBorder.IsEnabled = customColors;
-            SwatchCommentBoxText.IsEnabled = customColors;
-            CommentBoxFontCombo.IsEnabled = enabled;
-            CommentBoxFontPreview.Opacity = enabled ? 1.0 : 0.45;
         }
 
         // ── Font ──────────────────────────────────────────────────────────────────
@@ -924,7 +925,8 @@ namespace RenderDocComments.Options
         /// <remarks>
         /// Rows are rebuilt wholesale on any change — trivial cost at 15 entries and
         /// immune to stale-control bookkeeping. The panel lives inside
-        /// <c>PremiumOptionsPanel</c>, which is disabled and dimmed without a licence.
+        /// <c>TagCustomSectionPanel</c>, which is disabled and dimmed without a
+        /// licence or when tag highlighting is switched off.
         /// </remarks>
         private void BuildTagBadgeRows()
         {
