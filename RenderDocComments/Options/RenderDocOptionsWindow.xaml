@@ -758,6 +758,14 @@
 									Margin="10,0,0,0"
 									CornerRadius="6" />
 							</StackPanel>
+
+							<Button
+								Margin="0,8,0,0"
+								Padding="9,4"
+								HorizontalAlignment="Left"
+								Click="OnResetRenderedColorsClicked"
+								Content="Reset colours to defaults"
+								Style="{StaticResource SecondaryButton}" />
 						</StackPanel>
 
 					</StackPanel>

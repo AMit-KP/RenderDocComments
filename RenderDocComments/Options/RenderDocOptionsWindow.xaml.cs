@@ -983,6 +983,26 @@ namespace RenderDocComments.Options
             OnSettingChanged(sender, null);
         }
 
+        /// <summary>
+        /// Handles the "Reset colours to defaults" button under Rendered Colours —
+        /// restores the five text colours and the three gradient accent bar stops
+        /// to their factory defaults. Tag badge colours are untouched (they have
+        /// their own reset button in the Comment Tags section).
+        /// </summary>
+        private void OnResetRenderedColorsClicked(object sender, RoutedEventArgs e)
+        {
+            _colorCodeFg = unchecked((int)0xFFCE9178);
+            _colorSummaryFg = unchecked((int)0xFFD4D4D4);
+            _colorParamName = unchecked((int)0xFF9CDCFE);
+            _colorLink = unchecked((int)0xFF569CD6);
+            _colorSectionLabel = unchecked((int)0xFF969696);
+            _colorGrad0 = unchecked((int)0xFFBE6EF0);
+            _colorGrad1 = unchecked((int)0xC8784BC8);
+            _colorGrad2 = unchecked((int)0x50502896);
+            RefreshAllSwatches();
+            OnSettingChanged(sender, null);
+        }
+
 // ── Comment tag UI ────────────────────────────────────────────────────────────────
 
         /// <summary>
