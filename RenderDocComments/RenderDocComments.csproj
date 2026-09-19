@@ -59,6 +59,8 @@
     <Compile Include="DocCommentRenderer\TagBadges\TagBadgeToggleState.cs" />
     <Compile Include="DocCommentRenderer\TagBadges\TagCardTagger.cs" />
     <Compile Include="DocCommentRenderer\TagBadges\TagCardTaggerProvider.cs" />
+    <Compile Include="DocCommentRenderer\CommentBoxes\CommentBoxTagger.cs" />
+    <Compile Include="DocCommentRenderer\CommentBoxes\CommentBoxTaggerProvider.cs" />
     <Compile Include="CommentTagsExplorer\CommentNavigator.cs" />
     <Compile Include="CommentTagsExplorer\CommentTagsScanner.cs" />
     <Compile Include="CommentTagsExplorer\CommentTagsToolWindow.cs" />

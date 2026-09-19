@@ -781,6 +781,61 @@
 									Style="{StaticResource SecondaryButton}" />
 							</StackPanel>
 
+							<Border Style="{StaticResource Divider}" />
+
+							<!--  Comment Box Style  -->
+							<StackPanel x:Name="CommentBoxSectionPanel">
+								<TextBlock Style="{StaticResource SectionHeader}" Text="COMMENT BOX STYLE" />
+								<TextBlock Style="{StaticResource HintText}" Text="Renders normal // comments in a thin bordered box. Default: border and text follow the IDE's comment colour; the background always follows the editor. Comments containing tags (TODO, FIXME, …) keep their tag pills/cards instead of a box." />
+								<CheckBox
+									x:Name="CommentBoxesCheck"
+									Checked="OnCommentBoxesChanged"
+									Content="Enable comment box rendering"
+									Unchecked="OnCommentBoxesChanged" />
+
+								<CheckBox
+									x:Name="CommentBoxThemeColorsCheck"
+									Margin="0,6,0,0"
+									Checked="OnCommentBoxColorsChanged"
+									Content="Use theme comment colours for box border and text"
+									Unchecked="OnCommentBoxColorsChanged" />
+
+								<StackPanel Margin="24,4,0,4" Orientation="Horizontal">
+									<Button
+										x:Name="SwatchCommentBoxBorder"
+										Click="OnSwatchClicked"
+										Style="{StaticResource SwatchButton}"
+										Tag="CommentBoxBorder" />
+									<TextBlock
+										Margin="8,0,18,0"
+										Style="{StaticResource OptionLabel}"
+										Text="Box border" />
+									<Button
+										x:Name="SwatchCommentBoxText"
+										Click="OnSwatchClicked"
+										Style="{StaticResource SwatchButton}"
+										Tag="CommentBoxText" />
+									<TextBlock
+										Margin="8,0,0,0"
+										Style="{StaticResource OptionLabel}"
+										Text="Box text" />
+								</StackPanel>
+
+								<StackPanel Margin="0,4,0,0" Orientation="Horizontal">
+									<TextBlock Style="{StaticResource OptionLabel}" Text="Font:" />
+									<ComboBox
+										x:Name="CommentBoxFontCombo"
+										Width="200"
+										SelectionChanged="OnCommentBoxFontChanged" />
+									<TextBlock
+										x:Name="CommentBoxFontPreview"
+										Margin="12,0,0,0"
+										VerticalAlignment="Center"
+										Foreground="{StaticResource AccentPurpleBrush}"
+										Text="AaBbCc 123" />
+								</StackPanel>
+							</StackPanel>
+
 						</StackPanel>
 						<!--  /PremiumOptionsPanel  -->
 

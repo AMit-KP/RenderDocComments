@@ -301,6 +301,63 @@ namespace RenderDocComments.Options
         /// </summary>
         public string TagsDisabled { get; set; } = string.Empty;
 
+        // ── Comment boxes (plain // comments) ─────────────────────────────────────
+
+        /// <summary>
+        /// Gets or sets the master toggle for comment box rendering — plain (non-doc)
+        /// comments such as <c>// note</c> are replaced by a thin bordered box.
+        /// Requires Premium. Default: <c>true</c>.
+        /// </summary>
+        /// <remarks>
+        /// Gated by <see cref="EffectiveCommentBoxesEnabled"/> — when Premium is
+        /// locked, boxes never render regardless of this property's stored value.
+        /// Independent of <see cref="RenderEnabled"/> so users can disable doc-comment
+        /// cards without losing comment boxes, and vice versa. While effective, comment
+        /// tag pills/cards are superseded (the box replaces the whole comment).
+        /// </remarks>
+        public bool CommentBoxesEnabled { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets whether the box border and text follow the IDE's current
+        /// comment colour scheme ("Comment" classification). Requires Premium to turn
+        /// off; free tier always uses theme colours. Default: <c>true</c>.
+        /// </summary>
+        /// <remarks>
+        /// When <c>true</c> (or Premium is locked), both the border and the text use
+        /// the foreground colour the active colour theme assigns to comments.
+        /// When <c>false</c> and Premium is unlocked, the two colours below are used.
+        /// The box background always follows the editor background either way.
+        /// </remarks>
+        public bool CommentBoxThemeColors { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets the ARGB color value for the comment box border, used when
+        /// <see cref="CommentBoxThemeColors"/> is <c>false</c>. Requires Premium.
+        /// Stored as a 32-bit signed integer with bytes in ARGB order.
+        /// Default: <c>#57A64A</c> (the default Visual Studio comment green).
+        /// </summary>
+        public int CommentBoxBorderColor { get; set; } = unchecked((int)0xFF57A64A);
+
+        /// <summary>
+        /// Gets or sets the ARGB color value for the comment box text, used when
+        /// <see cref="CommentBoxThemeColors"/> is <c>false</c>. Requires Premium.
+        /// Stored as a 32-bit signed integer with bytes in ARGB order.
+        /// Default: <c>#57A64A</c> (the default Visual Studio comment green).
+        /// </summary>
+        public int CommentBoxTextColor { get; set; } = unchecked((int)0xFF57A64A);
+
+        /// <summary>
+        /// Gets or sets the font family name used for comment box text.
+        /// An empty or whitespace value means "follow the editor font".
+        /// Requires Premium; free tier always follows the editor font.
+        /// </summary>
+        /// <remarks>
+        /// Default value: <c>string.Empty</c> (editor font).
+        /// The font family string should be a valid WPF font family name
+        /// (e.g., <c>"Consolas"</c>, <c>"Cascadia Code"</c>).
+        /// </remarks>
+        public string CommentBoxFontFamily { get; set; } = string.Empty;
+
         /// <summary>
         /// Gets or sets the last active view in Comment Tags Explorer tool window.
         /// Values: <c>"Tags"</c> (default) or <c>"Files"</c>.
@@ -496,6 +553,53 @@ namespace RenderDocComments.Options
         /// </summary>
         public string EffectiveTagStyle => TagStyle;
 
+        // ── Comment boxes: effective values ──────────────────────────────────────
+
+        /// <summary>
+        /// Gets whether comment boxes currently render, respecting the Premium gate.<br/>
+        /// Returns <c>true</c> only if Premium is unlocked AND
+        /// <see cref="CommentBoxesEnabled"/> is enabled.
+        /// </summary>
+        public bool EffectiveCommentBoxesEnabled => Premium && CommentBoxesEnabled;
+
+        /// <summary>
+        /// Gets whether comment box border/text should follow the theme's comment
+        /// colour. Always <c>true</c> when Premium is locked (free tier cannot
+        /// override theme colours); otherwise mirrors <see cref="CommentBoxThemeColors"/>.
+        /// </summary>
+        public bool EffectiveCommentBoxUseThemeColors => !Premium || CommentBoxThemeColors;
+
+        /// <summary>
+        /// Gets the effective comment box border colour, respecting the Premium gate.<br/>
+        /// Returns <see cref="ToColor"/> of <see cref="CommentBoxBorderColor"/> if Premium
+        /// is unlocked; otherwise the default <c>#57A64A</c> (comment green).
+        /// Only consulted when <see cref="EffectiveCommentBoxUseThemeColors"/> is <c>false</c>.
+        /// </summary>
+        public Color EffectiveCommentBoxBorderColor => Premium
+            ? ToColor(CommentBoxBorderColor)
+            : Color.FromRgb(0x57, 0xA6, 0x4A);
+
+        /// <summary>
+        /// Gets the effective comment box text colour, respecting the Premium gate.<br/>
+        /// Returns <see cref="ToColor"/> of <see cref="CommentBoxTextColor"/> if Premium
+        /// is unlocked; otherwise the default <c>#57A64A</c> (comment green).
+        /// Only consulted when <see cref="EffectiveCommentBoxUseThemeColors"/> is <c>false</c>.
+        /// </summary>
+        public Color EffectiveCommentBoxTextColor => Premium
+            ? ToColor(CommentBoxTextColor)
+            : Color.FromRgb(0x57, 0xA6, 0x4A);
+
+        /// <summary>
+        /// Gets the effective font family for comment box text.<br/>
+        /// Returns <see cref="CommentBoxFontFamily"/> if Premium is unlocked and a
+        /// non-empty family is configured; otherwise <c>string.Empty</c>, which the
+        /// box renderer interprets as "follow the editor font".
+        /// </summary>
+        public string EffectiveCommentBoxFontFamily
+            => Premium && !string.IsNullOrWhiteSpace(CommentBoxFontFamily)
+               ? CommentBoxFontFamily
+               : string.Empty;
+
         /// <summary>Cached parse of <see cref="TagColorOverrides"/>, invalidated by value change.</summary>
         private Dictionary<string, int> ParseColorOverrides()
         {
@@ -650,6 +754,15 @@ namespace RenderDocComments.Options
                 CollapsedTags = store.PropertyExists(CollectionPath, nameof(CollapsedTags))
                                             ? store.GetString(CollectionPath, nameof(CollapsedTags))
                                             : CollapsedTags;
+
+                // Comment boxes
+                CommentBoxesEnabled = ReadBool(store, nameof(CommentBoxesEnabled), CommentBoxesEnabled);
+                CommentBoxThemeColors = ReadBool(store, nameof(CommentBoxThemeColors), CommentBoxThemeColors);
+                CommentBoxBorderColor = ReadInt(store, nameof(CommentBoxBorderColor), CommentBoxBorderColor);
+                CommentBoxTextColor = ReadInt(store, nameof(CommentBoxTextColor), CommentBoxTextColor);
+                CommentBoxFontFamily = store.PropertyExists(CollectionPath, nameof(CommentBoxFontFamily))
+                                                   ? store.GetString(CollectionPath, nameof(CommentBoxFontFamily))
+                                                   : CommentBoxFontFamily;
             }
             catch { /* non-critical */ }
         }
@@ -716,6 +829,13 @@ namespace RenderDocComments.Options
                 store.SetString(CollectionPath, nameof(TagsDisabled), TagsDisabled ?? string.Empty);
                 store.SetString(CollectionPath, nameof(CommentExplorerView), CommentExplorerView ?? "Tags");
                 store.SetString(CollectionPath, nameof(CollapsedTags), CollapsedTags ?? string.Empty);
+
+                // Comment boxes
+                store.SetBoolean(CollectionPath, nameof(CommentBoxesEnabled), CommentBoxesEnabled);
+                store.SetBoolean(CollectionPath, nameof(CommentBoxThemeColors), CommentBoxThemeColors);
+                store.SetInt32(CollectionPath, nameof(CommentBoxBorderColor), CommentBoxBorderColor);
+                store.SetInt32(CollectionPath, nameof(CommentBoxTextColor), CommentBoxTextColor);
+                store.SetString(CollectionPath, nameof(CommentBoxFontFamily), CommentBoxFontFamily ?? string.Empty);
             }
             catch { /* non-critical */ }
         }
