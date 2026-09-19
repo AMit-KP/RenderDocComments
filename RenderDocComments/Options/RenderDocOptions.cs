@@ -56,13 +56,17 @@ namespace RenderDocComments.Options
         // ── FREE settings (always active) ─────────────────────────────────────────
 
         /// <summary>
-        /// Gets or sets the global rendering toggle. When <c>false</c>, all documentation comment<br/>
-        /// rendering is disabled regardless of Premium status. Default is <c>true</c>.
+        /// Gets or sets the doc comment rendering toggle. When <c>false</c>, doc comment<br/>
+        /// cards (and the margin glyph buttons) are hidden regardless of Premium status.<br/>
+        /// Default is <c>true</c>.
         /// </summary>
         /// <remarks>
         /// This is a free-tier setting — always active regardless of license status.<br/>
         /// When disabled, the <see cref="DocCommentRenderer.DocCommentAdornmentTagger.GetTags"/> method<br/>
         /// yields no tags, effectively hiding all rendered documentation comments.
+        /// <para>This switch governs <b>only</b> doc comment rendering. Comment tag highlighting<br/>
+        /// (<see cref="TagBadgesEnabled"/>) and comment box rendering (<see cref="CommentBoxesEnabled"/>)<br/>
+        /// have their own master toggles and keep working when this is switched off.</para>
         /// </remarks>
         public bool RenderEnabled { get; set; } = true;
 
