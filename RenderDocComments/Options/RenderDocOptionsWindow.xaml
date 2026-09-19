@@ -518,10 +518,10 @@
 
 						<Border Style="{StaticResource Divider}" />
 
-						<!--  Font  -->
+						<!--  Font (applies to doc comment cards)  -->
 						<StackPanel x:Name="FontSectionPanel">
 							<StackPanel Orientation="Horizontal">
-								<TextBlock Style="{StaticResource SectionHeader}" Text="RENDERED FONT" />
+								<TextBlock Style="{StaticResource SectionHeader}" Text="DOC COMMENT FONT" />
 								<ContentControl Style="{StaticResource PremiumPill}" />
 							</StackPanel>
 							<StackPanel Orientation="Horizontal">
