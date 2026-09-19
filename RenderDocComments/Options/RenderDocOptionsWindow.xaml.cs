@@ -130,6 +130,12 @@ namespace RenderDocComments.Options
             foreach (var ff in Fonts.SystemFontFamilies.OrderBy(f => f.Source))
                 CommentBoxFontCombo.Items.Add(ff.Source);
 
+            // Index 0 is a sentinel meaning "follow the editor font".
+            TagFontCombo.Items.Clear();
+            TagFontCombo.Items.Add("(Editor font)");
+            foreach (var ff in Fonts.SystemFontFamilies.OrderBy(f => f.Source))
+                TagFontCombo.Items.Add(ff.Source);
+
             LoadFromOptions();
             _initialTagBadgesEnabled = RenderDocOptions.Instance.TagBadgesEnabled;
             RefreshLicenceBadge();
@@ -187,6 +193,12 @@ namespace RenderDocComments.Options
 
             TagPillsRadio.IsChecked = o.TagStyle == "Pills";
             TagCardsRadio.IsChecked = o.TagStyle == "Cards";
+
+            int tagFontIdx = string.IsNullOrWhiteSpace(o.TagFontFamily)
+                ? 0
+                : TagFontCombo.Items.IndexOf(o.TagFontFamily);
+            TagFontCombo.SelectedIndex = tagFontIdx >= 0 ? tagFontIdx : 0;
+            UpdateTagFontPreview();
 
             CommentBoxesCheck.IsChecked = o.CommentBoxesEnabled;
             CommentBoxThemeColorsCheck.IsChecked = o.CommentBoxThemeColors;
@@ -273,9 +285,11 @@ namespace RenderDocComments.Options
             SetSectionState(BorderSectionPanel, docRenderEnabled && premium);
             SetSectionState(ColorsSectionPanel, docRenderEnabled && premium);
 
-            // Comment tags — master toggle and style are free; per-tag list is Premium.
+            // Comment tags — master toggle and style are free; tag font and
+            // per-tag list are Premium.
             TagPillsRadio.IsEnabled = tagsEnabled;
             TagCardsRadio.IsEnabled = tagsEnabled;
+            SetSectionState(TagFontSectionPanel, premium && tagsEnabled);
             SetSectionState(TagCustomSectionPanel, premium && tagsEnabled);
 
             // Comment boxes — the whole feature is Premium-gated; the custom colour
@@ -450,6 +464,9 @@ namespace RenderDocComments.Options
             o.TagStyle = TagCardsRadio.IsChecked == true ? "Cards" : "Pills";
             o.TagColorOverrides = SerializeTagColorOverrides();
             o.TagsDisabled = SerializeDisabledTags();
+            o.TagFontFamily = TagFontCombo.SelectedIndex > 0
+                ? (TagFontCombo.SelectedItem?.ToString() ?? string.Empty)
+                : string.Empty;
 
             o.CommentBoxesEnabled = CommentBoxesCheck.IsChecked == true;
             o.CommentBoxThemeColors = CommentBoxThemeColorsCheck.IsChecked == true;
@@ -550,6 +567,34 @@ namespace RenderDocComments.Options
         {
             OnSettingChanged(sender, e);
             RefreshSectionStates();
+        }
+
+        /// <summary>
+        /// Handles the tag font combo selection changes (index 0 = editor font
+        /// sentinel), updating the preview and applying the change.
+        /// </summary>
+        private void OnTagFontChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_loading) return;
+            UpdateTagFontPreview();
+            OnSettingChanged(sender, null);
+        }
+
+        /// <summary>
+        /// Updates the tag font preview to match the selected combo entry;
+        /// index 0 keeps the window's default font (editor-follow sentinel).
+        /// </summary>
+        private void UpdateTagFontPreview()
+        {
+            if (TagFontCombo.SelectedIndex > 0 && TagFontCombo.SelectedItem is string name)
+            {
+                try { TagFontPreview.FontFamily = new FontFamily(name); }
+                catch { TagFontPreview.FontFamily = new FontFamily("Segoe UI"); }
+            }
+            else
+            {
+                TagFontPreview.FontFamily = new FontFamily("Segoe UI");
+            }
         }
 
         /// <summary>
@@ -1160,6 +1205,7 @@ namespace RenderDocComments.Options
             o.TagStyle = "Pills";
             o.TagColorOverrides = string.Empty;
             o.TagsDisabled = string.Empty;
+            o.TagFontFamily = string.Empty;
 
             o.CommentBoxesEnabled = true;
             o.CommentBoxThemeColors = true;

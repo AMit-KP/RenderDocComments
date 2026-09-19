@@ -797,6 +797,29 @@
 
 						<Border Style="{StaticResource Divider}" />
 
+						<!--  Tag font (Premium, applies to tag pills/cards only)  -->
+						<StackPanel x:Name="TagFontSectionPanel">
+							<StackPanel Orientation="Horizontal">
+								<TextBlock Style="{StaticResource SectionHeader}" Text="TAG FONT" />
+								<ContentControl Style="{StaticResource PremiumPill}" />
+							</StackPanel>
+							<StackPanel Orientation="Horizontal">
+								<TextBlock Style="{StaticResource OptionLabel}" Text="Font:" />
+								<ComboBox
+									x:Name="TagFontCombo"
+									Width="200"
+									SelectionChanged="OnTagFontChanged" />
+								<TextBlock
+									x:Name="TagFontPreview"
+									Margin="12,0,0,0"
+									VerticalAlignment="Center"
+									Foreground="{StaticResource AccentPurpleBrush}"
+									Text="AaBbCc 123" />
+							</StackPanel>
+						</StackPanel>
+
+						<Border Style="{StaticResource Divider}" />
+
 						<!--  Per-tag customization (Premium)  -->
 						<StackPanel x:Name="TagCustomSectionPanel">
 							<StackPanel Orientation="Horizontal">

@@ -303,10 +303,24 @@ namespace RenderDocComments.Options
         public string TagColorOverrides { get; set; } = string.Empty;
 
         /// <summary>
-        /// Gets or sets the comma-separated list of Premium-disabled canonical tag
+        /// Gets or sets comma-separated list of Premium-disabled canonical tag
         /// names, e.g. <c>"MAGIC,ASSUME"</c>. Empty string = all enabled.
         /// </summary>
         public string TagsDisabled { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the font family name used for comment tag pills and cards.
+        /// An empty or whitespace value means "follow the editor font".
+        /// Requires Premium; free tier always follows the editor font.
+        /// </summary>
+        /// <remarks>
+        /// Default value: <c>string.Empty</c> (editor font).
+        /// Independent of <see cref="CustomFontFamily"/> so tag rendering can use a
+        /// different typeface than the doc comment cards.
+        /// The font family string should be a valid WPF font family name
+        /// (e.g., <c>"Consolas"</c>, <c>"Cascadia Code"</c>).
+        /// </remarks>
+        public string TagFontFamily { get; set; } = string.Empty;
 
         // ── Comment boxes (plain // comments) ─────────────────────────────────────
 
@@ -562,6 +576,17 @@ namespace RenderDocComments.Options
         /// </summary>
         public string EffectiveTagStyle => TagStyle;
 
+        /// <summary>
+        /// Gets the effective font family for comment tag pills and cards.<br/>
+        /// Returns <see cref="TagFontFamily"/> if Premium is unlocked and a non-empty
+        /// family is configured; otherwise <c>string.Empty</c>, which the tag
+        /// renderers interpret as "follow the editor font".
+        /// </summary>
+        public string EffectiveTagFontFamily
+            => Premium && !string.IsNullOrWhiteSpace(TagFontFamily)
+               ? TagFontFamily
+               : string.Empty;
+
         // ── Comment boxes: effective values ──────────────────────────────────────
 
         /// <summary>
@@ -757,6 +782,9 @@ namespace RenderDocComments.Options
                 TagsDisabled = store.PropertyExists(CollectionPath, nameof(TagsDisabled))
                                             ? store.GetString(CollectionPath, nameof(TagsDisabled))
                                             : TagsDisabled;
+                TagFontFamily = store.PropertyExists(CollectionPath, nameof(TagFontFamily))
+                                            ? store.GetString(CollectionPath, nameof(TagFontFamily))
+                                            : TagFontFamily;
                 CommentExplorerView = store.PropertyExists(CollectionPath, nameof(CommentExplorerView))
                                             ? store.GetString(CollectionPath, nameof(CommentExplorerView))
                                             : CommentExplorerView;
@@ -836,6 +864,7 @@ namespace RenderDocComments.Options
                 store.SetString(CollectionPath, nameof(TagStyle), TagStyle ?? string.Empty);
                 store.SetString(CollectionPath, nameof(TagColorOverrides), TagColorOverrides ?? string.Empty);
                 store.SetString(CollectionPath, nameof(TagsDisabled), TagsDisabled ?? string.Empty);
+                store.SetString(CollectionPath, nameof(TagFontFamily), TagFontFamily ?? string.Empty);
                 store.SetString(CollectionPath, nameof(CommentExplorerView), CommentExplorerView ?? "Tags");
                 store.SetString(CollectionPath, nameof(CollapsedTags), CollapsedTags ?? string.Empty);
 

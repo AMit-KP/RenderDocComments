@@ -493,6 +493,30 @@ namespace RenderDocComments.DocCommentRenderer.TagBadges
         // ── Pill construction ─────────────────────────────────────────────────────
 
         /// <summary>
+        /// Resolves the font family for tag visuals: the Premium tag font when
+        /// configured, otherwise the editor's current typeface.
+        /// </summary>
+        private FontFamily ResolveTagFontFamily()
+        {
+            string fam = RenderDocOptions.Instance.EffectiveTagFontFamily;
+            if (!string.IsNullOrWhiteSpace(fam))
+            {
+                try { return new FontFamily(fam); }
+                catch { }
+            }
+
+            FontFamily editor = null;
+            try
+            {
+                var tp = _view.FormattedLineSource?.DefaultTextProperties;
+                if (tp != null) editor = tp.Typeface.FontFamily;
+            }
+            catch { }
+            if (editor != null && !string.IsNullOrEmpty(editor.Source)) return editor;
+            return new FontFamily("Consolas");
+        }
+
+        /// <summary>
         /// Builds a single stadium-shaped (fully rounded) clickable pill that
         /// replaces the tag token in the comment text.
         /// </summary>
@@ -506,7 +530,7 @@ namespace RenderDocComments.DocCommentRenderer.TagBadges
             var opts = RenderDocOptions.Instance;
 
             // Editor-matched typography at ~85 % so the pill reads as annotation.
-            var fontFamily = new FontFamily(opts.EffectiveFontFamily);
+            var fontFamily = ResolveTagFontFamily();
             double baseSize = 13.0;
             try
             {
