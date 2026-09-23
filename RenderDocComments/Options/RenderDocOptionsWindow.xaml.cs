@@ -190,6 +190,7 @@ namespace RenderDocComments.Options
             _colorGrad2 = o.GradientStop2;
 
             TagBadgesCheck.IsChecked = o.TagBadgesEnabled;
+            ScrollMarkersCheck.IsChecked = o.ScrollMarkersEnabled;
 
             TagPillsRadio.IsChecked = o.TagStyle == "Pills";
             TagCardsRadio.IsChecked = o.TagStyle == "Cards";
@@ -285,10 +286,12 @@ namespace RenderDocComments.Options
             SetSectionState(BorderSectionPanel, docRenderEnabled && premium);
             SetSectionState(ColorsSectionPanel, docRenderEnabled && premium);
 
-            // Comment tags — master toggle and style are free; tag font and
-            // per-tag list are Premium.
+            // Comment tags — master toggle and style are free; the scroll-marker
+            // toggle, tag font, and per-tag list follow the master toggle (font
+            // and per-tag list are additionally Premium).
             TagPillsRadio.IsEnabled = tagsEnabled;
             TagCardsRadio.IsEnabled = tagsEnabled;
+            ScrollMarkersCheck.IsEnabled = tagsEnabled;
             SetSectionState(TagFontSectionPanel, premium && tagsEnabled);
             SetSectionState(TagCustomSectionPanel, premium && tagsEnabled);
 
@@ -461,6 +464,7 @@ namespace RenderDocComments.Options
             o.GradientStop2 = _colorGrad2;
 
             o.TagBadgesEnabled = TagBadgesCheck.IsChecked == true;
+            o.ScrollMarkersEnabled = ScrollMarkersCheck.IsChecked == true;
             o.TagStyle = TagCardsRadio.IsChecked == true ? "Cards" : "Pills";
             o.TagColorOverrides = SerializeTagColorOverrides();
             o.TagsDisabled = SerializeDisabledTags();
@@ -605,6 +609,14 @@ namespace RenderDocComments.Options
         {
             OnSettingChanged(sender, e);
             RefreshSectionStates();
+        }
+
+        /// <summary>
+        /// Handles the scroll-bar tag markers toggle, applying the change.
+        /// </summary>
+        private void OnScrollMarkersChanged(object sender, RoutedEventArgs e)
+        {
+            OnSettingChanged(sender, e);
         }
 
         // ── Comment box style ─────────────────────────────────────────────────────
@@ -1222,6 +1234,7 @@ namespace RenderDocComments.Options
             o.GradientStop1 = unchecked((int)0xC8784BC8);
             o.GradientStop2 = unchecked((int)0x50502896);
             o.TagBadgesEnabled = true;
+            o.ScrollMarkersEnabled = true;
             o.TagStyle = "Pills";
             o.TagColorOverrides = string.Empty;
             o.TagsDisabled = string.Empty;

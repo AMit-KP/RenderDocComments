@@ -216,6 +216,7 @@ namespace RenderDocComments.DocCommentRenderer
             double viewportWidth,
             double indentWidth)
         {
+            //TODO
             _fg = foreground;
             _bg = background;
             _summaryFg = summaryFg;

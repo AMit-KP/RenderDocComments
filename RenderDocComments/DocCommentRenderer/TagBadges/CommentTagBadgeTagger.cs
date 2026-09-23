@@ -13,13 +13,12 @@
  *    view closure, and settings broadcasts.
  *
  *  Detection Pipeline (per snapshot rebuild):
- *    1. CollectCommentRanges  — single char-walk over every line classifying
- *       plain line-comment and block-comment regions per language, skipping
- *       string literals (quote-parity heuristic) and doc-comment syntax
- *       (///, ''', /**, /*! , //!, (*$) which the card renderer owns.
- *    2. Tag regex             — compiled UPPERCASE-only alternation matched
- *       inside each collected range; WARNING normalises onto WARN.
- *    3. Pill construction     — one stadium pill per match, spanning the token
+ *    1. CommentTagLocator     — shared detection pipeline (TagScan/): comment-
+ *       range walk (single char-pass per line, skipping string literals via the
+ *       quote-parity heuristic and doc-comment syntax ///, ''', /**, /*! , //!,
+ *       (*$) owned by the card renderer), anchored UPPERCASE-only alternation,
+ *       WARNING→WARN normalisation, and tooltip-tail extraction.
+ *    2. Pill construction     — one stadium pill per match, spanning the token
  *       (plus an immediately following colon); adaptive label contrast from
  *       TagBadgeCatalog; click toggles dismissal via TagBadgeToggleState +
  *       settings broadcast.
@@ -32,21 +31,23 @@
  *    CommentTagBadgeTagger — ITagger implementation with snapshot cache.
  *
  *  Dependencies:
+ *    • TagScan/CommentTagLocator.cs — shared tag detection pipeline.
  *    • TagBadgeCatalog.cs          — definitions, colours, contrast helpers.
  *    • TagBadgeToggleState.cs      — click-dismissal store.
  *    • RenderDocOptions.cs         — TagBadgesEnabled, EffectiveTag* gating.
  *    • SettingsChangedBroadcast.cs — rebuild notifications.
  *
  *  When to Edit:
- *    • Badges appear on non-comments / miss comments — fix CollectCommentRanges.
- *    • A tag is not recognised — check _tagRegex against TagBadgeCatalog.Tags.
+ *    • Badges appear on non-comments / miss comments — fix CommentTagLocator's
+ *      CollectCommentRanges (shared with the card/box/tick features).
+ *    • A tag is not recognised — extend CommentTagLocator's regex and
+ *      TagBadgeCatalog.Tags together.
  *    • Pill styling changes — CreatePill.
  *    • Dismissal behaves oddly after edits — see TagBadgeToggleState key choice.
  * ═══════════════════════════════════════════════════════════════════════════════ */
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -55,6 +56,7 @@ using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.Text.Tagging;
 using Microsoft.VisualStudio.Threading;
+using RenderDocComments.DocCommentRenderer.TagScan;
 using RenderDocComments.Options;
 
 namespace RenderDocComments.DocCommentRenderer.TagBadges
@@ -161,97 +163,22 @@ namespace RenderDocComments.DocCommentRenderer.TagBadges
             return _cachedTags;
         }
 
-        // ── Language detection ────────────────────────────────────────────────────
-
-        /// <summary>Supported buffer languages (mirrors the card renderer's mapping).</summary>
-        private enum BufferLanguage { CSharp, VBNet, FSharp, Cpp }
-
-        /// <summary>
-        /// Maps the buffer's content type onto a <see cref="BufferLanguage"/>.
-        /// Unknown content types default to C# semantics (<c>//</c> comments).
-        /// </summary>
-        private static BufferLanguage GetLanguage(ITextBuffer buffer)
-        {
-            try
-            {
-                var ct = buffer.ContentType;
-                if (ct.IsOfType("C/C++")) return BufferLanguage.Cpp;
-                if (ct.IsOfType("Basic")) return BufferLanguage.VBNet;
-                if (ct.IsOfType("F#") || ct.IsOfType("FSharp")) return BufferLanguage.FSharp;
-                return BufferLanguage.CSharp;
-            }
-            catch { return BufferLanguage.CSharp; }
-        }
-
-        // ── Tag matching ──────────────────────────────────────────────────────────
-
-        /// <summary>
-        /// UPPERCASE-only tag alternation. Case-sensitivity is intentional: it mirrors
-        /// the community convention and prevents false positives on ordinary words
-        /// ("note", "assume") inside prose. <c>WARNING</c> precedes <c>WARN</c> so the
-        /// longer alias wins, and both collapse onto the canonical WARN entry.
-        /// </summary>
-        private static readonly Regex _tagRegex = new Regex(
-            @"\b(TODO|FIXME|HACK|NOTE|BUG|REVIEW|OPTIMIZE|TEMP|WARNING|WARN|" +
-            @"DEPRECATED|CHANGED|SAFETY|INVARIANT|ASSUME|MAGIC)\b",
-            RegexOptions.Compiled);
-
-        /// <summary>
-        /// Upper bound on comment text captured into tooltips, keeping WPF tooltips fast.
-        /// </summary>
-        private const int MaxTooltipTailLength = 200;
-
-        /// <summary>
-        /// Determines whether a match is <b>anchored</b> — relative to the match's
-        /// OWN line inside the comment: every character from the line's first
-        /// character (or from <paramref name="contentStart"/> on the opener line,
-        /// skipping the opener itself) up to the match must be whitespace or a block
-        /// decorator (<c>*</c>). Interior block lines therefore anchor fresh after
-        /// each newline (<c>" * NOTE"</c> renders), while words following prose on
-        /// the same line (<c>"// WARNING: alias of WARN"</c>) never do.
-        /// </summary>
-        private static bool IsAnchored(string text, int contentStart, int matchIndex)
-        {
-            int lineStart = contentStart;
-            for (int i = matchIndex - 1; i >= contentStart; i--)
-            {
-                if (text[i] == '\n') { lineStart = i + 1; break; }
-            }
-            for (int i = lineStart; i < matchIndex; i++)
-            {
-                char c = text[i];
-                if (char.IsWhiteSpace(c) || c == '*') continue;
-                return false;
-            }
-            return true;
-        }
-
-        /// <summary>Newline characters used to cut multi-line block tails.</summary>
-        private static readonly char[] _newlineChars = { '\r', '\n' };
-
-        /// <summary>
-        /// Matches a trailing block-comment closer (and surrounding whitespace) so
-        /// single-line tails like <c>"broken */"</c> end cleanly at the prose.
-        /// </summary>
-        private static readonly Regex _trailingCloser = new Regex(
-            @"\s*\*/\s*$", RegexOptions.Compiled);
-
         // ── BuildTags ─────────────────────────────────────────────────────────────
 
         /// <summary>
-        /// Single full pass: collect comment ranges, match tags, and emit one
-        /// in-place pill per match — spanning the token (plus an immediately
-        /// following colon) so the editor collapses the word and renders the
-        /// pill exactly where it stood.
+        /// Single full pass: collect comment ranges (shared locator), match tags,
+        /// and emit one in-place pill per eligible match — spanning the token (plus
+        /// an immediately following colon) so the editor collapses the word and
+        /// renders the pill exactly where it stood.
         /// </summary>
         private IReadOnlyList<TagSpan<IntraTextAdornmentTag>> BuildTags(ITextSnapshot snapshot)
         {
             var result = new List<TagSpan<IntraTextAdornmentTag>>();
             var opts = RenderDocOptions.Instance;
 
-            var lang = GetLanguage(_buffer);
-            var ranges = new List<CommentRange>();
-            CollectCommentRanges(snapshot, lang, ranges);
+            var lang = CommentTagLocator.GetLanguage(_buffer);
+            var ranges = new List<CommentTagLocator.CommentRange>();
+            CommentTagLocator.CollectCommentRanges(snapshot, lang, ranges);
 
             foreach (var range in ranges)
             {
@@ -267,14 +194,12 @@ namespace RenderDocComments.DocCommentRenderer.TagBadges
                     snapshot.GetLineNumberFromPosition(range.End - 1))
                     continue;
 
-                foreach (Match m in _tagRegex.Matches(text))
+                foreach (var m in CommentTagLocator.Locate(text, range.PrefixLen))
                 {
-                    if (!IsAnchored(text, range.PrefixLen, m.Index)) continue;
-                    if (!TagBadgeCatalog.TryNormalize(m.Value, out var canonical)) continue;
-                    if (!opts.EffectiveTagEnabled(canonical)) continue;
+                    if (!opts.EffectiveTagEnabled(m.CanonicalTag)) continue;
 
                     var line = snapshot.GetLineFromLineNumber(
-                        snapshot.GetLineNumberFromPosition(range.Start + m.Index));
+                        snapshot.GetLineNumberFromPosition(range.Start + m.MatchIndex));
                     var trimmedLine = line.GetText().Trim();
 
                     // Respect click-dismissal (text-keyed; survives edits above).
@@ -282,14 +207,14 @@ namespace RenderDocComments.DocCommentRenderer.TagBadges
 
                     // Swallow an immediately following colon: "// TODO: fix" →
                     // "// [pill] fix" rather than "// [pill]: fix".
-                    int tokenLen = m.Length;
-                    if (m.Index + tokenLen < text.Length && text[m.Index + tokenLen] == ':')
+                    int tokenLen = m.MatchLength;
+                    if (m.MatchIndex + tokenLen < text.Length && text[m.MatchIndex + tokenLen] == ':')
                         tokenLen++;
 
-                    var panel = CreatePill(canonical, ExtractTail(text, m.Index + m.Length), trimmedLine);
+                    var panel = CreatePill(m.CanonicalTag, m.TailText, trimmedLine);
                     if (panel == null) continue;
 
-                    int start = range.Start + m.Index;
+                    int start = range.Start + m.MatchIndex;
                     var span = new SnapshotSpan(snapshot, start, tokenLen);
                     var tag = new IntraTextAdornmentTag(panel, null, PositionAffinity.Predecessor);
                     result.Add(new TagSpan<IntraTextAdornmentTag>(span, tag));
@@ -297,197 +222,6 @@ namespace RenderDocComments.DocCommentRenderer.TagBadges
             }
 
             return result;
-        }
-
-        /// <summary>
-        /// Extracts the human-readable remainder of a comment following a matched tag:<br/>
-        /// cut at the first newline (block ranges span lines — following lines must
-        /// never leak into the tooltip), trailing <c>*/</c> closer removed,
-        /// optional colon and whitespace trimmed, capped at
-        /// <see cref="MaxTooltipTailLength"/> characters.
-        /// </summary>
-        private static string ExtractTail(string rangeText, int tailStart)
-        {
-            if (tailStart >= rangeText.Length) return string.Empty;
-            var tail = rangeText.Substring(tailStart);
-
-            int nl = tail.IndexOfAny(_newlineChars);
-            if (nl >= 0) tail = tail.Substring(0, nl);
-
-            tail = _trailingCloser.Replace(tail, string.Empty);
-            tail = tail.TrimStart(':', ' ', '\t');
-
-            if (tail.Length > MaxTooltipTailLength)
-                tail = tail.Substring(0, MaxTooltipTailLength) + "…";
-            return tail;
-        }
-
-        // ── Comment-range collection ──────────────────────────────────────────────
-
-        /// <summary>
-        /// A contiguous comment region in buffer coordinates.<br/>
-        /// <see cref="PrefixLen"/> is the length of the comment opener at the very
-        /// start of the region text (<c>//</c>, <c>'</c>, <c>/*</c>, <c>(*</c>) —
-        /// anchoring must ignore it so the opener itself doesn't unanchor matches.
-        /// </summary>
-        private struct CommentRange
-        {
-            public int Start;
-            public int End;
-            public int PrefixLen;
-            public CommentRange(int start, int end, int prefixLen)
-            {
-                Start = start;
-                End = end;
-                PrefixLen = prefixLen;
-            }
-        }
-
-        /// <summary>
-        /// Walks every line once, recording plain comment regions while skipping:
-        /// <list type="bullet">
-        /// <item><description>double-quoted string contents (quote-parity heuristic;</description></item>
-        /// <item><description>doc-comment syntaxes owned by the card renderer:
-        ///   <c>///</c>, <c>'''</c>, <c>/** … */</c>, <c>/*! … */</c>, <c>//!</c>;</description></item>
-        /// <item><description>everything after a plain comment opener to end of line.</description></item>
-        /// </list>
-        /// </summary>
-        /// <param name="snapshot">Snapshot to scan.</param>
-        /// <param name="lang">Detected buffer language.</param>
-        /// <param name="ranges">Output list of comment ranges.</param>
-        /// <remarks>
-        /// <para>The walk maintains two pieces of cross-position state: whether we are
-        /// currently inside a plain block comment (<c>/* … */</c> or F# <c>(* … *)</c>)
-        /// and whether we are inside a double-quoted string (reset at each newline —
-        /// multi-line verbatim/interpolated strings may confuse the heuristic, which is
-        /// an accepted trade-off shared by comparable extensions).</para>
-        /// <para>Nested F# block comments are treated as non-nested; the outer closer
-        /// ends the region. VB.NET has no block comments.</para>
-        /// </remarks>
-        private static void CollectCommentRanges(
-            ITextSnapshot snapshot, BufferLanguage lang, List<CommentRange> ranges)
-        {
-            bool isVb = lang == BufferLanguage.VBNet;
-            bool isFSharp = lang == BufferLanguage.FSharp;
-
-            bool inBlock = false;     // inside /* … */ or (* … *)
-            bool inDocBlock = false;  // inside /** … */ or /*! … */ (skip silently)
-            char close1 = '/';        // block closer first char  ('/' or '*')
-            char close2 = '/';        // block closer second char
-            int blockStartAbs = -1;   // buffer position of the active block opener
-            int blockPrefixLen = 2;   // opener length at the start of the range text
-
-            int lineCount = snapshot.LineCount;
-            for (int ln = 0; ln < lineCount; ln++)
-            {
-                var line = snapshot.GetLineFromLineNumber(ln);
-                string t = line.GetText();
-                int n = t.Length;
-                bool inString = false;
-
-                int i = 0;
-                while (i < n)
-                {
-                    char c = t[i];
-
-                    // ── Inside a block comment: only look for the closer ──────────
-                    if (inBlock || inDocBlock)
-                    {
-                        if (i + 1 < n && t[i] == close1 && t[i + 1] == close2)
-                        {
-                    if (inBlock)
-                        ranges.Add(new CommentRange(
-                            blockStartAbs,
-                            line.Start.Position + i + 2,
-                            blockPrefixLen));
-                            inBlock = false;
-                            inDocBlock = false;
-                            i += 2;
-                            continue;
-                        }
-                        i++;
-                        continue;
-                    }
-
-                    // ── String literal toggle (double quotes, escape-aware) ───────
-                    if (c == '"')
-                    {
-                        if (!(inString && i > 0 && t[i - 1] == '\\'))
-                            inString = !inString;
-                        i++;
-                        continue;
-                    }
-                    if (inString) { i++; continue; }
-
-                    if (isVb)
-                    {
-                        // ── VB: apostrophe starts a comment (''' is XML-doc) ──────
-                        if (c == '\'')
-                        {
-                            if (i + 2 < n && t[i + 1] == '\'' && t[i + 2] == '\'')
-                                break; // doc comment — skip rest of line entirely
-                            ranges.Add(new CommentRange(line.Start.Position + i,
-                                                         line.End.Position, 1));
-                            break;     // rest of line consumed by the comment
-                        }
-                        i++;
-                        continue;
-                    }
-
-                    // ── Slash languages: C#, F#, C++ ──────────────────────────────
-                    if (c == '/' && i + 1 < n)
-                    {
-                        char d = t[i + 1];
-
-                        if (d == '/')
-                        {
-                            bool isDoc = i + 2 < n && (t[i + 2] == '/' || t[i + 2] == '!');
-                            if (isDoc) break;               // /// //// //! — skip line
-                            ranges.Add(new CommentRange(line.Start.Position + i,
-                                                         line.End.Position, 2));
-                            break;
-                        }
-
-                        if (d == '*')
-                        {
-                            bool isDoc = i + 2 < n && (t[i + 2] == '*' || t[i + 2] == '!');
-
-                            if (isDoc)
-                            {
-                                inDocBlock = true; close1 = '*'; close2 = '/';
-                            }
-                            else
-                            {
-                                inBlock = true; close1 = '*'; close2 = '/';
-                                blockStartAbs = line.Start.Position + i;
-                            }
-                            i += 2;
-                            continue;
-                        }
-                    }
-
-                    if (isFSharp && c == '(' && i + 1 < n && t[i + 1] == '*'
-                        && !IsLinterAnnotation(t, i))
-                    {
-                        inBlock = true; close1 = '*'; close2 = ')';
-                        blockStartAbs = line.Start.Position + i;
-                        i += 2;
-                        continue;
-                    }
-
-                    i++;
-                }
-            }
-        }
-
-        /// <summary>
-        /// Distinguishes F# linter directives such as <c>(*$ ... *)</c> — kept out of
-        /// badge consideration because their content is tooling metadata, not prose.
-        /// </summary>
-        private static bool IsLinterAnnotation(string t, int openParenIndex)
-        {
-            int j = openParenIndex + 2;
-            return j < t.Length && t[j] == '$';
         }
 
         // ── Pill construction ─────────────────────────────────────────────────────

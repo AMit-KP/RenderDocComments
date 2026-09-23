@@ -291,6 +291,16 @@ namespace RenderDocComments.Options
         public string TagStyle { get; set; } = "Pills";
 
         /// <summary>
+        /// Gets or sets whether comment tags leave coloured markers in the editor's
+        /// vertical scroll bar, jumpable by click. Free feature. Default: <c>true</c>.
+        /// </summary>
+        /// <remarks>
+        /// Effective only while <see cref="TagBadgesEnabled"/> is also on — the
+        /// markers share the tag feature's per-tag enablement and colour settings.
+        /// </remarks>
+        public bool ScrollMarkersEnabled { get; set; } = true;
+
+        /// <summary>
         /// Gets or sets the serialized Premium per-tag colour overrides.<br/>
         /// Format: semicolon-separated <c>NAME=0xAARRGGBB</c> pairs, e.g.<br/>
         /// <c>"TODO=0xFF4FC1FF;MAGIC=0xFFDDB0FF"</c>. Empty string = all defaults.
@@ -773,6 +783,7 @@ namespace RenderDocComments.Options
 
                 // Comment tags
                 TagBadgesEnabled = ReadBool(store, nameof(TagBadgesEnabled), TagBadgesEnabled);
+                ScrollMarkersEnabled = ReadBool(store, nameof(ScrollMarkersEnabled), ScrollMarkersEnabled);
                 TagStyle = store.PropertyExists(CollectionPath, nameof(TagStyle))
                                    ? store.GetString(CollectionPath, nameof(TagStyle))
                                    : TagStyle;
@@ -861,6 +872,7 @@ namespace RenderDocComments.Options
 
                 // Comment tags
                 store.SetBoolean(CollectionPath, nameof(TagBadgesEnabled), TagBadgesEnabled);
+                store.SetBoolean(CollectionPath, nameof(ScrollMarkersEnabled), ScrollMarkersEnabled);
                 store.SetString(CollectionPath, nameof(TagStyle), TagStyle ?? string.Empty);
                 store.SetString(CollectionPath, nameof(TagColorOverrides), TagColorOverrides ?? string.Empty);
                 store.SetString(CollectionPath, nameof(TagsDisabled), TagsDisabled ?? string.Empty);

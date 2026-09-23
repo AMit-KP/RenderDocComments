@@ -803,6 +803,14 @@
 								GroupName="TagStyle" />
 						</StackPanel>
 
+						<CheckBox
+							x:Name="ScrollMarkersCheck"
+							Margin="24,6,0,0"
+							Checked="OnScrollMarkersChanged"
+							Content="Show tag markers in the vertical scroll bar"
+							Unchecked="OnScrollMarkersChanged"
+							ToolTip="Paints one coloured tick per comment tag (TODO, FIXME, …) in the scroll bar. Click a tick to jump to the comment." />
+
 						<Border Style="{StaticResource Divider}" />
 
 						<!--  Tag font (Premium, applies to tag pills/cards only)  -->
