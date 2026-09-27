@@ -803,13 +803,21 @@
 								GroupName="TagStyle" />
 						</StackPanel>
 
-						<CheckBox
-							x:Name="ScrollMarkersCheck"
-							Margin="24,6,0,0"
-							Checked="OnScrollMarkersChanged"
-							Content="Show tag markers in the vertical scroll bar"
-							Unchecked="OnScrollMarkersChanged"
-							ToolTip="Paints one coloured tick per comment tag (TODO, FIXME, …) in the scroll bar. Click a tick to jump to the comment." />
+						<Border Style="{StaticResource Divider}" />
+
+						<!--  Scroll bar markers (Premium)  -->
+						<StackPanel x:Name="ScrollMarkersSectionPanel">
+							<StackPanel Orientation="Horizontal">
+								<TextBlock Style="{StaticResource SectionHeader}" Text="SCROLL BAR MARKERS" />
+								<ContentControl Style="{StaticResource PremiumPill}" />
+							</StackPanel>
+							<CheckBox
+								x:Name="ScrollMarkersCheck"
+								Checked="OnScrollMarkersChanged"
+								Content="Show tag markers in the vertical scroll bar"
+								Unchecked="OnScrollMarkersChanged"
+								ToolTip="Paints one coloured tick per comment tag (TODO, FIXME, …) in the scroll bar. Click a tick to jump to the comment." />
+						</StackPanel>
 
 						<Border Style="{StaticResource Divider}" />
 

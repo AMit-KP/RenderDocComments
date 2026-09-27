@@ -286,12 +286,12 @@ namespace RenderDocComments.Options
             SetSectionState(BorderSectionPanel, docRenderEnabled && premium);
             SetSectionState(ColorsSectionPanel, docRenderEnabled && premium);
 
-            // Comment tags — master toggle and style are free; the scroll-marker
-            // toggle, tag font, and per-tag list follow the master toggle (font
-            // and per-tag list are additionally Premium).
+            // Comment tags — master toggle and style are free; scroll markers,
+            // tag font, and per-tag list are Premium and additionally require
+            // the master toggle.
             TagPillsRadio.IsEnabled = tagsEnabled;
             TagCardsRadio.IsEnabled = tagsEnabled;
-            ScrollMarkersCheck.IsEnabled = tagsEnabled;
+            SetSectionState(ScrollMarkersSectionPanel, premium && tagsEnabled);
             SetSectionState(TagFontSectionPanel, premium && tagsEnabled);
             SetSectionState(TagCustomSectionPanel, premium && tagsEnabled);
 

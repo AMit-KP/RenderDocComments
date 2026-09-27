@@ -292,11 +292,13 @@ namespace RenderDocComments.Options
 
         /// <summary>
         /// Gets or sets whether comment tags leave coloured markers in the editor's
-        /// vertical scroll bar, jumpable by click. Free feature. Default: <c>true</c>.
+        /// vertical scroll bar, jumpable by click. Requires Premium. Default: <c>true</c>.
         /// </summary>
         /// <remarks>
-        /// Effective only while <see cref="TagBadgesEnabled"/> is also on — the
-        /// markers share the tag feature's per-tag enablement and colour settings.
+        /// Gated by <see cref="EffectiveScrollMarkersEnabled"/> — when the licence
+        /// is not active, no markers render regardless of this property's stored
+        /// value. Effective only while <see cref="TagBadgesEnabled"/> is also on —
+        /// the markers share the tag feature's per-tag enablement and colour settings.
         /// </remarks>
         public bool ScrollMarkersEnabled { get; set; } = true;
 
@@ -558,6 +560,13 @@ namespace RenderDocComments.Options
         public Color EffectiveGradientStop2 => Premium ? ToColor(GradientStop2) : Color.FromArgb(0x50, 0x50, 0x28, 0x96);
 
 // ── Comment tags: effective values ────────────────────────────────────────────
+
+        /// <summary>
+        /// Gets whether scroll-bar tag markers currently render, respecting the
+        /// Premium gate. Returns <c>true</c> only if Premium is unlocked AND
+        /// <see cref="ScrollMarkersEnabled"/> is enabled.
+        /// </summary>
+        public bool EffectiveScrollMarkersEnabled => Premium && ScrollMarkersEnabled;
 
         /// <summary>
         /// Gets the effective tag colour for a canonical tag name.<br/>
