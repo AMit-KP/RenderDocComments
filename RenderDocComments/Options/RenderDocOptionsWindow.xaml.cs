@@ -52,10 +52,16 @@ namespace RenderDocComments.Options
         private int _colorCodeFg, _colorSummaryFg, _colorParamName,
                     _colorLink, _colorSectionLabel,
                     _colorGrad0, _colorGrad1, _colorGrad2,
-                    _colorCommentBoxBorder, _colorCommentBoxText;
+                    _colorCommentBoxBorder, _colorCommentBoxText,
+                    _colorBannerText, _colorBannerRule;
 
         /// <summary>Backing field for the fixed width setting.</summary>
         private double _fixedWidth = 700.0;
+
+        /// <summary>Backing fields for the banner size settings (0 = auto).</summary>
+        private double _bannerFontSize = 0.0;
+        private double _bannerRuleThickness = 1.0;
+        private double _bannerBarHeight = 0.0;
 
 /// <summary>Per-tag enabled state keyed by canonical tag name.</summary>
         private readonly Dictionary<string, bool> _tagEnabled =
@@ -136,6 +142,12 @@ namespace RenderDocComments.Options
             foreach (var ff in Fonts.SystemFontFamilies.OrderBy(f => f.Source))
                 TagFontCombo.Items.Add(ff.Source);
 
+            // Index 0 is a sentinel meaning "follow the comment box / editor font".
+            BannerFontCombo.Items.Clear();
+            BannerFontCombo.Items.Add("(Box / editor font)");
+            foreach (var ff in Fonts.SystemFontFamilies.OrderBy(f => f.Source))
+                BannerFontCombo.Items.Add(ff.Source);
+
             LoadFromOptions();
             _initialTagBadgesEnabled = RenderDocOptions.Instance.TagBadgesEnabled;
             RefreshLicenceBadge();
@@ -202,6 +214,25 @@ namespace RenderDocComments.Options
             UpdateTagFontPreview();
 
             CommentBoxesCheck.IsChecked = o.CommentBoxesEnabled;
+            BannerCommentsCheck.IsChecked = o.BannerCommentsEnabled;
+            BannerThemeColorsCheck.IsChecked = o.BannerUseThemeColors;
+            _colorBannerText = o.BannerTextColor;
+            _colorBannerRule = o.BannerRuleColor;
+            _bannerFontSize = o.BannerFontSize;
+            BannerFontSizeText.Text = _bannerFontSize > 0
+                ? _bannerFontSize.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                : "0";
+            _bannerRuleThickness = o.BannerRuleThickness;
+            BannerRuleThicknessText.Text = _bannerRuleThickness.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            _bannerBarHeight = o.BannerBarHeight;
+            BannerBarHeightText.Text = _bannerBarHeight > 0
+                ? _bannerBarHeight.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                : "0";
+            int bannerFontIdx = string.IsNullOrWhiteSpace(o.BannerFontFamily)
+                ? 0
+                : BannerFontCombo.Items.IndexOf(o.BannerFontFamily);
+            BannerFontCombo.SelectedIndex = bannerFontIdx >= 0 ? bannerFontIdx : 0;
+            UpdateBannerFontPreview();
             CommentBoxThemeColorsCheck.IsChecked = o.CommentBoxThemeColors;
             _colorCommentBoxBorder = o.CommentBoxBorderColor;
             _colorCommentBoxText = o.CommentBoxTextColor;
@@ -286,12 +317,12 @@ namespace RenderDocComments.Options
             SetSectionState(BorderSectionPanel, docRenderEnabled && premium);
             SetSectionState(ColorsSectionPanel, docRenderEnabled && premium);
 
-            // Comment tags — master toggle and style are free; the scroll-marker
-            // toggle, tag font, and per-tag list follow the master toggle (font
-            // and per-tag list are additionally Premium).
+            // Comment tags — master toggle and style are free; scroll markers,
+            // tag font, and per-tag list are Premium and additionally require
+            // the master toggle.
             TagPillsRadio.IsEnabled = tagsEnabled;
             TagCardsRadio.IsEnabled = tagsEnabled;
-            ScrollMarkersCheck.IsEnabled = tagsEnabled;
+            SetSectionState(ScrollMarkersSectionPanel, premium && tagsEnabled);
             SetSectionState(TagFontSectionPanel, premium && tagsEnabled);
             SetSectionState(TagCustomSectionPanel, premium && tagsEnabled);
 
@@ -303,6 +334,22 @@ namespace RenderDocComments.Options
             SwatchCommentBoxText.IsEnabled = boxCustomColors;
             CommentBoxFontCombo.IsEnabled = boxesEnabled;
             CommentBoxFontPreview.Opacity = boxesEnabled ? 1.0 : 0.45;
+
+            // Banner comments — its own Premium-gated card, independent of box
+            // rendering; the appearance panel additionally requires the banner
+            // toggle, and the text/rule swatches additionally require theme
+            // colours to be switched off.
+            bool bannersEnabled = BannerCommentsCheck.IsChecked == true;
+            bool bannerCustomColors = bannersEnabled && BannerThemeColorsCheck.IsChecked != true;
+            SetSectionState(BannerSectionPanel, premium);
+            SetSectionState(BannerStylePanel, bannersEnabled);
+            SwatchBannerText.IsEnabled = bannerCustomColors;
+            SwatchBannerRule.IsEnabled = bannerCustomColors;
+            BannerFontCombo.IsEnabled = bannersEnabled;
+            BannerFontPreview.Opacity = bannersEnabled ? 1.0 : 0.45;
+            BannerFontSizeText.IsEnabled = bannersEnabled;
+            BannerRuleThicknessText.IsEnabled = bannersEnabled;
+            BannerBarHeightText.IsEnabled = bannersEnabled;
         }
 
         /// <summary>
@@ -473,6 +520,16 @@ namespace RenderDocComments.Options
                 : string.Empty;
 
             o.CommentBoxesEnabled = CommentBoxesCheck.IsChecked == true;
+            o.BannerCommentsEnabled = BannerCommentsCheck.IsChecked == true;
+            o.BannerUseThemeColors = BannerThemeColorsCheck.IsChecked == true;
+            o.BannerTextColor = _colorBannerText;
+            o.BannerRuleColor = _colorBannerRule;
+            o.BannerFontSize = _bannerFontSize;
+            o.BannerRuleThickness = _bannerRuleThickness;
+            o.BannerBarHeight = _bannerBarHeight;
+            o.BannerFontFamily = BannerFontCombo.SelectedIndex > 0
+                ? (BannerFontCombo.SelectedItem?.ToString() ?? string.Empty)
+                : string.Empty;
             o.CommentBoxThemeColors = CommentBoxThemeColorsCheck.IsChecked == true;
             o.CommentBoxBorderColor = _colorCommentBoxBorder;
             o.CommentBoxTextColor = _colorCommentBoxText;
@@ -629,6 +686,108 @@ namespace RenderDocComments.Options
         {
             OnSettingChanged(sender, e);
             RefreshSectionStates();
+        }
+
+        /// <summary>
+        /// Handles the banner comments toggle, applying the change and refreshing
+        /// the banner appearance panel's enabled state.
+        /// </summary>
+        private void OnBannerCommentsChanged(object sender, RoutedEventArgs e)
+        {
+            OnSettingChanged(sender, e);
+            RefreshSectionStates();
+        }
+
+        /// <summary>
+        /// Handles the banner "use theme colours" toggle, applying the change and
+        /// enabling/disabling the custom text and rule swatches accordingly.
+        /// </summary>
+        private void OnBannerColorsChanged(object sender, RoutedEventArgs e)
+        {
+            OnSettingChanged(sender, e);
+            RefreshSectionStates();
+        }
+
+        /// <summary>
+        /// Handles text changes in the banner rule thickness box, validating and
+        /// parsing the input (clamped to 1–8 on apply).
+        /// </summary>
+        private void OnBannerRuleThicknessChanged(object sender, TextChangedEventArgs e)
+        {
+            if (_loading) return;
+            var text = BannerRuleThicknessText.Text.Trim();
+            if (double.TryParse(text,
+                    System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out double val))
+            {
+                _bannerRuleThickness = Math.Max(1, Math.Min(8, val));
+                OnSettingChanged(sender, null);
+            }
+        }
+
+        /// <summary>
+        /// Handles text changes in the banner bar height box, validating and
+        /// parsing the input (0 = size the bar to its content).
+        /// </summary>
+        private void OnBannerBarHeightChanged(object sender, TextChangedEventArgs e)
+        {
+            if (_loading) return;
+            var text = BannerBarHeightText.Text.Trim();
+            if (double.TryParse(text,
+                    System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out double val))
+            {
+                _bannerBarHeight = Math.Max(0, Math.Min(80, val));
+                OnSettingChanged(sender, null);
+            }
+        }
+
+        /// <summary>
+        /// Handles banner font selection changes, updating the preview text
+        /// and applying the change. Index 0 ("(Box / editor font)") stores an
+        /// empty family.
+        /// </summary>
+        private void OnBannerFontChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_loading) return;
+            UpdateBannerFontPreview();
+            OnSettingChanged(sender, null);
+        }
+
+        /// <summary>
+        /// Updates the banner font preview to match the selected combo entry;
+        /// index 0 keeps the window's default font (box/editor-follow sentinel).
+        /// </summary>
+        private void UpdateBannerFontPreview()
+        {
+            if (BannerFontCombo.SelectedIndex > 0 &&
+                BannerFontCombo.SelectedItem is string name)
+            {
+                try { BannerFontPreview.FontFamily = new FontFamily(name); }
+                catch { BannerFontPreview.FontFamily = new FontFamily("Segoe UI"); }
+            }
+            else
+            {
+                BannerFontPreview.FontFamily = new FontFamily("Segoe UI");
+            }
+        }
+
+        /// <summary>
+        /// Handles text changes in the banner font size box, validating and
+        /// parsing the input (0 = follow the editor font size).
+        /// </summary>
+        private void OnBannerFontSizeChanged(object sender, TextChangedEventArgs e)
+        {
+            if (_loading) return;
+            var text = BannerFontSizeText.Text.Trim();
+            if (double.TryParse(text,
+                    System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out double val))
+            {
+                val = Math.Max(0, Math.Min(60, val));
+                _bannerFontSize = val;
+                OnSettingChanged(sender, null);
+            }
         }
 
         /// <summary>
@@ -808,6 +967,8 @@ namespace RenderDocComments.Options
                 case "Grad2": return _colorGrad2;
                 case "CommentBoxBorder": return _colorCommentBoxBorder;
                 case "CommentBoxText": return _colorCommentBoxText;
+                case "BannerText": return _colorBannerText;
+                case "BannerRule": return _colorBannerRule;
                 default: return unchecked((int)0xFFFFFFFF);
             }
         }
@@ -835,6 +996,8 @@ namespace RenderDocComments.Options
                 case "Grad2": _colorGrad2 = value; break;
                 case "CommentBoxBorder": _colorCommentBoxBorder = value; break;
                 case "CommentBoxText": _colorCommentBoxText = value; break;
+                case "BannerText": _colorBannerText = value; break;
+                case "BannerRule": _colorBannerRule = value; break;
             }
         }
 
@@ -876,6 +1039,8 @@ namespace RenderDocComments.Options
             SetSwatchColor(SwatchGrad2, _colorGrad2);
             SetSwatchColor(SwatchCommentBoxBorder, _colorCommentBoxBorder);
             SetSwatchColor(SwatchCommentBoxText, _colorCommentBoxText);
+            SetSwatchColor(SwatchBannerText, _colorBannerText);
+            SetSwatchColor(SwatchBannerRule, _colorBannerRule);
             RefreshGradientPreview();
         }
 
@@ -1241,6 +1406,14 @@ namespace RenderDocComments.Options
             o.TagFontFamily = string.Empty;
 
             o.CommentBoxesEnabled = true;
+            o.BannerCommentsEnabled = true;
+            o.BannerUseThemeColors = false;
+            o.BannerTextColor = unchecked((int)0xFFBE6EF0);
+            o.BannerRuleColor = unchecked((int)0xFFBE6EF0);
+            o.BannerFontSize = 0.0;
+            o.BannerFontFamily = string.Empty;
+            o.BannerRuleThickness = 1.0;
+            o.BannerBarHeight = 0.0;
             o.CommentBoxThemeColors = true;
             o.CommentBoxBorderColor = unchecked((int)0xFF57A64A);
             o.CommentBoxTextColor = unchecked((int)0xFF57A64A);

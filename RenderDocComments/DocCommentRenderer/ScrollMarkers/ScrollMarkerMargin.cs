@@ -37,7 +37,8 @@
  *  Dependencies:
  *    • TagScan/CommentTagLocator.cs — shared tag detection pipeline.
  *    • TagBadges/TagBadgeToggleState.cs — click-dismissal parity with pills.
- *    • RenderDocOptions.cs         — ScrollMarkersEnabled, TagBadgesEnabled, EffectiveTag*.
+ *    • RenderDocOptions.cs         — EffectiveScrollMarkersEnabled (Premium-gated),
+ *                                    TagBadgesEnabled, EffectiveTag*.
  *    • SettingsChangedBroadcast.cs — rebuild notifications.
  *
  *  When to Edit:
@@ -220,7 +221,7 @@ namespace RenderDocComments.DocCommentRenderer.ScrollMarkers
         private bool IsFeatureEnabled()
         {
             var opts = RenderDocOptions.Instance;
-            if (!opts.ScrollMarkersEnabled || !opts.TagBadgesEnabled) return false;
+            if (!opts.EffectiveScrollMarkersEnabled || !opts.TagBadgesEnabled) return false;
 
             if (_view.Properties.TryGetProperty("RenderDocComments_Disabled", out bool disabled) && disabled)
                 return false;

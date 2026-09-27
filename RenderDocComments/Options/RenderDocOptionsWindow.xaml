@@ -803,13 +803,21 @@
 								GroupName="TagStyle" />
 						</StackPanel>
 
-						<CheckBox
-							x:Name="ScrollMarkersCheck"
-							Margin="24,6,0,0"
-							Checked="OnScrollMarkersChanged"
-							Content="Show tag markers in the vertical scroll bar"
-							Unchecked="OnScrollMarkersChanged"
-							ToolTip="Paints one coloured tick per comment tag (TODO, FIXME, …) in the scroll bar. Click a tick to jump to the comment." />
+						<Border Style="{StaticResource Divider}" />
+
+						<!--  Scroll bar markers (Premium)  -->
+						<StackPanel x:Name="ScrollMarkersSectionPanel">
+							<StackPanel Orientation="Horizontal">
+								<TextBlock Style="{StaticResource SectionHeader}" Text="SCROLL BAR MARKERS" />
+								<ContentControl Style="{StaticResource PremiumPill}" />
+							</StackPanel>
+							<CheckBox
+								x:Name="ScrollMarkersCheck"
+								Checked="OnScrollMarkersChanged"
+								Content="Show tag markers in the vertical scroll bar"
+								Unchecked="OnScrollMarkersChanged"
+								ToolTip="Paints one coloured tick per comment tag (TODO, FIXME, …) in the scroll bar. Click a tick to jump to the comment." />
+						</StackPanel>
 
 						<Border Style="{StaticResource Divider}" />
 
@@ -911,6 +919,94 @@
 								VerticalAlignment="Center"
 								Foreground="{StaticResource AccentPurpleBrush}"
 								Text="AaBbCc 123" />
+						</StackPanel>
+					</StackPanel>
+				</Border>
+
+				<!--  ══ Banner comments  -->
+				<Border Style="{StaticResource Card}">
+					<StackPanel x:Name="BannerSectionPanel">
+						<StackPanel Orientation="Horizontal">
+							<TextBlock Style="{StaticResource SectionHeader}" Text="BANNER COMMENTS" />
+							<ContentControl Style="{StaticResource PremiumPill}" />
+						</StackPanel>
+						<TextBlock Style="{StaticResource HintText}" Text="Collapses banner-style comments — solid rules (// ─────), flanked headings (// ── Title ────), ruled blocks (rule / text / rule), and ASCII boxes (┌─┐, +--+) — into a slim section title with a fading rule. Works even when comment box rendering is switched off (non-banner comments then stay as plain text)." />
+
+						<CheckBox
+							x:Name="BannerCommentsCheck"
+							Checked="OnBannerCommentsChanged"
+							Content="Render banner comments as section headers"
+							Unchecked="OnBannerCommentsChanged" />
+
+						<StackPanel x:Name="BannerStylePanel" Margin="24,4,0,0">
+							<CheckBox
+								x:Name="BannerThemeColorsCheck"
+								Checked="OnBannerColorsChanged"
+								Content="Use theme comment colours for banner text and rule"
+								Unchecked="OnBannerColorsChanged" />
+
+							<StackPanel Margin="0,4,0,0" Orientation="Horizontal">
+								<Button
+									x:Name="SwatchBannerText"
+									Click="OnSwatchClicked"
+									Style="{StaticResource SwatchButton}"
+									Tag="BannerText" />
+								<TextBlock
+									Margin="8,0,18,0"
+									Style="{StaticResource OptionLabel}"
+									Text="Banner text" />
+								<Button
+									x:Name="SwatchBannerRule"
+									Click="OnSwatchClicked"
+									Style="{StaticResource SwatchButton}"
+									Tag="BannerRule" />
+								<TextBlock
+									Margin="8,0,0,0"
+									Style="{StaticResource OptionLabel}"
+									Text="Rule / fence / wave / box" />
+							</StackPanel>
+
+							<StackPanel Margin="0,4,0,0" Orientation="Horizontal">
+								<TextBlock Style="{StaticResource OptionLabel}" Text="Rule thickness:" />
+								<TextBox
+									x:Name="BannerRuleThicknessText"
+									Width="60"
+									TextChanged="OnBannerRuleThicknessChanged"
+									ToolTip="Hairline rule thickness in pixels (1–8)." />
+								<TextBlock
+									Margin="14,0,6,0"
+									Style="{StaticResource OptionLabel}"
+									Text="Bar height (0 = auto):" />
+								<TextBox
+									x:Name="BannerBarHeightText"
+									Width="60"
+									TextChanged="OnBannerBarHeightChanged"
+									ToolTip="Fixed bar height in pixels (10–80). 0 = size the bar to its text." />
+							</StackPanel>
+
+							<StackPanel Margin="0,4,0,0" Orientation="Horizontal">
+								<TextBlock Style="{StaticResource OptionLabel}" Text="Font:" />
+								<ComboBox
+									x:Name="BannerFontCombo"
+									Width="170"
+									SelectionChanged="OnBannerFontChanged" />
+								<TextBlock
+									x:Name="BannerFontPreview"
+									Margin="10,0,0,0"
+									VerticalAlignment="Center"
+									Foreground="{StaticResource AccentPurpleBrush}"
+									Text="AaBbCc 123" />
+								<TextBlock
+									Margin="14,0,6,0"
+									VerticalAlignment="Center"
+									Style="{StaticResource OptionLabel}"
+									Text="Size:" />
+								<TextBox
+									x:Name="BannerFontSizeText"
+									Width="60"
+									TextChanged="OnBannerFontSizeChanged"
+									ToolTip="Banner text size in pixels. 0 = follow the editor font size." />
+							</StackPanel>
 						</StackPanel>
 					</StackPanel>
 				</Border>
