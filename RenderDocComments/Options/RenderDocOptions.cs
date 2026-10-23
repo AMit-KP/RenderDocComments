@@ -689,6 +689,14 @@ namespace RenderDocComments.Options
         public bool EffectiveCommentBoxesEnabled => Premium && CommentBoxesEnabled;
 
         /// <summary>
+        /// Gets or sets whether <c>#region</c> directive lines render as banner
+        /// bars and <c>#endregion</c> as dim end-cap rules (C#, VB.NET, C++).
+        /// Requires Premium. Default: <c>true</c>. Independent of the comment
+        /// box/banner toggles; clicking a banner toggles the built-in outlining.
+        /// </summary>
+        public bool RegionBannersEnabled { get; set; } = true;
+
+        /// <summary>
         /// Gets whether banner-style comments currently collapse into header
         /// bars, respecting the Premium gate.<br/>
         /// Returns <c>true</c> only if Premium is unlocked AND
@@ -698,6 +706,15 @@ namespace RenderDocComments.Options
         /// </summary>
         public bool EffectiveBannerCommentsEnabled
             => Premium && BannerCommentsEnabled;
+
+        /// <summary>
+        /// Gets whether <c>#region</c>/<c>#endregion</c> banners currently
+        /// render, respecting the Premium gate.<br/>
+        /// Returns <c>true</c> only if Premium is unlocked AND
+        /// <see cref="RegionBannersEnabled"/> is enabled.
+        /// </summary>
+        public bool EffectiveRegionBannersEnabled
+            => Premium && RegionBannersEnabled;
 
         /// <summary>
         /// Gets whether banner text and rule should follow the theme's comment
@@ -967,6 +984,7 @@ namespace RenderDocComments.Options
                 // Comment boxes
                 CommentBoxesEnabled = ReadBool(store, nameof(CommentBoxesEnabled), CommentBoxesEnabled);
                 BannerCommentsEnabled = ReadBool(store, nameof(BannerCommentsEnabled), BannerCommentsEnabled);
+                RegionBannersEnabled = ReadBool(store, nameof(RegionBannersEnabled), RegionBannersEnabled);
                 BannerUseThemeColors = ReadBool(store, nameof(BannerUseThemeColors), BannerUseThemeColors);
                 BannerTextColor = ReadInt(store, nameof(BannerTextColor), BannerTextColor);
                 BannerRuleColor = ReadInt(store, nameof(BannerRuleColor), BannerRuleColor);
@@ -1054,6 +1072,7 @@ namespace RenderDocComments.Options
                 // Comment boxes
                 store.SetBoolean(CollectionPath, nameof(CommentBoxesEnabled), CommentBoxesEnabled);
                 store.SetBoolean(CollectionPath, nameof(BannerCommentsEnabled), BannerCommentsEnabled);
+                store.SetBoolean(CollectionPath, nameof(RegionBannersEnabled), RegionBannersEnabled);
                 store.SetBoolean(CollectionPath, nameof(BannerUseThemeColors), BannerUseThemeColors);
                 store.SetInt32(CollectionPath, nameof(BannerTextColor), BannerTextColor);
                 store.SetInt32(CollectionPath, nameof(BannerRuleColor), BannerRuleColor);

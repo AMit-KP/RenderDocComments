@@ -215,6 +215,7 @@ namespace RenderDocComments.Options
 
             CommentBoxesCheck.IsChecked = o.CommentBoxesEnabled;
             BannerCommentsCheck.IsChecked = o.BannerCommentsEnabled;
+            RegionBannersCheck.IsChecked = o.RegionBannersEnabled;
             BannerThemeColorsCheck.IsChecked = o.BannerUseThemeColors;
             _colorBannerText = o.BannerTextColor;
             _colorBannerRule = o.BannerRuleColor;
@@ -521,6 +522,7 @@ namespace RenderDocComments.Options
 
             o.CommentBoxesEnabled = CommentBoxesCheck.IsChecked == true;
             o.BannerCommentsEnabled = BannerCommentsCheck.IsChecked == true;
+            o.RegionBannersEnabled = RegionBannersCheck.IsChecked == true;
             o.BannerUseThemeColors = BannerThemeColorsCheck.IsChecked == true;
             o.BannerTextColor = _colorBannerText;
             o.BannerRuleColor = _colorBannerRule;
@@ -696,6 +698,14 @@ namespace RenderDocComments.Options
         {
             OnSettingChanged(sender, e);
             RefreshSectionStates();
+        }
+
+        /// <summary>
+        /// Handles the region banners toggle, applying the change.
+        /// </summary>
+        private void OnRegionBannersChanged(object sender, RoutedEventArgs e)
+        {
+            OnSettingChanged(sender, e);
         }
 
         /// <summary>
@@ -1407,6 +1417,7 @@ namespace RenderDocComments.Options
 
             o.CommentBoxesEnabled = true;
             o.BannerCommentsEnabled = true;
+            o.RegionBannersEnabled = true;
             o.BannerUseThemeColors = false;
             o.BannerTextColor = unchecked((int)0xFFBE6EF0);
             o.BannerRuleColor = unchecked((int)0xFFBE6EF0);

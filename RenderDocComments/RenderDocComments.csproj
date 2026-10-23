@@ -63,6 +63,9 @@
     <Compile Include="DocCommentRenderer\ScrollMarkers\ScrollMarkerMargin.cs" />
     <Compile Include="DocCommentRenderer\CommentBoxes\CommentBoxTagger.cs" />
     <Compile Include="DocCommentRenderer\CommentBoxes\CommentBoxTaggerProvider.cs" />
+    <Compile Include="DocCommentRenderer\BannerFactory.cs" />
+    <Compile Include="DocCommentRenderer\RegionBanners\RegionBannerTagger.cs" />
+    <Compile Include="DocCommentRenderer\RegionBanners\RegionBannerTaggerProvider.cs" />
     <Compile Include="CommentTagsExplorer\CommentNavigator.cs" />
     <Compile Include="CommentTagsExplorer\CommentTagsScanner.cs" />
     <Compile Include="CommentTagsExplorer\CommentTagsToolWindow.cs" />

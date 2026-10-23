@@ -77,6 +77,7 @@ using Microsoft.VisualStudio.Text.Tagging;
 using Microsoft.VisualStudio.Threading;
 using RenderDocComments.DocCommentRenderer.TagBadges;
 using RenderDocComments.DocCommentRenderer.TagScan;
+using static RenderDocComments.DocCommentRenderer.BannerFactory;
 using RenderDocComments.Options;
 
 namespace RenderDocComments.DocCommentRenderer.CommentBoxes
@@ -193,52 +194,6 @@ namespace RenderDocComments.DocCommentRenderer.CommentBoxes
         }
 
         // ── Raw comment ranges ────────────────────────────────────────────────────
-
-        /// <summary>How a banner presents itself, per the comment shape it came from.</summary>
-        private enum BannerStyle
-        {
-            /// <summary>Flanked single line: title + trailing rule.</summary>
-            Heading,
-            /// <summary>Bare fill rule: textless divider line.</summary>
-            Divider,
-            /// <summary>Ruled block: line above, title, line below.</summary>
-            Sandwich,
-            /// <summary>ASCII/unicode box: thin outlined box around the title.</summary>
-            Box,
-            /// <summary>One-line asterisk box: small pill badge.</summary>
-            Badge,
-        }
-
-        /// <summary>Trailing-line treatment, driven by the leading rail character:
-        /// ─ ━ ┄ ┈ - → single hairline; ═ = → double hairline; # → picket fence;
-        /// * → sparkle trail; ~ → wavy line.</summary>
-        private enum RailStyle
-        {
-            Single,
-            Double,
-            Fence,
-            Sparkle,
-            Wave,
-        }
-
-        /// <summary>Maps a leading rail character to its trail treatment.</summary>
-        private static RailStyle MapRail(char c)
-        {
-            switch (c)
-            {
-                case '═':
-                case '=':
-                    return RailStyle.Double;
-                case '#':
-                    return RailStyle.Fence;
-                case '*':
-                    return RailStyle.Sparkle;
-                case '~':
-                    return RailStyle.Wave;
-                default:
-                    return RailStyle.Single;
-            }
-        }
 
         /// <summary>
         /// One contiguous plain-comment region in buffer coordinates.<br/>
@@ -574,6 +529,7 @@ namespace RenderDocComments.DocCommentRenderer.CommentBoxes
             text = null;
             railChar = '─';
             string t = line.Trim();
+            if (t.Length == 0) return false;   // bare "//" lines — t[0] would throw
 
             int lead = 0;
             while (lead < t.Length && IsRunChar(t[lead])) lead++;
@@ -584,9 +540,20 @@ namespace RenderDocComments.DocCommentRenderer.CommentBoxes
             if (lead < minRail || trail < minRail) return false;
 
             string middle = t.Substring(lead, t.Length - lead - trail);
+            // Fill runs of 3+ inside the middle mean embedded rails; shorter runs
+            // are ordinary text: "-" in "per-session", "#" in "C#", "*" in "a * b".
+            int midRun = 0;
             foreach (char c in middle)
             {
-                if (IsRunChar(c)) return false;
+                if (IsRunChar(c))
+                {
+                    midRun++;
+                    if (midRun >= 3) return false;
+                }
+                else
+                {
+                    midRun = 0;
+                }
             }
             text = middle.Trim();
             if (text.Length == 0 || text.Length > 40)
@@ -1115,14 +1082,16 @@ namespace RenderDocComments.DocCommentRenderer.CommentBoxes
                     }
                 }
 
-                UIElement control;
-                if (bannerText != null)
+                UIElement control = null;
+                try
                 {
-                    control = CreateBanner(bannerText, bannerStyle, bannerRail,
-                        snapshot, spanStart, indent);
-                }
-                else
-                {
+                    if (bannerText != null)
+                    {
+                        control = CreateBanner(bannerText, bannerStyle, bannerRail,
+                            snapshot, spanStart, indent);
+                    }
+                    else
+                    {
                     // Boxes are independently toggleable — with box rendering off,
                     // non-banner comments stay as plain text.
                     if (!boxesOn) continue;
@@ -1137,7 +1106,12 @@ namespace RenderDocComments.DocCommentRenderer.CommentBoxes
                     }
                     if (!hasContent) continue;
 
-                    control = CreateBox(lines, snapshot, spanStart, indent);
+                        control = CreateBox(lines, snapshot, spanStart, indent);
+                    }
+                }
+                catch
+                {
+                    control = null;   // one bad visual must not blank the file
                 }
                 if (control == null) continue;
 
@@ -1371,234 +1345,6 @@ namespace RenderDocComments.DocCommentRenderer.CommentBoxes
         }
 
         /// <summary>
-        /// Banner-specific style resolution: font (banner override → comment box
-        /// font → editor font), font size (banner override → editor size), and the
-        /// text colour and rule colour — from the banner swatches, or from the
-        /// theme's comment classification when <c>BannerUseThemeColors</c> is on.
-        /// The banner renders as text plus per-rail-style lines only — no
-        /// background band, no accent segment.
-        /// </summary>
-        private void ResolveBannerStyle(
-            out FontFamily fontFamily, out double fontSize,
-            out Brush textBrush, out Color ruleColor)
-        {
-            var opts = RenderDocOptions.Instance;
-
-            // ── Font: banner override → box font override → editor font ──────
-            string famOverride = opts.EffectiveBannerFontFamily;
-            fontFamily = null;
-            if (string.IsNullOrEmpty(famOverride))
-                famOverride = opts.EffectiveCommentBoxFontFamily;
-            if (!string.IsNullOrEmpty(famOverride))
-            {
-                try { fontFamily = new FontFamily(famOverride); }
-                catch { fontFamily = null; }
-            }
-
-            fontSize = opts.EffectiveBannerFontSize;
-            Typeface editorTypeface = null;
-            try
-            {
-                var tp = _view.FormattedLineSource?.DefaultTextProperties;
-                if (tp != null && tp.FontRenderingEmSize > 0)
-                {
-                    if (fontSize <= 0) fontSize = tp.FontRenderingEmSize;
-                    editorTypeface = tp.Typeface;
-                }
-            }
-            catch { }
-            if (fontSize <= 0) fontSize = 13.0;
-            if (fontFamily == null)
-                fontFamily = editorTypeface?.FontFamily ?? new FontFamily("Consolas");
-
-            // ── Colours ──────────────────────────────────────────────────────
-            if (opts.EffectiveBannerUseThemeColors)
-            {
-                var theme = ResolveThemeCommentBrush();
-                textBrush = theme;
-                ruleColor = SolidColorOf(theme, opts.EffectiveBannerRuleColor);
-            }
-            else
-            {
-                textBrush = Frozen(opts.EffectiveBannerTextColor);
-                ruleColor = opts.EffectiveBannerRuleColor;
-            }
-        }
-
-        /// <summary>Extracts a solid colour from a brush (theme brushes are
-        /// normally solid; gradient brushes fall back to the given colour).</summary>
-        private static Color SolidColorOf(Brush brush, Color fallback)
-            => brush is SolidColorBrush scb ? scb.Color : fallback;
-
-        /// <summary>
-        /// Builds the trailing-line element for a rail style: a fading hairline
-        /// (single), two fading hairlines (double), a picket fence (vertical
-        /// pickets joined by two rails), a sparkle trail (✦ glyphs fading out), or
-        /// a wavy line (sine polyline fading out). <paramref name="fullWidth"/>
-        /// stretches fence/wave/sparkle runs for full-width sandwich lines.
-        /// </summary>
-        private static FrameworkElement BuildTrail(RailStyle rail, Color color, double thickness, bool fullWidth)
-        {
-            double t = Math.Max(1.0, thickness);
-            switch (rail)
-            {
-                case RailStyle.Double:
-                {
-                    // Two hairlines with a modest gap, centred in the row — a
-                    // spacer of the full thickness read as one misaligned blob.
-                    var lines = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-                    double hair = Math.Max(1.0, Math.Min(2.0, t));
-                    double gap = Math.Max(2.0, Math.Min(4.0, t));
-                    for (int i = 0; i < 2; i++)
-                    {
-                        lines.Children.Add(new Border
-                        {
-                            Height = hair,
-                            Background = FadeBrush(color, 0.55),
-                        });
-                        if (i == 0)
-                            lines.Children.Add(new Border { Height = gap });
-                    }
-                    return lines;
-                }
-
-                case RailStyle.Fence:
-                {
-                    // Picket fence: full-height vertical pickets with two
-                    // horizontal rails INSET at ~18%/82% — rails flush at the
-                    // edges close the pickets into little boxes. Fades right.
-                    double railH = Math.Max(1.0, Math.Min(2.0, t * 0.5));
-                    double picketH = Math.Max(10.0, Math.Min(16.0, t * 2 + 8));
-                    double inset = picketH * 0.18;
-
-                    var pickets = new DrawingBrush
-                    {
-                        TileMode = TileMode.Tile,
-                        Viewport = new Rect(0, 0, 9, picketH),
-                        Viewbox = new Rect(0, 0, 9, picketH),
-                        ViewportUnits = BrushMappingMode.Absolute,
-                        ViewboxUnits = BrushMappingMode.Absolute,
-                        Drawing = new GeometryDrawing
-                        {
-                            Brush = Frozen(Color.FromArgb(0xC0, color.R, color.G, color.B)),
-                            Geometry = new RectangleGeometry(new Rect(0, 0, 2, picketH)),
-                        },
-                    };
-                    pickets.Freeze();
-
-                    var grid = new Grid { Height = picketH, VerticalAlignment = VerticalAlignment.Center, ClipToBounds = true };
-
-                    var picketRect = new Rectangle { Fill = pickets };
-                    grid.Children.Add(picketRect);
-
-                    var topRail = new Border
-                    {
-                        Height = railH,
-                        VerticalAlignment = VerticalAlignment.Top,
-                        Margin = new Thickness(0, inset, 0, 0),
-                        Background = FadeBrush(color, 0.65),
-                    };
-                    grid.Children.Add(topRail);
-
-                    var bottomRail = new Border
-                    {
-                        Height = railH,
-                        VerticalAlignment = VerticalAlignment.Bottom,
-                        Margin = new Thickness(0, 0, 0, inset),
-                        Background = FadeBrush(color, 0.65),
-                    };
-                    grid.Children.Add(bottomRail);
-
-                    grid.OpacityMask = FadeMask();
-                    return grid;
-                }
-
-                case RailStyle.Sparkle:
-                {
-                    var trail = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-                    int count = fullWidth ? 24 : 8;
-                    for (int i = 0; i < count; i++)
-                    {
-                        trail.Children.Add(new TextBlock
-                        {
-                            Text = "✦",
-                            FontSize = 11,
-                            Foreground = Frozen(color),
-                            Opacity = Math.Max(0.05, 0.95 - i * (0.9 / count)),
-                            Margin = new Thickness(0, 0, 7, 0),
-                        });
-                    }
-                    return trail;
-                }
-
-                case RailStyle.Wave:
-                {
-                    // Sine line, 12px period, 3px amplitude. The polyline is
-                    // REGENERATED at the trail's actual width on SizeChanged — a
-                    // fixed run stops short on wide viewports (and must not be
-                    // sampled coarsely: 3px sampling aliased the 6px period to a
-                    // flat line).
-                    var clip = new Grid { ClipToBounds = true, VerticalAlignment = VerticalAlignment.Center, Height = 8 };
-                    Polyline wave = null;
-
-                    clip.SizeChanged += (s, e) =>
-                    {
-                        double width = Math.Max(10.0, e.NewSize.Width);
-                        var points = new PointCollection();
-                        for (int x = 0; x <= width; x++)
-                            points.Add(new Point(x, 4 - 3.0 * Math.Sin(2 * Math.PI * x / 12.0)));
-                        points.Freeze();
-
-                        if (wave != null)
-                            clip.Children.Remove(wave);
-                        wave = new Polyline
-                        {
-                            Points = points,
-                            Stroke = FadeBrush(color, 0.75),
-                            StrokeThickness = Math.Min(2.5, Math.Max(1.0, t)),
-                        };
-                        clip.Children.Add(wave);
-                    };
-
-                    return clip;
-                }
-
-                default:
-                    return new Border { Height = t, Background = FadeBrush(color, 0.55), VerticalAlignment = VerticalAlignment.Center };
-            }
-        }
-
-        /// <summary>Horizontal gradient from the colour at the given alpha to
-        /// fully transparent.</summary>
-        private static Brush FadeBrush(Color color, double alpha)
-        {
-            var b = new LinearGradientBrush(
-                new GradientStopCollection
-                {
-                    new GradientStop(Color.FromArgb((byte)Math.Round(255 * alpha), color.R, color.G, color.B), 0.0),
-                    new GradientStop(Color.FromArgb(0, color.R, color.G, color.B), 1.0),
-                },
-                new Point(0, 0), new Point(1, 0));
-            b.Freeze();
-            return b;
-        }
-
-        /// <summary>Horizontal opacity mask: opaque, then fading out.</summary>
-        private static Brush FadeMask()
-        {
-            var b = new LinearGradientBrush(
-                new GradientStopCollection
-                {
-                    new GradientStop(Colors.Black, 0.0),
-                    new GradientStop(Colors.Black, 0.2),
-                    new GradientStop(Colors.Transparent, 0.97),
-                },
-                new Point(0, 0), new Point(1, 0));
-            b.Freeze();
-            return b;
-        }
-
-        /// <summary>
         /// Builds the banner visual, per the comment shape it came from:
         /// <list type="bullet">
         /// <item><description><b>Heading</b> — title + trailing rule (trail
@@ -1617,25 +1363,21 @@ namespace RenderDocComments.DocCommentRenderer.CommentBoxes
             IReadOnlyList<string> textLines, BannerStyle style, RailStyle rail,
             ITextSnapshot snapshot, int spanStart, double indentPx)
         {
-            ResolveBannerStyle(
-                out FontFamily fontFamily, out double fontSize,
+            BannerFactory.ResolveStyle(
+                _view, out FontFamily fontFamily, out double fontSize,
                 out Brush textBrush, out Color ruleColor);
             double ruleThickness = RenderDocOptions.Instance.EffectiveBannerRuleThickness;
             double barHeight = RenderDocOptions.Instance.EffectiveBannerBarHeight;
 
-            // Sandwich text keeps the comment's original casing and indentation
-            // (that layout IS the look of a file header); the other styles stay
-            // uppercase section titles.
-            bool upper = style != BannerStyle.Sandwich;
+            // Banner text keeps the comment's original casing — and sandwich
+            // text its original indentation (continuations, bullets, sub-bullets).
             var textStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
             foreach (var rawLine in textLines)
             {
-                // Keep leading whitespace — sandwich text preserves the comment's
-                // original indentation (continuations, bullets, sub-bullets).
                 if (rawLine.Trim().Length == 0) continue;
                 textStack.Children.Add(new TextBlock
                 {
-                    Text = upper ? rawLine.ToUpperInvariant() : rawLine,
+                    Text = rawLine,
                     FontFamily = fontFamily,
                     FontSize = fontSize,
                     FontWeight = FontWeights.SemiBold,

@@ -938,6 +938,14 @@
 							Content="Render banner comments as section headers"
 							Unchecked="OnBannerCommentsChanged" />
 
+						<CheckBox
+							x:Name="RegionBannersCheck"
+							Margin="0,6,0,0"
+							Checked="OnRegionBannersChanged"
+							Content="Show #region directives as banners"
+							Unchecked="OnRegionBannersChanged"
+							ToolTip="Renders #region lines as full-width banner bars with the region name; #endregion becomes a dim end-cap rule. Click a banner to collapse/expand the region via VS outlining. Works for C#, VB.NET (#Region), and C++ (#pragma region)." />
+
 						<StackPanel x:Name="BannerStylePanel" Margin="24,4,0,0">
 							<CheckBox
 								x:Name="BannerThemeColorsCheck"
