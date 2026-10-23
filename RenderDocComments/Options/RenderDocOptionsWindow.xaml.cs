@@ -658,6 +658,75 @@ namespace RenderDocComments.Options
             }
         }
 
+        // ── Comment box style ─────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Handles the comment box master toggle, applying the change and refreshing
+        /// the box-style section's enabled state.
+        /// </summary>
+        private void OnCommentBoxesChanged(object sender, RoutedEventArgs e)
+        {
+            OnSettingChanged(sender, e);
+            UpdateCommentBoxStyleEnabled();
+        }
+
+        /// <summary>
+        /// Handles the "use theme comment colours" toggle, enabling/disabling the
+        /// custom border and text swatches accordingly.
+        /// </summary>
+        private void OnCommentBoxColorsChanged(object sender, RoutedEventArgs e)
+        {
+            OnSettingChanged(sender, e);
+            UpdateCommentBoxStyleEnabled();
+        }
+
+        /// <summary>
+        /// Handles comment box font selection changes, updating the preview text
+        /// and applying the change. Index 0 ("(Editor font)") stores an empty family.
+        /// </summary>
+        private void OnCommentBoxFontChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_loading) return;
+            UpdateCommentBoxFontPreview();
+            OnSettingChanged(sender, null);
+        }
+
+        /// <summary>
+        /// Updates the comment box font preview to match the selected combo entry;
+        /// index 0 keeps the window's default font (editor-follow sentinel).
+        /// </summary>
+        private void UpdateCommentBoxFontPreview()
+        {
+            if (CommentBoxFontCombo.SelectedIndex > 0 &&
+                CommentBoxFontCombo.SelectedItem is string name)
+            {
+                try { CommentBoxFontPreview.FontFamily = new FontFamily(name); }
+                catch { CommentBoxFontPreview.FontFamily = new FontFamily("Segoe UI"); }
+            }
+            else
+            {
+                CommentBoxFontPreview.FontFamily = new FontFamily("Segoe UI");
+            }
+        }
+
+        /// <summary>
+        /// Enables or disables the comment box style controls based on the
+        /// "Enable comment box rendering" master toggle; the custom colour swatches
+        /// additionally require theme colours to be switched off. The panel lives
+        /// inside <c>PremiumOptionsPanel</c>, which is disabled and dimmed without
+        /// a licence.
+        /// </summary>
+        private void UpdateCommentBoxStyleEnabled()
+        {
+            bool enabled = CommentBoxesCheck.IsChecked == true;
+            bool customColors = enabled && CommentBoxThemeColorsCheck.IsChecked != true;
+            CommentBoxThemeColorsCheck.IsEnabled = enabled;
+            SwatchCommentBoxBorder.IsEnabled = customColors;
+            SwatchCommentBoxText.IsEnabled = customColors;
+            CommentBoxFontCombo.IsEnabled = enabled;
+            CommentBoxFontPreview.Opacity = enabled ? 1.0 : 0.45;
+        }
+
         // ── Font ──────────────────────────────────────────────────────────────────
 
         /// <summary>
@@ -1226,6 +1295,12 @@ namespace RenderDocComments.Options
             o.TagColorOverrides = string.Empty;
             o.TagsDisabled = string.Empty;
             o.TagFontFamily = string.Empty;
+
+            o.CommentBoxesEnabled = true;
+            o.CommentBoxThemeColors = true;
+            o.CommentBoxBorderColor = unchecked((int)0xFF57A64A);
+            o.CommentBoxTextColor = unchecked((int)0xFF57A64A);
+            o.CommentBoxFontFamily = string.Empty;
 
             o.CommentBoxesEnabled = true;
             o.CommentBoxThemeColors = true;
