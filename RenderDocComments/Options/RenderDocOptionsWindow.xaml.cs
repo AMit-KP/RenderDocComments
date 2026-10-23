@@ -1176,6 +1176,11 @@ namespace RenderDocComments.Options
         /// <item><description><b>Sunset:</b> Orange → Red → Dark Red.</description></item>
         /// <item><description><b>Forest:</b> Green → Dark Green → Very Dark Green.</description></item>
         /// <item><description><b>RoseGold:</b> Rose → Warm Brown → Dark Brown.</description></item>
+        /// <item><description><b>Cyberpunk:</b> Electric Cyan → Vivid Magenta → Deep Violet.</description></item>
+        /// <item><description><b>Aurora:</b> Neon Mint → Electric Cyan → Deep Midnight.</description></item>
+        /// <item><description><b>SolarFlare:</b> Amber Gold → Fiery Coral → Royal Wine.</description></item>
+        /// <item><description><b>NeonGlow:</b> Hot Pink → Electric Violet → Aqua Blue.</description></item>
+        /// <item><description><b>Cosmic:</b> Electric Violet → Indigo → Midnight Blue.</description></item>
         /// </list>
         /// <para>After applying the preset, the method refreshes all swatches and triggers a settings change.</para>
         /// </remarks>
@@ -1208,6 +1213,31 @@ namespace RenderDocComments.Options
                     _colorGrad0 = unchecked((int)0xFFE8A598);
                     _colorGrad1 = unchecked((int)0xC8C07060);
                     _colorGrad2 = unchecked((int)0x50703020);
+                    break;
+                case "Cyberpunk":
+                    _colorGrad0 = unchecked((int)0xFF00F0FF);
+                    _colorGrad1 = unchecked((int)0xC8D946EF);
+                    _colorGrad2 = unchecked((int)0x503B0764);
+                    break;
+                case "Aurora":
+                    _colorGrad0 = unchecked((int)0xFF00FF87);
+                    _colorGrad1 = unchecked((int)0xC800D2FF);
+                    _colorGrad2 = unchecked((int)0x500A192F);
+                    break;
+                case "SolarFlare":
+                    _colorGrad0 = unchecked((int)0xFFFFB800);
+                    _colorGrad1 = unchecked((int)0xC8FF3366);
+                    _colorGrad2 = unchecked((int)0x504A0E4E);
+                    break;
+                case "NeonGlow":
+                    _colorGrad0 = unchecked((int)0xFFFF007F);
+                    _colorGrad1 = unchecked((int)0xC87928CA);
+                    _colorGrad2 = unchecked((int)0x5000DFD8);
+                    break;
+                case "Cosmic":
+                    _colorGrad0 = unchecked((int)0xFFA855F7);
+                    _colorGrad1 = unchecked((int)0xC84F46E5);
+                    _colorGrad2 = unchecked((int)0x500F172A);
                     break;
             }
             RefreshAllSwatches();

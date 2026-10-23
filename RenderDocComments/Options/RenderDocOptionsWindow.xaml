@@ -831,39 +831,83 @@
 								Foreground="#E4E4E7"
 								Text="Gradient bar colours" />
 
-							<StackPanel Margin="0,0,0,8" Orientation="Horizontal">
-								<TextBlock Style="{StaticResource OptionLabel}" Text="Presets:" />
+							<WrapPanel Margin="0,0,0,8" Orientation="Horizontal">
+								<TextBlock
+									Margin="0,0,6,0"
+									VerticalAlignment="Center"
+									Style="{StaticResource OptionLabel}"
+									Text="Presets:" />
 								<Button
+									Margin="3,2"
 									Padding="9,4"
 									Click="OnGradientPresetClicked"
 									Content="Purple"
 									Style="{StaticResource SecondaryButton}"
 									Tag="Purple" />
 								<Button
+									Margin="3,2"
 									Padding="9,4"
 									Click="OnGradientPresetClicked"
 									Content="Ocean"
 									Style="{StaticResource SecondaryButton}"
 									Tag="Ocean" />
 								<Button
+									Margin="3,2"
 									Padding="9,4"
 									Click="OnGradientPresetClicked"
 									Content="Sunset"
 									Style="{StaticResource SecondaryButton}"
 									Tag="Sunset" />
 								<Button
+									Margin="3,2"
 									Padding="9,4"
 									Click="OnGradientPresetClicked"
 									Content="Forest"
 									Style="{StaticResource SecondaryButton}"
 									Tag="Forest" />
 								<Button
+									Margin="3,2"
 									Padding="9,4"
 									Click="OnGradientPresetClicked"
 									Content="Rose Gold"
 									Style="{StaticResource SecondaryButton}"
 									Tag="RoseGold" />
-							</StackPanel>
+								<Button
+									Margin="3,2"
+									Padding="9,4"
+									Click="OnGradientPresetClicked"
+									Content="Cyberpunk"
+									Style="{StaticResource SecondaryButton}"
+									Tag="Cyberpunk" />
+								<Button
+									Margin="3,2"
+									Padding="9,4"
+									Click="OnGradientPresetClicked"
+									Content="Aurora"
+									Style="{StaticResource SecondaryButton}"
+									Tag="Aurora" />
+								<Button
+									Margin="3,2"
+									Padding="9,4"
+									Click="OnGradientPresetClicked"
+									Content="Solar Flare"
+									Style="{StaticResource SecondaryButton}"
+									Tag="SolarFlare" />
+								<Button
+									Margin="3,2"
+									Padding="9,4"
+									Click="OnGradientPresetClicked"
+									Content="Neon Glow"
+									Style="{StaticResource SecondaryButton}"
+									Tag="NeonGlow" />
+								<Button
+									Margin="3,2"
+									Padding="9,4"
+									Click="OnGradientPresetClicked"
+									Content="Cosmic"
+									Style="{StaticResource SecondaryButton}"
+									Tag="Cosmic" />
+							</WrapPanel>
 
 							<StackPanel Margin="0,0,0,4" Orientation="Horizontal">
 								<Button
