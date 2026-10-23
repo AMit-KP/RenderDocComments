@@ -70,6 +70,24 @@ namespace RenderDocComments.Options
         /// </remarks>
         public bool RenderEnabled { get; set; } = true;
 
+        /// <summary>
+        /// Gets or sets whether viewport-windowed rendering is enabled. When enabled, only comments within<br/>
+        /// the visible screen area plus a buffer margin (see <see cref="ViewportBufferLines"/>) are rendered.<br/>
+        /// Default is <c>true</c>.
+        /// </summary>
+        public bool ViewportWindowingEnabled { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets the number of lines above and below the visible viewport to pre-render comments.<br/>
+        /// Default: <c>100</c>. Clamped between <c>25</c> and <c>500</c>.
+        /// </summary>
+        public int ViewportBufferLines { get; set; } = 100;
+
+        /// <summary>
+        /// Gets <see cref="ViewportBufferLines"/> clamped to [25, 500].
+        /// </summary>
+        public int ClampedViewportBufferLines => Math.Max(25, Math.Min(500, ViewportBufferLines));
+
         // ── Premium settings (disabled / ignored when PremiumUnlocked == false) ───────────
 
         /// <summary>
@@ -937,6 +955,8 @@ namespace RenderDocComments.Options
                                 ? store.GetString(CollectionPath, nameof(LicenseInstanceId)) : LicenseInstanceId;
 
                 RenderEnabled = ReadBool(store, nameof(RenderEnabled), RenderEnabled);
+                ViewportWindowingEnabled = ReadBool(store, nameof(ViewportWindowingEnabled), ViewportWindowingEnabled);
+                ViewportBufferLines = ReadInt(store, nameof(ViewportBufferLines), ViewportBufferLines);
                 AutoRefreshOnThemeChange = ReadBool(store, nameof(AutoRefreshOnThemeChange), AutoRefreshOnThemeChange);
                 GlyphToggleEnabled = ReadBool(store, nameof(GlyphToggleEnabled), GlyphToggleEnabled);
                 CustomFontFamily = store.PropertyExists(CollectionPath, nameof(CustomFontFamily))
@@ -1040,6 +1060,8 @@ namespace RenderDocComments.Options
                 store.SetString(CollectionPath, nameof(LicenseInstanceId), LicenseInstanceId ?? string.Empty);
 
                 store.SetBoolean(CollectionPath, nameof(RenderEnabled), RenderEnabled);
+                store.SetBoolean(CollectionPath, nameof(ViewportWindowingEnabled), ViewportWindowingEnabled);
+                store.SetInt32(CollectionPath, nameof(ViewportBufferLines), ViewportBufferLines);
                 store.SetBoolean(CollectionPath, nameof(AutoRefreshOnThemeChange), AutoRefreshOnThemeChange);
                 store.SetBoolean(CollectionPath, nameof(GlyphToggleEnabled), GlyphToggleEnabled);
                 store.SetString(CollectionPath, nameof(CustomFontFamily), CustomFontFamily);
