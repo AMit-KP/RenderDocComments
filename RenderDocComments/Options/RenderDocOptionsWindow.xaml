@@ -341,7 +341,7 @@
 		<!--  Small inline pill marking Premium-only features  -->
 		<Style x:Key="PremiumPill" TargetType="ContentControl">
 			<Setter Property="VerticalAlignment" Value="Center" />
-			<Setter Property="Margin" Value="8,0,0,2" />
+			<Setter Property="Margin" Value="8,0,0,6" />
 			<Setter Property="IsHitTestVisible" Value="False" />
 			<Setter Property="Focusable" Value="False" />
 			<Setter Property="Template">
@@ -355,6 +355,8 @@
 								FontSize="8"
 								FontWeight="Bold"
 								Foreground="White"
+								HorizontalAlignment="Center"
+								VerticalAlignment="Center"
 								Text="PREMIUM" />
 						</Border>
 					</ControlTemplate>
