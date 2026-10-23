@@ -320,6 +320,122 @@ namespace RenderDocComments.Options
         /// </summary>
         public string TagsDisabled { get; set; } = string.Empty;
 
+        // ── Comment boxes (plain // comments) ─────────────────────────────────────
+
+        /// <summary>
+        /// Gets or sets the master toggle for comment box rendering — plain (non-doc)
+        /// comments such as <c>// note</c> are replaced by a thin bordered box.
+        /// Requires Premium. Default: <c>true</c>.
+        /// </summary>
+        /// <remarks>
+        /// Gated by <see cref="EffectiveCommentBoxesEnabled"/> — when Premium is
+        /// locked, boxes never render regardless of this property's stored value.
+        /// Independent of <see cref="RenderEnabled"/> so users can disable doc-comment
+        /// cards without losing comment boxes, and vice versa. While effective, comment
+        /// tag pills/cards are superseded (the box replaces the whole comment).
+        /// </remarks>
+        public bool CommentBoxesEnabled { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets whether the box border and text follow the IDE's current
+        /// comment colour scheme ("Comment" classification). Requires Premium to turn
+        /// off; free tier always uses theme colours. Default: <c>true</c>.
+        /// </summary>
+        /// <remarks>
+        /// When <c>true</c> (or Premium is locked), both the border and the text use
+        /// the foreground colour the active colour theme assigns to comments.
+        /// When <c>false</c> and Premium is unlocked, the two colours below are used.
+        /// The box background always follows the editor background either way.
+        /// </remarks>
+        public bool CommentBoxThemeColors { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets the ARGB color value for the comment box border, used when
+        /// <see cref="CommentBoxThemeColors"/> is <c>false</c>. Requires Premium.
+        /// Stored as a 32-bit signed integer with bytes in ARGB order.
+        /// Default: <c>#57A64A</c> (the default Visual Studio comment green).
+        /// </summary>
+        public int CommentBoxBorderColor { get; set; } = unchecked((int)0xFF57A64A);
+
+        /// <summary>
+        /// Gets or sets the ARGB color value for the comment box text, used when
+        /// <see cref="CommentBoxThemeColors"/> is <c>false</c>. Requires Premium.
+        /// Stored as a 32-bit signed integer with bytes in ARGB order.
+        /// Default: <c>#57A64A</c> (the default Visual Studio comment green).
+        /// </summary>
+        public int CommentBoxTextColor { get; set; } = unchecked((int)0xFF57A64A);
+
+        /// <summary>
+        /// Gets or sets the font family name used for comment tag pills and cards.
+        /// An empty or whitespace value means "follow the editor font".
+        /// Requires Premium; free tier always follows the editor font.
+        /// </summary>
+        /// <remarks>
+        /// Default value: <c>string.Empty</c> (editor font).
+        /// Independent of <see cref="CustomFontFamily"/> so tag rendering can use a
+        /// different typeface than the doc comment cards.
+        /// The font family string should be a valid WPF font family name
+        /// (e.g., <c>"Consolas"</c>, <c>"Cascadia Code"</c>).
+        /// </remarks>
+        public string TagFontFamily { get; set; } = string.Empty;
+
+        // ── Comment boxes (plain // comments) ─────────────────────────────────────
+
+        /// <summary>
+        /// Gets or sets the master toggle for comment box rendering — plain (non-doc)
+        /// comments such as <c>// note</c> are replaced by a thin bordered box.
+        /// Requires Premium. Default: <c>true</c>.
+        /// </summary>
+        /// <remarks>
+        /// Gated by <see cref="EffectiveCommentBoxesEnabled"/> — when Premium is
+        /// locked, boxes never render regardless of this property's stored value.
+        /// Independent of <see cref="RenderEnabled"/> so users can disable doc-comment
+        /// cards without losing comment boxes, and vice versa. While effective, comment
+        /// tag pills/cards are superseded (the box replaces the whole comment).
+        /// </remarks>
+        public bool CommentBoxesEnabled { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets whether the box border and text follow the IDE's current
+        /// comment colour scheme ("Comment" classification). Requires Premium to turn
+        /// off; free tier always uses theme colours. Default: <c>true</c>.
+        /// </summary>
+        /// <remarks>
+        /// When <c>true</c> (or Premium is locked), both the border and the text use
+        /// the foreground colour the active colour theme assigns to comments.
+        /// When <c>false</c> and Premium is unlocked, the two colours below are used.
+        /// The box background always follows the editor background either way.
+        /// </remarks>
+        public bool CommentBoxThemeColors { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets the ARGB color value for the comment box border, used when
+        /// <see cref="CommentBoxThemeColors"/> is <c>false</c>. Requires Premium.
+        /// Stored as a 32-bit signed integer with bytes in ARGB order.
+        /// Default: <c>#57A64A</c> (the default Visual Studio comment green).
+        /// </summary>
+        public int CommentBoxBorderColor { get; set; } = unchecked((int)0xFF57A64A);
+
+        /// <summary>
+        /// Gets or sets the ARGB color value for the comment box text, used when
+        /// <see cref="CommentBoxThemeColors"/> is <c>false</c>. Requires Premium.
+        /// Stored as a 32-bit signed integer with bytes in ARGB order.
+        /// Default: <c>#57A64A</c> (the default Visual Studio comment green).
+        /// </summary>
+        public int CommentBoxTextColor { get; set; } = unchecked((int)0xFF57A64A);
+
+        /// <summary>
+        /// Gets or sets the font family name used for comment box text.
+        /// An empty or whitespace value means "follow the editor font".
+        /// Requires Premium; free tier always follows the editor font.
+        /// </summary>
+        /// <remarks>
+        /// Default value: <c>string.Empty</c> (editor font).
+        /// The font family string should be a valid WPF font family name
+        /// (e.g., <c>"Consolas"</c>, <c>"Cascadia Code"</c>).
+        /// </remarks>
+        public string CommentBoxFontFamily { get; set; } = string.Empty;
+
         /// <summary>
         /// Gets or sets the font family name used for comment tag pills and cards.
         /// An empty or whitespace value means "follow the editor font".
