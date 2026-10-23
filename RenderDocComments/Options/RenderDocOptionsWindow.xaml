@@ -968,14 +968,14 @@
 							Unchecked="OnRegionBannersChanged"
 							ToolTip="Renders #region lines as full-width banner bars with the region name; #endregion becomes a dim end-cap rule. Click a banner to collapse/expand the region via VS outlining. Works for C#, VB.NET (#Region), and C++ (#pragma region)." />
 
-						<StackPanel x:Name="BannerStylePanel" Margin="24,4,0,0">
+						<StackPanel x:Name="BannerStylePanel" Margin="0,6,0,0">
 							<CheckBox
 								x:Name="BannerThemeColorsCheck"
 								Checked="OnBannerColorsChanged"
 								Content="Use theme comment colours for banner text and rule"
 								Unchecked="OnBannerColorsChanged" />
 
-							<StackPanel Margin="0,4,0,0" Orientation="Horizontal">
+							<StackPanel Margin="24,4,0,4" Orientation="Horizontal">
 								<Button
 									x:Name="SwatchBannerText"
 									Click="OnSwatchClicked"
