@@ -1,6 +1,6 @@
 using System;
 
-namespace RenderDocComments
+namespace RenderDocComments.Options
 {
     /// <summary>
     /// Static event bus that broadcasts settings change notifications across the extension.<br/>

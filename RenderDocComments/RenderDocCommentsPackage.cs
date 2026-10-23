@@ -7,6 +7,7 @@ using Microsoft.VisualStudio.Shell.Interop;
 using Microsoft.VisualStudio.Threading;
 using Task = System.Threading.Tasks.Task;
 using RenderDocComments.CommentTagsExplorer;
+using RenderDocComments.DocCommentRenderer;
 using RenderDocComments.Licensing;
 using RenderDocComments.Options;
 using RenderDocComments.UI;

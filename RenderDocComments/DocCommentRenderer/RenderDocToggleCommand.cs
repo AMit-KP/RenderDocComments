@@ -8,7 +8,9 @@ using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.TextManager.Interop;
 
-namespace RenderDocComments
+using RenderDocComments.Options;
+
+namespace RenderDocComments.DocCommentRenderer
 {
     /// <summary>
     /// Registers and handles the toolbar toggle command that enables/disables documentation<br/>
