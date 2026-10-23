@@ -57,7 +57,8 @@
 			<Setter Property="FontSize" Value="11" />
 			<Setter Property="FontWeight" Value="SemiBold" />
 			<Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
-			<Setter Property="Margin" Value="0,0,0,8" />
+			<Setter Property="VerticalAlignment" Value="Center" />
+			<Setter Property="Margin" Value="0,1,0,0" />
 		</Style>
 		<Style x:Key="OptionLabel" TargetType="TextBlock">
 			<Setter Property="VerticalAlignment" Value="Center" />
@@ -341,7 +342,7 @@
 		<!--  Small inline pill marking Premium-only features  -->
 		<Style x:Key="PremiumPill" TargetType="ContentControl">
 			<Setter Property="VerticalAlignment" Value="Center" />
-			<Setter Property="Margin" Value="8,0,0,6" />
+			<Setter Property="Margin" Value="8,0,0,0" />
 			<Setter Property="IsHitTestVisible" Value="False" />
 			<Setter Property="Focusable" Value="False" />
 			<Setter Property="Template">
@@ -359,6 +360,108 @@
 								VerticalAlignment="Center"
 								Text="PREMIUM" />
 						</Border>
+					</ControlTemplate>
+				</Setter.Value>
+			</Setter>
+		</Style>
+
+		<!--  ================= Dark ToolTip Theme =================  -->
+		<Style TargetType="ToolTip">
+			<Setter Property="Background" Value="#1C1C20" />
+			<Setter Property="Foreground" Value="#E4E4E7" />
+			<Setter Property="BorderBrush" Value="#383842" />
+			<Setter Property="BorderThickness" Value="1" />
+			<Setter Property="Padding" Value="9,6" />
+			<Setter Property="FontSize" Value="11.5" />
+			<Setter Property="MaxWidth" Value="290" />
+			<Setter Property="Template">
+				<Setter.Value>
+					<ControlTemplate TargetType="ToolTip">
+						<Border
+							Background="{TemplateBinding Background}"
+							BorderBrush="{TemplateBinding BorderBrush}"
+							BorderThickness="{TemplateBinding BorderThickness}"
+							CornerRadius="6"
+							Padding="{TemplateBinding Padding}"
+							SnapsToDevicePixels="True">
+							<Border.Effect>
+								<DropShadowEffect
+									BlurRadius="10"
+									Direction="270"
+									Opacity="0.45"
+									ShadowDepth="3"
+									Color="#000000" />
+							</Border.Effect>
+							<TextBlock
+								FontSize="{TemplateBinding FontSize}"
+								Foreground="{TemplateBinding Foreground}"
+								Text="{TemplateBinding Content}"
+								TextWrapping="Wrap" />
+						</Border>
+					</ControlTemplate>
+				</Setter.Value>
+			</Setter>
+		</Style>
+
+		<!--  ================= InfoTip (? icon badge) =================  -->
+		<Style x:Key="InfoTip" TargetType="ContentControl">
+			<Setter Property="Width" Value="15" />
+			<Setter Property="Height" Value="15" />
+			<Setter Property="VerticalAlignment" Value="Center" />
+			<Setter Property="Margin" Value="7,0,0,0" />
+			<Setter Property="Cursor" Value="Hand" />
+			<Setter Property="Focusable" Value="False" />
+			<Setter Property="IsTabStop" Value="False" />
+			<Setter Property="ToolTipService.InitialShowDelay" Value="0" />
+			<Setter Property="ToolTipService.BetweenShowDelay" Value="0" />
+			<Setter Property="ToolTipService.ShowDuration" Value="60000" />
+			<Setter Property="Template">
+				<Setter.Value>
+					<ControlTemplate TargetType="ContentControl">
+						<Border
+							x:Name="badge"
+							Width="15"
+							Height="15"
+							CornerRadius="7.5"
+							SnapsToDevicePixels="True">
+							<Border.Background>
+								<LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+									<GradientStop Color="#8B5CF6" Offset="0" />
+									<GradientStop Color="#B15CF0" Offset="1" />
+								</LinearGradientBrush>
+							</Border.Background>
+							<Canvas Width="15" Height="15">
+								<Path
+									x:Name="mark"
+									Data="M 5.4 5.0 C 5.4 3.9 6.3 3.0 7.5 3.0 C 8.7 3.0 9.6 3.9 9.6 5.0 C 9.6 5.8 9.0 6.4 8.3 6.9 C 7.8 7.3 7.5 7.7 7.5 8.5"
+									Stroke="#FFFFFF"
+									StrokeThickness="1.5"
+									StrokeStartLineCap="Round"
+									StrokeEndLineCap="Round"
+									StrokeLineJoin="Round" />
+								<Ellipse
+									x:Name="dot"
+									Canvas.Left="6.75"
+									Canvas.Top="10.2"
+									Width="1.5"
+									Height="1.5"
+									Fill="#FFFFFF" />
+							</Canvas>
+						</Border>
+						<ControlTemplate.Triggers>
+							<Trigger Property="IsMouseOver" Value="True">
+								<Setter TargetName="badge" Property="Opacity" Value="0.85" />
+								<Setter TargetName="badge" Property="Effect">
+									<Setter.Value>
+										<DropShadowEffect
+											BlurRadius="8"
+											Color="#B15CF0"
+											Opacity="0.6"
+											ShadowDepth="0" />
+									</Setter.Value>
+								</Setter>
+							</Trigger>
+						</ControlTemplate.Triggers>
 					</ControlTemplate>
 				</Setter.Value>
 			</Setter>
@@ -403,7 +506,10 @@
 				<!--  ══ Licence  -->
 				<Border Style="{StaticResource Card}">
 					<StackPanel>
-						<TextBlock Style="{StaticResource SectionHeader}" Text="LICENCE" />
+						<StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,6">
+							<TextBlock Style="{StaticResource SectionHeader}" Text="LICENCE" />
+						</StackPanel>
+						<TextBlock Style="{StaticResource HintText}" Text="Manage your extension license status and access to Premium features." />
 
 						<StackPanel
 							Margin="0,0,0,4"
@@ -451,7 +557,10 @@
 				<!--  ══ Doc comments  -->
 				<Border Style="{StaticResource Card}">
 					<StackPanel>
-						<TextBlock Style="{StaticResource SectionHeader}" Text="DOC COMMENTS" />
+						<StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,6">
+							<TextBlock Style="{StaticResource SectionHeader}" Text="DOC COMMENTS" />
+						</StackPanel>
+						<TextBlock Style="{StaticResource HintText}" Text="Transforms XML documentation comments (/// or /** */) into formatted visual cards." />
 
 						<CheckBox
 							x:Name="RenderEnabledCheck"
@@ -465,13 +574,15 @@
 								Checked="OnViewportWindowingChanged"
 								Content="Enable viewport pre-rendering (recommended for large files)"
 								Unchecked="OnViewportWindowingChanged" />
-							<StackPanel Margin="24,6,0,2" Orientation="Horizontal">
-								<TextBlock Style="{StaticResource OptionLabel}" Text="Pre-render lines above &amp; below (50–500):" />
+							<StackPanel Margin="24,6,0,2" Orientation="Horizontal" VerticalAlignment="Center">
+								<TextBlock Style="{StaticResource OptionLabel}" Text="Pre-render lines above &amp; below (50–500):" VerticalAlignment="Center" />
 								<TextBox
 									x:Name="PreRenderLinesText"
 									Width="60"
+									VerticalAlignment="Center"
 									TextAlignment="Left"
 									TextChanged="OnPreRenderLinesTextChanged" />
+								<ContentControl Style="{StaticResource InfoTip}" ToolTip="Number of off-screen lines to pre-render above and below the visible viewport (50–500). Default is 100." />
 							</StackPanel>
 							<TextBlock
 								Margin="24,2,0,0"
@@ -483,10 +594,12 @@
 
 						<!--  Visibility mode — the margin glyph button is Premium  -->
 						<StackPanel x:Name="GlyphSectionPanel">
-							<StackPanel Orientation="Horizontal">
+							<StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,6">
 								<TextBlock Style="{StaticResource SectionHeader}" Text="VISIBILITY MODE" />
 								<ContentControl Style="{StaticResource PremiumPill}" />
+								<ContentControl Style="{StaticResource InfoTip}" ToolTip="Choose how to switch between rendered documentation cards and raw XML comments. Margin glyph mode adds an interactive toggle button in the editor margin next to each comment." />
 							</StackPanel>
+							<TextBlock Style="{StaticResource HintText}" Text="Choose how to switch between rendered documentation cards and raw XML comments." />
 							<StackPanel Margin="0,0,0,4">
 								<RadioButton
 									x:Name="CaretModeRadio"
@@ -504,10 +617,12 @@
 
 						<!--  Auto theme refresh  -->
 						<StackPanel x:Name="AutoRefreshSectionPanel">
-							<StackPanel Orientation="Horizontal">
+							<StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,6">
 								<TextBlock Style="{StaticResource SectionHeader}" Text="THEME AUTO-REFRESH" />
 								<ContentControl Style="{StaticResource PremiumPill}" />
+								<ContentControl Style="{StaticResource InfoTip}" ToolTip="Automatically adapts rendered text and card colours to match whenever the Visual Studio colour theme changes." />
 							</StackPanel>
+							<TextBlock Style="{StaticResource HintText}" Text="Automatically update rendered comment colours when the Visual Studio colour theme changes." />
 							<CheckBox
 								x:Name="AutoRefreshCheck"
 								Checked="OnSettingChanged"
@@ -519,38 +634,49 @@
 
 						<!--  Fixed width  -->
 						<StackPanel x:Name="WidthSectionPanel">
-							<StackPanel Orientation="Horizontal">
+							<StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,6">
 								<TextBlock Style="{StaticResource SectionHeader}" Text="COMMENT WIDTH" />
 								<ContentControl Style="{StaticResource PremiumPill}" />
+								<ContentControl Style="{StaticResource InfoTip}" ToolTip="Restricts rendered doc comment cards to a specified maximum width rather than spanning the editor line." />
 							</StackPanel>
+							<TextBlock Style="{StaticResource HintText}" Text="Constrain rendered comment cards to a fixed maximum width rather than spanning the editor line." />
 							<CheckBox
 								x:Name="UseFixedWidthCheck"
 								Checked="OnFixedWidthChanged"
 								Content="Use fixed width"
 								Unchecked="OnFixedWidthChanged" />
-							<StackPanel Margin="24,8,0,2" Orientation="Horizontal">
-								<TextBlock Style="{StaticResource OptionLabel}" Text="Fixed width (px):" />
+							<StackPanel Margin="24,8,0,2" Orientation="Horizontal" VerticalAlignment="Center">
+								<TextBlock Style="{StaticResource OptionLabel}" Text="Fixed width (px):" VerticalAlignment="Center" />
 								<TextBox
 									x:Name="FixedWidthText"
 									Width="70"
+									VerticalAlignment="Center"
 									TextAlignment="Left"
 									TextChanged="OnFixedWidthTextChanged" />
+								<ContentControl Style="{StaticResource InfoTip}" ToolTip="Maximum card width in pixels (minimum 200 px). Default is 700 px." />
 							</StackPanel>
+							<TextBlock
+								Margin="24,2,0,0"
+								Style="{StaticResource HintText}"
+								Text="Sets the maximum width of rendered doc comment cards in pixels. Default is 700 px." />
 						</StackPanel>
 
 						<Border Style="{StaticResource Divider}" />
 
 						<!--  Font (applies to doc comment cards)  -->
 						<StackPanel x:Name="FontSectionPanel">
-							<StackPanel Orientation="Horizontal">
+							<StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,6">
 								<TextBlock Style="{StaticResource SectionHeader}" Text="DOC COMMENT FONT" />
 								<ContentControl Style="{StaticResource PremiumPill}" />
+								<ContentControl Style="{StaticResource InfoTip}" ToolTip="Select a custom font for doc comment cards, or select '(Editor font)' to follow your Visual Studio font." />
 							</StackPanel>
-							<StackPanel Orientation="Horizontal">
-								<TextBlock Style="{StaticResource OptionLabel}" Text="Font family:" />
+							<TextBlock Style="{StaticResource HintText}" Text="Custom typography family applied to rendered documentation comment cards." />
+							<StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+								<TextBlock Style="{StaticResource OptionLabel}" Text="Font family:" VerticalAlignment="Center" />
 								<ComboBox
 									x:Name="FontFamilyCombo"
 									Width="200"
+									VerticalAlignment="Center"
 									SelectionChanged="OnFontFamilyChanged" />
 								<TextBlock
 									x:Name="FontPreviewText"
@@ -565,11 +691,13 @@
 
 						<!--  Border sides  -->
 						<StackPanel x:Name="BorderSectionPanel">
-							<StackPanel Orientation="Horizontal">
+							<StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,6">
 								<TextBlock Style="{StaticResource SectionHeader}" Text="ACCENT BAR SIDES" />
 								<ContentControl Style="{StaticResource PremiumPill}" />
+								<ContentControl Style="{StaticResource InfoTip}" ToolTip="Select which edges of the doc comment card display the decorative gradient accent bar." />
 							</StackPanel>
-							<StackPanel Orientation="Horizontal">
+							<TextBlock Style="{StaticResource HintText}" Text="Select which edges of the doc comment card display the decorative gradient accent bar." />
+							<StackPanel Orientation="Horizontal" VerticalAlignment="Center">
 								<CheckBox
 									x:Name="BorderLeftCheck"
 									Margin="0,0,18,0"
@@ -600,11 +728,12 @@
 
 						<!--  Colours  -->
 						<StackPanel x:Name="ColorsSectionPanel">
-							<StackPanel Orientation="Horizontal">
+							<StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,6">
 								<TextBlock Style="{StaticResource SectionHeader}" Text="RENDERED COLOURS" />
 								<ContentControl Style="{StaticResource PremiumPill}" />
+								<ContentControl Style="{StaticResource InfoTip}" ToolTip="Customize syntax colours and gradient accent bars. Click any swatch to open the colour picker." />
 							</StackPanel>
-							<TextBlock Style="{StaticResource HintText}" Text="Click a swatch to open the colour picker." />
+							<TextBlock Style="{StaticResource HintText}" Text="Customize syntax colours and gradient accent bars. Click any swatch to open the colour picker." />
 
 							<Grid Margin="0,0,0,4">
 								<Grid.ColumnDefinitions>
@@ -796,7 +925,11 @@
 				<!--  ══ Comment tags  -->
 				<Border Style="{StaticResource Card}">
 					<StackPanel>
-						<TextBlock Style="{StaticResource SectionHeader}" Text="COMMENT TAGS" />
+						<StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,6">
+							<TextBlock Style="{StaticResource SectionHeader}" Text="COMMENT TAGS" />
+							<ContentControl Style="{StaticResource InfoTip}" ToolTip="Highlight action tags (TODO, FIXME, NOTE, BUG, etc.) in code comments with colourful badges." />
+						</StackPanel>
+						<TextBlock Style="{StaticResource HintText}" Text="Highlight action tags (TODO, FIXME, NOTE, BUG, etc.) in code comments with colourful badges." />
 
 						<CheckBox
 							x:Name="TagBadgesCheck"
@@ -804,7 +937,7 @@
 							Content="Enable comment tag highlighting"
 							Unchecked="OnTagBadgesChanged" />
 
-						<StackPanel Margin="24,8,0,2" Orientation="Horizontal">
+						<StackPanel Margin="24,8,0,2" Orientation="Horizontal" VerticalAlignment="Center">
 							<TextBlock
 								VerticalAlignment="Center"
 								Style="{StaticResource OptionLabel}"
@@ -823,37 +956,46 @@
 								Checked="OnTagStyleChanged"
 								Content="Card"
 								GroupName="TagStyle" />
+							<ContentControl Style="{StaticResource InfoTip}" ToolTip="Choose between compact rounded pill badges or full card-style badges for comment tags." />
 						</StackPanel>
+						<TextBlock
+							Margin="24,2,0,0"
+							Style="{StaticResource HintText}"
+							Text="Choose between compact pill badges or full card-style badges for comment tags." />
 
 						<Border Style="{StaticResource Divider}" />
 
 						<!--  Scroll bar markers (Premium)  -->
 						<StackPanel x:Name="ScrollMarkersSectionPanel">
-							<StackPanel Orientation="Horizontal">
+							<StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,6">
 								<TextBlock Style="{StaticResource SectionHeader}" Text="SCROLL BAR MARKERS" />
 								<ContentControl Style="{StaticResource PremiumPill}" />
+								<ContentControl Style="{StaticResource InfoTip}" ToolTip="Paints one coloured tick per comment tag (TODO, FIXME, …) in the vertical scroll bar. Click a tick to jump to the comment." />
 							</StackPanel>
+							<TextBlock Style="{StaticResource HintText}" Text="Display indicator tick marks for comment tags along the editor's vertical scroll bar." />
 							<CheckBox
 								x:Name="ScrollMarkersCheck"
 								Checked="OnScrollMarkersChanged"
 								Content="Show tag markers in the vertical scroll bar"
-								Unchecked="OnScrollMarkersChanged"
-								ToolTip="Paints one coloured tick per comment tag (TODO, FIXME, …) in the scroll bar. Click a tick to jump to the comment." />
+								Unchecked="OnScrollMarkersChanged" />
 						</StackPanel>
 
 						<Border Style="{StaticResource Divider}" />
 
 						<!--  Tag font (Premium, applies to tag pills/cards only)  -->
 						<StackPanel x:Name="TagFontSectionPanel">
-							<StackPanel Orientation="Horizontal">
+							<StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,6">
 								<TextBlock Style="{StaticResource SectionHeader}" Text="TAG FONT" />
 								<ContentControl Style="{StaticResource PremiumPill}" />
+								<ContentControl Style="{StaticResource InfoTip}" ToolTip="Select a custom font for comment tags, or select '(Editor font)' to follow your Visual Studio font." />
 							</StackPanel>
-							<StackPanel Orientation="Horizontal">
-								<TextBlock Style="{StaticResource OptionLabel}" Text="Font:" />
+							<TextBlock Style="{StaticResource HintText}" Text="Custom typography family applied specifically to comment tag badges and cards." />
+							<StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+								<TextBlock Style="{StaticResource OptionLabel}" Text="Font:" VerticalAlignment="Center" />
 								<ComboBox
 									x:Name="TagFontCombo"
 									Width="200"
+									VerticalAlignment="Center"
 									SelectionChanged="OnTagFontChanged" />
 								<TextBlock
 									x:Name="TagFontPreview"
@@ -868,9 +1010,10 @@
 
 						<!--  Per-tag customization (Premium)  -->
 						<StackPanel x:Name="TagCustomSectionPanel">
-							<StackPanel Orientation="Horizontal">
+							<StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,6">
 								<TextBlock Style="{StaticResource SectionHeader}" Text="PER-TAG CUSTOMIZATION" />
 								<ContentControl Style="{StaticResource PremiumPill}" />
+								<ContentControl Style="{StaticResource InfoTip}" ToolTip="Per-tag visibility and colours for plain comments (TODO, FIXME, …). WARNING is an alias of WARN." />
 							</StackPanel>
 							<TextBlock Style="{StaticResource HintText}" Text="Per-tag visibility and colours for plain comments (TODO, FIXME, …). WARNING is an alias of WARN." />
 							<StackPanel x:Name="TagBadgeListPanel" Margin="0,0,0,8" />
@@ -889,9 +1032,10 @@
 				<!--  ══ Comment boxes  -->
 				<Border Style="{StaticResource Card}">
 					<StackPanel x:Name="CommentBoxSectionPanel">
-						<StackPanel Orientation="Horizontal">
+						<StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,6">
 							<TextBlock Style="{StaticResource SectionHeader}" Text="COMMENT BOXES" />
 							<ContentControl Style="{StaticResource PremiumPill}" />
+							<ContentControl Style="{StaticResource InfoTip}" ToolTip="Renders normal // comments in a thin bordered box. Default: border and text follow the IDE's comment colour; the background always follows the editor." />
 						</StackPanel>
 						<TextBlock Style="{StaticResource HintText}" Text="Renders normal // comments in a thin bordered box. Default: border and text follow the IDE's comment colour; the background always follows the editor. Single-line comments containing tags (TODO, FIXME, …) keep their tag pills/cards instead of a box; multi-line comments always box." />
 
@@ -908,7 +1052,7 @@
 							Content="Use theme comment colours for box border and text"
 							Unchecked="OnCommentBoxColorsChanged" />
 
-						<StackPanel Margin="24,4,0,4" Orientation="Horizontal">
+						<StackPanel Margin="24,4,0,4" Orientation="Horizontal" VerticalAlignment="Center">
 							<Button
 								x:Name="SwatchCommentBoxBorder"
 								Click="OnSwatchClicked"
@@ -916,6 +1060,7 @@
 								Tag="CommentBoxBorder" />
 							<TextBlock
 								Margin="8,0,18,0"
+								VerticalAlignment="Center"
 								Style="{StaticResource OptionLabel}"
 								Text="Box border" />
 							<Button
@@ -925,15 +1070,17 @@
 								Tag="CommentBoxText" />
 							<TextBlock
 								Margin="8,0,0,0"
+								VerticalAlignment="Center"
 								Style="{StaticResource OptionLabel}"
 								Text="Box text" />
 						</StackPanel>
 
-						<StackPanel Margin="0,4,0,0" Orientation="Horizontal">
-							<TextBlock Style="{StaticResource OptionLabel}" Text="Font:" />
+						<StackPanel Margin="0,4,0,0" Orientation="Horizontal" VerticalAlignment="Center">
+							<TextBlock Style="{StaticResource OptionLabel}" Text="Font:" VerticalAlignment="Center" />
 							<ComboBox
 								x:Name="CommentBoxFontCombo"
 								Width="200"
+								VerticalAlignment="Center"
 								SelectionChanged="OnCommentBoxFontChanged" />
 							<TextBlock
 								x:Name="CommentBoxFontPreview"
@@ -948,9 +1095,10 @@
 				<!--  ══ Banner comments  -->
 				<Border Style="{StaticResource Card}">
 					<StackPanel x:Name="BannerSectionPanel">
-						<StackPanel Orientation="Horizontal">
+						<StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,6">
 							<TextBlock Style="{StaticResource SectionHeader}" Text="BANNER COMMENTS" />
 							<ContentControl Style="{StaticResource PremiumPill}" />
+							<ContentControl Style="{StaticResource InfoTip}" ToolTip="Collapses banner-style comments — solid rules, flanked headings, ruled blocks, and ASCII boxes — into a slim section title with a fading rule." />
 						</StackPanel>
 						<TextBlock Style="{StaticResource HintText}" Text="Collapses banner-style comments — solid rules (// ─────), flanked headings (// ── Title ────), ruled blocks (rule / text / rule), and ASCII boxes (┌─┐, +--+) — into a slim section title with a fading rule. Works even when comment box rendering is switched off (non-banner comments then stay as plain text)." />
 
@@ -965,8 +1113,11 @@
 							Margin="0,6,0,0"
 							Checked="OnRegionBannersChanged"
 							Content="Show #region directives as banners"
-							Unchecked="OnRegionBannersChanged"
-							ToolTip="Renders #region lines as full-width banner bars with the region name; #endregion becomes a dim end-cap rule. Click a banner to collapse/expand the region via VS outlining. Works for C#, VB.NET (#Region), and C++ (#pragma region)." />
+							Unchecked="OnRegionBannersChanged" />
+						<TextBlock
+							Margin="24,2,0,0"
+							Style="{StaticResource HintText}"
+							Text="Renders #region lines as collapsible full-width banner bars in C#, VB.NET, and C++." />
 
 						<StackPanel x:Name="BannerStylePanel" Margin="0,6,0,0">
 							<CheckBox
@@ -975,7 +1126,7 @@
 								Content="Use theme comment colours for banner text and rule"
 								Unchecked="OnBannerColorsChanged" />
 
-							<StackPanel Margin="24,4,0,4" Orientation="Horizontal">
+							<StackPanel Margin="24,4,0,4" Orientation="Horizontal" VerticalAlignment="Center">
 								<Button
 									x:Name="SwatchBannerText"
 									Click="OnSwatchClicked"
@@ -983,6 +1134,7 @@
 									Tag="BannerText" />
 								<TextBlock
 									Margin="8,0,18,0"
+									VerticalAlignment="Center"
 									Style="{StaticResource OptionLabel}"
 									Text="Banner text" />
 								<Button
@@ -992,33 +1144,38 @@
 									Tag="BannerRule" />
 								<TextBlock
 									Margin="8,0,0,0"
+									VerticalAlignment="Center"
 									Style="{StaticResource OptionLabel}"
 									Text="Rule / fence / wave / box" />
 							</StackPanel>
 
-							<StackPanel Margin="0,4,0,0" Orientation="Horizontal">
-								<TextBlock Style="{StaticResource OptionLabel}" Text="Rule thickness:" />
+							<StackPanel Margin="0,4,0,0" Orientation="Horizontal" VerticalAlignment="Center">
+								<TextBlock Style="{StaticResource OptionLabel}" Text="Rule thickness:" VerticalAlignment="Center" />
 								<TextBox
 									x:Name="BannerRuleThicknessText"
 									Width="60"
-									TextChanged="OnBannerRuleThicknessChanged"
-									ToolTip="Hairline rule thickness in pixels (1–8)." />
+									VerticalAlignment="Center"
+									TextChanged="OnBannerRuleThicknessChanged" />
+								<ContentControl Style="{StaticResource InfoTip}" ToolTip="Hairline rule thickness in pixels (1–8). Default is 1." />
 								<TextBlock
 									Margin="14,0,6,0"
 									Style="{StaticResource OptionLabel}"
+									VerticalAlignment="Center"
 									Text="Bar height (0 = auto):" />
 								<TextBox
 									x:Name="BannerBarHeightText"
 									Width="60"
-									TextChanged="OnBannerBarHeightChanged"
-									ToolTip="Fixed bar height in pixels (10–80). 0 = size the bar to its text." />
+									VerticalAlignment="Center"
+									TextChanged="OnBannerBarHeightChanged" />
+								<ContentControl Style="{StaticResource InfoTip}" ToolTip="Fixed bar height in pixels (10–80). 0 = size the bar to its text." />
 							</StackPanel>
 
-							<StackPanel Margin="0,4,0,0" Orientation="Horizontal">
-								<TextBlock Style="{StaticResource OptionLabel}" Text="Font:" />
+							<StackPanel Margin="0,4,0,0" Orientation="Horizontal" VerticalAlignment="Center">
+								<TextBlock Style="{StaticResource OptionLabel}" Text="Font:" VerticalAlignment="Center" />
 								<ComboBox
 									x:Name="BannerFontCombo"
 									Width="170"
+									VerticalAlignment="Center"
 									SelectionChanged="OnBannerFontChanged" />
 								<TextBlock
 									x:Name="BannerFontPreview"
@@ -1034,8 +1191,9 @@
 								<TextBox
 									x:Name="BannerFontSizeText"
 									Width="60"
-									TextChanged="OnBannerFontSizeChanged"
-									ToolTip="Banner text size in pixels. 0 = follow the editor font size." />
+									VerticalAlignment="Center"
+									TextChanged="OnBannerFontSizeChanged" />
+								<ContentControl Style="{StaticResource InfoTip}" ToolTip="Banner font and size in pixels. 0 = follow the editor font size. Leave font on '(Box / editor font)' to match." />
 							</StackPanel>
 						</StackPanel>
 					</StackPanel>
