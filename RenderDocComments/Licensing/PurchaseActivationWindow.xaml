@@ -325,7 +325,7 @@
 							TextWrapping="Wrap" />
 					</StackPanel>
 
-					<StackPanel Margin="0" Style="{StaticResource FeatureRow}">
+					<StackPanel Style="{StaticResource FeatureRow}">
 						<Border
 							Width="16"
 							Height="16"
@@ -344,6 +344,28 @@
 						<TextBlock
 							Margin="10,0,0,0"
 							Text="Full colour customisation + gradient presets"
+							TextWrapping="Wrap" />
+					</StackPanel>
+
+					<StackPanel Margin="0" Style="{StaticResource FeatureRow}">
+						<Border
+							Width="16"
+							Height="16"
+							Margin="0,1,0,0"
+							VerticalAlignment="Top"
+							Background="{StaticResource AccentBlueSoftBrush}"
+							CornerRadius="8">
+							<Path
+								Data="M 2.5 6 L 6 9.5 L 12 2.5"
+								Stroke="{StaticResource AccentBlueBrush}"
+								StrokeEndLineCap="Round"
+								StrokeLineJoin="Round"
+								StrokeStartLineCap="Round"
+								StrokeThickness="1.6" />
+						</Border>
+						<TextBlock
+							Margin="10,0,0,0"
+							Text="Banner comments — render plain-comment section banners as slim header bars"
 							TextWrapping="Wrap" />
 					</StackPanel>
 				</StackPanel>
