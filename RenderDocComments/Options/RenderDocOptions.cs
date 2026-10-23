@@ -320,51 +320,6 @@ namespace RenderDocComments.Options
         /// </summary>
         public string TagsDisabled { get; set; } = string.Empty;
 
-        // ── Comment boxes (plain // comments) ─────────────────────────────────────
-
-        /// <summary>
-        /// Gets or sets the master toggle for comment box rendering — plain (non-doc)
-        /// comments such as <c>// note</c> are replaced by a thin bordered box.
-        /// Requires Premium. Default: <c>true</c>.
-        /// </summary>
-        /// <remarks>
-        /// Gated by <see cref="EffectiveCommentBoxesEnabled"/> — when Premium is
-        /// locked, boxes never render regardless of this property's stored value.
-        /// Independent of <see cref="RenderEnabled"/> so users can disable doc-comment
-        /// cards without losing comment boxes, and vice versa. While effective, comment
-        /// tag pills/cards are superseded (the box replaces the whole comment).
-        /// </remarks>
-        public bool CommentBoxesEnabled { get; set; } = true;
-
-        /// <summary>
-        /// Gets or sets whether the box border and text follow the IDE's current
-        /// comment colour scheme ("Comment" classification). Requires Premium to turn
-        /// off; free tier always uses theme colours. Default: <c>true</c>.
-        /// </summary>
-        /// <remarks>
-        /// When <c>true</c> (or Premium is locked), both the border and the text use
-        /// the foreground colour the active colour theme assigns to comments.
-        /// When <c>false</c> and Premium is unlocked, the two colours below are used.
-        /// The box background always follows the editor background either way.
-        /// </remarks>
-        public bool CommentBoxThemeColors { get; set; } = true;
-
-        /// <summary>
-        /// Gets or sets the ARGB color value for the comment box border, used when
-        /// <see cref="CommentBoxThemeColors"/> is <c>false</c>. Requires Premium.
-        /// Stored as a 32-bit signed integer with bytes in ARGB order.
-        /// Default: <c>#57A64A</c> (the default Visual Studio comment green).
-        /// </summary>
-        public int CommentBoxBorderColor { get; set; } = unchecked((int)0xFF57A64A);
-
-        /// <summary>
-        /// Gets or sets the ARGB color value for the comment box text, used when
-        /// <see cref="CommentBoxThemeColors"/> is <c>false</c>. Requires Premium.
-        /// Stored as a 32-bit signed integer with bytes in ARGB order.
-        /// Default: <c>#57A64A</c> (the default Visual Studio comment green).
-        /// </summary>
-        public int CommentBoxTextColor { get; set; } = unchecked((int)0xFF57A64A);
-
         /// <summary>
         /// Gets or sets the font family name used for comment tag pills and cards.
         /// An empty or whitespace value means "follow the editor font".
@@ -396,75 +351,77 @@ namespace RenderDocComments.Options
         public bool CommentBoxesEnabled { get; set; } = true;
 
         /// <summary>
-        /// Gets or sets whether the box border and text follow the IDE's current
-        /// comment colour scheme ("Comment" classification). Requires Premium to turn
-        /// off; free tier always uses theme colours. Default: <c>true</c>.
+        /// Gets or sets whether banner-style comments collapse into slim section
+        /// header bars instead of rendering as regular comment boxes. Requires
+        /// Premium. Default: <c>true</c>.
         /// </summary>
         /// <remarks>
-        /// When <c>true</c> (or Premium is locked), both the border and the text use
-        /// the foreground colour the active colour theme assigns to comments.
-        /// When <c>false</c> and Premium is unlocked, the two colours below are used.
-        /// The box background always follows the editor background either way.
+        /// Recognised banner shapes: solid fill rules (<c>// ──────</c>), flanked
+        /// headings (<c>// ---- Title ----</c>), ruled blocks (rule / text / rule),
+        /// and ASCII boxes (<c>┌─┐</c>, <c>+--+)</c>, one-line asterisk boxes).
+        /// Gated by <see cref="EffectiveBannerCommentsEnabled"/> — when Premium is
+        /// locked, banner comments never render regardless of this property's
+        /// stored value. Independent of <see cref="CommentBoxesEnabled"/>: banners
+        /// render even when comment boxes are switched off (non-banner comments
+        /// then stay as plain text).
         /// </remarks>
-        public bool CommentBoxThemeColors { get; set; } = true;
+        public bool BannerCommentsEnabled { get; set; } = true;
 
         /// <summary>
-        /// Gets or sets the ARGB color value for the comment box border, used when
-        /// <see cref="CommentBoxThemeColors"/> is <c>false</c>. Requires Premium.
+        /// Gets or sets whether banner text and the hairline rule follow the IDE's
+        /// current comment colour scheme ("Comment" classification). Requires
+        /// Premium. Default: <c>false</c> — by default banner text and rule
+        /// derive from the banner colour swatches for a cohesive monochrome look;
+        /// the theme's comment colour (often a saturated blue) can clash.
+        /// </summary>
+        public bool BannerUseThemeColors { get; set; } = false;
+
+        /// <summary>
+        /// Gets or sets the ARGB color for banner section text, used when
+        /// <see cref="BannerUseThemeColors"/> is <c>false</c>. Requires Premium.
         /// Stored as a 32-bit signed integer with bytes in ARGB order.
-        /// Default: <c>#57A64A</c> (the default Visual Studio comment green).
+        /// Default: <c>#BE6EF0</c> (the signature violet).
         /// </summary>
-        public int CommentBoxBorderColor { get; set; } = unchecked((int)0xFF57A64A);
+        public int BannerTextColor { get; set; } = unchecked((int)0xFFBE6EF0);
 
         /// <summary>
-        /// Gets or sets the ARGB color value for the comment box text, used when
-        /// <see cref="CommentBoxThemeColors"/> is <c>false</c>. Requires Premium.
-        /// Stored as a 32-bit signed integer with bytes in ARGB order.
-        /// Default: <c>#57A64A</c> (the default Visual Studio comment green).
+        /// Gets or sets the ARGB color for the banner's trailing rule, picket
+        /// fence, wave, and box outline — used when
+        /// <see cref="BannerUseThemeColors"/> is <c>false</c>.
+        /// Requires Premium. Stored as a 32-bit signed integer with bytes in ARGB
+        /// order. Default: <c>#BE6EF0</c> (the signature violet).
         /// </summary>
-        public int CommentBoxTextColor { get; set; } = unchecked((int)0xFF57A64A);
+        public int BannerRuleColor { get; set; } = unchecked((int)0xFFBE6EF0);
 
         /// <summary>
-        /// Gets or sets the font family name used for comment box text.
-        /// An empty or whitespace value means "follow the editor font".
-        /// Requires Premium; free tier always follows the editor font.
+        /// Gets or sets the banner section-text font size in device-independent
+        /// pixels. <c>0</c> follows the editor font size. Requires Premium.
+        /// Default: <c>0</c>. Clamped to <c>[6, 60]</c> on read via
+        /// <see cref="EffectiveBannerFontSize"/>.
         /// </summary>
-        /// <remarks>
-        /// Default value: <c>string.Empty</c> (editor font).
-        /// The font family string should be a valid WPF font family name
-        /// (e.g., <c>"Consolas"</c>, <c>"Cascadia Code"</c>).
-        /// </remarks>
-        public string CommentBoxFontFamily { get; set; } = string.Empty;
+        public double BannerFontSize { get; set; } = 0.0;
 
         /// <summary>
-        /// Gets or sets the font family name used for comment tag pills and cards.
-        /// An empty or whitespace value means "follow the editor font".
-        /// Requires Premium; free tier always follows the editor font.
+        /// Gets or sets the font family name used for banner section text.
+        /// An empty or whitespace value follows the comment box font, then the
+        /// editor font. Requires Premium. Default: <c>string.Empty</c>.
         /// </summary>
-        /// <remarks>
-        /// Default value: <c>string.Empty</c> (editor font).
-        /// Independent of <see cref="CustomFontFamily"/> so tag rendering can use a
-        /// different typeface than the doc comment cards.
-        /// The font family string should be a valid WPF font family name
-        /// (e.g., <c>"Consolas"</c>, <c>"Cascadia Code"</c>).
-        /// </remarks>
-        public string TagFontFamily { get; set; } = string.Empty;
-
-        // ── Comment boxes (plain // comments) ─────────────────────────────────────
+        public string BannerFontFamily { get; set; } = string.Empty;
 
         /// <summary>
-        /// Gets or sets the master toggle for comment box rendering — plain (non-doc)
-        /// comments such as <c>// note</c> are replaced by a thin bordered box.
-        /// Requires Premium. Default: <c>true</c>.
+        /// Gets or sets the banner hairline rule thickness in device-independent
+        /// pixels. Requires Premium. Default: <c>1</c>. Clamped to <c>[1, 8]</c>
+        /// on read via <see cref="EffectiveBannerRuleThickness"/>.
         /// </summary>
-        /// <remarks>
-        /// Gated by <see cref="EffectiveCommentBoxesEnabled"/> — when Premium is
-        /// locked, boxes never render regardless of this property's stored value.
-        /// Independent of <see cref="RenderEnabled"/> so users can disable doc-comment
-        /// cards without losing comment boxes, and vice versa. While effective, comment
-        /// tag pills/cards are superseded (the box replaces the whole comment).
-        /// </remarks>
-        public bool CommentBoxesEnabled { get; set; } = true;
+        public double BannerRuleThickness { get; set; } = 1.0;
+
+        /// <summary>
+        /// Gets or sets the banner bar height in device-independent pixels.
+        /// <c>0</c> sizes the bar to its content (the text height). Requires
+        /// Premium. Default: <c>0</c>.
+        /// Clamped to <c>[10, 80]</c> on read via <see cref="EffectiveBannerBarHeight"/>.
+        /// </summary>
+        public double BannerBarHeight { get; set; } = 0.0;
 
         /// <summary>
         /// Gets or sets whether the box border and text follow the IDE's current
@@ -732,6 +689,102 @@ namespace RenderDocComments.Options
         public bool EffectiveCommentBoxesEnabled => Premium && CommentBoxesEnabled;
 
         /// <summary>
+        /// Gets or sets whether <c>#region</c> directive lines render as banner
+        /// bars and <c>#endregion</c> as dim end-cap rules (C#, VB.NET, C++).
+        /// Requires Premium. Default: <c>true</c>. Independent of the comment
+        /// box/banner toggles; clicking a banner toggles the built-in outlining.
+        /// </summary>
+        public bool RegionBannersEnabled { get; set; } = true;
+
+        /// <summary>
+        /// Gets whether banner-style comments currently collapse into header
+        /// bars, respecting the Premium gate.<br/>
+        /// Returns <c>true</c> only if Premium is unlocked AND
+        /// <see cref="BannerCommentsEnabled"/> is enabled. Independent of
+        /// <see cref="EffectiveCommentBoxesEnabled"/> — banners render even when
+        /// comment boxes are switched off.
+        /// </summary>
+        public bool EffectiveBannerCommentsEnabled
+            => Premium && BannerCommentsEnabled;
+
+        /// <summary>
+        /// Gets whether <c>#region</c>/<c>#endregion</c> banners currently
+        /// render, respecting the Premium gate.<br/>
+        /// Returns <c>true</c> only if Premium is unlocked AND
+        /// <see cref="RegionBannersEnabled"/> is enabled.
+        /// </summary>
+        public bool EffectiveRegionBannersEnabled
+            => Premium && RegionBannersEnabled;
+
+        /// <summary>
+        /// Gets whether banner text and rule should follow the theme's comment
+        /// colour. Always <c>true</c> when Premium is locked; otherwise mirrors
+        /// <see cref="BannerUseThemeColors"/>.
+        /// </summary>
+        public bool EffectiveBannerUseThemeColors => !Premium || BannerUseThemeColors;
+
+        /// <summary>
+        /// Gets the effective banner section-text colour, respecting the Premium
+        /// gate.<br/>
+        /// Only consulted when <see cref="EffectiveBannerUseThemeColors"/> is
+        /// <c>false</c>.
+        /// </summary>
+        public Color EffectiveBannerTextColor => Premium
+            ? ToColor(BannerTextColor)
+            : Color.FromArgb(0xFF, 0xBE, 0x6E, 0xF0);
+
+        /// <summary>
+        /// Gets the effective banner hairline-rule colour, respecting the Premium
+        /// gate.<br/>
+        /// Only consulted when <see cref="EffectiveBannerUseThemeColors"/> is
+        /// <c>false</c>.
+        /// </summary>
+        public Color EffectiveBannerRuleColor => Premium
+            ? ToColor(BannerRuleColor)
+            : Color.FromArgb(0xFF, 0xBE, 0x6E, 0xF0);
+
+        /// <summary>
+        /// Gets the effective banner font size in DIPs, respecting the Premium
+        /// gate.<br/>
+        /// Returns <c>0</c> ("follow the editor font size") when Premium is locked
+        /// or no custom size is set; otherwise <see cref="BannerFontSize"/> clamped
+        /// to <c>[6, 60]</c>.
+        /// </summary>
+        public double EffectiveBannerFontSize
+            => Premium && BannerFontSize > 0
+               ? Math.Max(6.0, Math.Min(60.0, BannerFontSize))
+               : 0.0;
+
+        /// <summary>
+        /// Gets the effective banner font family.<br/>
+        /// Returns <see cref="BannerFontFamily"/> if Premium is unlocked and a
+        /// non-empty family is configured; otherwise <c>string.Empty</c>, which
+        /// the renderer interprets as "follow the comment box font, then the
+        /// editor font".
+        /// </summary>
+        public string EffectiveBannerFontFamily
+            => Premium && !string.IsNullOrWhiteSpace(BannerFontFamily)
+               ? BannerFontFamily
+               : string.Empty;
+
+        /// <summary>
+        /// Gets the effective banner hairline rule thickness in DIPs, clamped to
+        /// <c>[1, 8]</c>. Falls back to the 1px hairline when Premium is locked.
+        /// </summary>
+        public double EffectiveBannerRuleThickness
+            => Premium ? Math.Max(1.0, Math.Min(8.0, BannerRuleThickness)) : 1.0;
+
+        /// <summary>
+        /// Gets the effective fixed banner bar height in DIPs, clamped to
+        /// <c>[10, 80]</c>. Returns <c>0</c> ("size to content") when Premium is
+        /// locked or no fixed height is set.
+        /// </summary>
+        public double EffectiveBannerBarHeight
+            => Premium && BannerBarHeight > 0
+               ? Math.Max(10.0, Math.Min(80.0, BannerBarHeight))
+               : 0.0;
+
+        /// <summary>
         /// Gets whether comment box border/text should follow the theme's comment
         /// colour. Always <c>true</c> when Premium is locked (free tier cannot
         /// override theme colours); otherwise mirrors <see cref="CommentBoxThemeColors"/>.
@@ -930,6 +983,17 @@ namespace RenderDocComments.Options
 
                 // Comment boxes
                 CommentBoxesEnabled = ReadBool(store, nameof(CommentBoxesEnabled), CommentBoxesEnabled);
+                BannerCommentsEnabled = ReadBool(store, nameof(BannerCommentsEnabled), BannerCommentsEnabled);
+                RegionBannersEnabled = ReadBool(store, nameof(RegionBannersEnabled), RegionBannersEnabled);
+                BannerUseThemeColors = ReadBool(store, nameof(BannerUseThemeColors), BannerUseThemeColors);
+                BannerTextColor = ReadInt(store, nameof(BannerTextColor), BannerTextColor);
+                BannerRuleColor = ReadInt(store, nameof(BannerRuleColor), BannerRuleColor);
+                BannerFontSize = ReadDouble(store, nameof(BannerFontSize), BannerFontSize);
+                BannerFontFamily = store.PropertyExists(CollectionPath, nameof(BannerFontFamily))
+                                           ? store.GetString(CollectionPath, nameof(BannerFontFamily))
+                                           : BannerFontFamily;
+                BannerRuleThickness = ReadDouble(store, nameof(BannerRuleThickness), BannerRuleThickness);
+                BannerBarHeight = ReadDouble(store, nameof(BannerBarHeight), BannerBarHeight);
                 CommentBoxThemeColors = ReadBool(store, nameof(CommentBoxThemeColors), CommentBoxThemeColors);
                 CommentBoxBorderColor = ReadInt(store, nameof(CommentBoxBorderColor), CommentBoxBorderColor);
                 CommentBoxTextColor = ReadInt(store, nameof(CommentBoxTextColor), CommentBoxTextColor);
@@ -1007,6 +1071,15 @@ namespace RenderDocComments.Options
 
                 // Comment boxes
                 store.SetBoolean(CollectionPath, nameof(CommentBoxesEnabled), CommentBoxesEnabled);
+                store.SetBoolean(CollectionPath, nameof(BannerCommentsEnabled), BannerCommentsEnabled);
+                store.SetBoolean(CollectionPath, nameof(RegionBannersEnabled), RegionBannersEnabled);
+                store.SetBoolean(CollectionPath, nameof(BannerUseThemeColors), BannerUseThemeColors);
+                store.SetInt32(CollectionPath, nameof(BannerTextColor), BannerTextColor);
+                store.SetInt32(CollectionPath, nameof(BannerRuleColor), BannerRuleColor);
+                store.SetString(CollectionPath, nameof(BannerFontSize), BannerFontSize.ToString(CultureInfo.InvariantCulture));
+                store.SetString(CollectionPath, nameof(BannerFontFamily), BannerFontFamily ?? string.Empty);
+                store.SetString(CollectionPath, nameof(BannerRuleThickness), BannerRuleThickness.ToString(CultureInfo.InvariantCulture));
+                store.SetString(CollectionPath, nameof(BannerBarHeight), BannerBarHeight.ToString(CultureInfo.InvariantCulture));
                 store.SetBoolean(CollectionPath, nameof(CommentBoxThemeColors), CommentBoxThemeColors);
                 store.SetInt32(CollectionPath, nameof(CommentBoxBorderColor), CommentBoxBorderColor);
                 store.SetInt32(CollectionPath, nameof(CommentBoxTextColor), CommentBoxTextColor);

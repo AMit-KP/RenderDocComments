@@ -18,15 +18,21 @@
  *       literals (quote-parity heuristic) and doc-comment syntax (///, ''',
  *       /**, /*! , //!, (*$) which the card renderer owns. Each range records
  *       whether the comment is a full-line comment (only whitespace before the
- *       opener) and its opener/closer tokens.
- *    2. Tag-aware skip    — ranges containing renderable tag keywords (TODO,
+ *       opener) and its opener/closer tokens. One-line asterisk boxes that
+ *       merely look like doc comments are reclaimed for the banner feature.
+ *    2. Banner detection — single-line ranges whose cleaned text is a solid
+ *       fill rule or a flanked heading, multi-line ruled blocks (rule / text /
+ *       rule), and ASCII boxes collapse into slim full-width header bars
+ *       (CreateBanner) while BannerCommentsEnabled is effective. Banners win
+ *       over tag-pill eligibility and break grouping like tagged ranges do.
+ *    3. Tag-aware skip    — ranges containing renderable tag keywords (TODO,
  *       FIXME, … per the active pill/card style's eligibility rules) are left
  *       to the comment-tag feature and act as grouping barriers, so a box and
  *       a pill/card never overlap.
- *    3. Grouping          — remaining consecutive full-line line comments on
+ *    4. Grouping          — remaining consecutive full-line line comments on
  *       adjacent lines merge into one box; trailing (inline) comments and block
  *       comments always stand alone so surrounding code is never collapsed.
- *    4. Box construction — comment opener/closer/decorator tokens are stripped
+ *    5. Box construction — comment opener/closer/decorator tokens are stripped
  *       per line and the cleaned lines render inside a 1px-bordered Border whose
  *       border + text default to the theme's comment colour (customisable), and
  *       whose background always follows the editor background.
@@ -45,12 +51,15 @@
  *    CommentBoxTagger — ITagger implementation with snapshot cache.
  *
  *  Dependencies:
- *    • RenderDocOptions.cs         — EffectiveCommentBoxesEnabled, EffectiveCommentBox*.
+ *    • RenderDocOptions.cs         — EffectiveCommentBoxesEnabled,
+ *                                     EffectiveBannerCommentsEnabled, EffectiveCommentBox*.
  *    • SettingsChangedBroadcast.cs — rebuild notifications.
  *
  *  When to Edit:
  *    • Boxes appear on non-comments / miss comments — fix CollectRawRanges.
  *    • Box styling changes — CreateBox.
+ *    • Banner detection misfires — IsBannerLine / TryMatchMultiLineBanner.
+ *    • Banner styling changes — CreateBanner.
  *    • Grouping of consecutive comment lines — BuildTags.
  *    • Visibility quirks around the caret — GetTags / OnCaretPositionChanged.
  * ═══════════════════════════════════════════════════════════════════════════════ */
@@ -59,6 +68,7 @@ using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Shapes;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Classification;
@@ -67,13 +77,16 @@ using Microsoft.VisualStudio.Text.Tagging;
 using Microsoft.VisualStudio.Threading;
 using RenderDocComments.DocCommentRenderer.TagBadges;
 using RenderDocComments.DocCommentRenderer.TagScan;
+using static RenderDocComments.DocCommentRenderer.BannerFactory;
 using RenderDocComments.Options;
 
 namespace RenderDocComments.DocCommentRenderer.CommentBoxes
 {
     /// <summary>
     /// Replaces plain (non-doc) comments with thin bordered boxes across C#,
-    /// VB.NET, F#, and C++ buffers.
+    /// VB.NET, F#, and C++ buffers. Banner-shaped comments (fill rules, flanked
+    /// headings, ruled blocks, ASCII boxes) render as slim section header bars
+    /// instead of boxes when the banner toggle is effective.
     /// </summary>
     /// <remarks>
     /// <para><b>In-place replacement:</b> the whole comment region (from opener to
@@ -139,7 +152,8 @@ namespace RenderDocComments.DocCommentRenderer.CommentBoxes
 
             if (spans.Count == 0) yield break;
             if (_forceEmpty) yield break;
-            if (!RenderDocOptions.Instance.EffectiveCommentBoxesEnabled) yield break;
+            if (!RenderDocOptions.Instance.EffectiveCommentBoxesEnabled &&
+                !RenderDocOptions.Instance.EffectiveBannerCommentsEnabled) yield break;
 
             if (_buffer.Properties.TryGetProperty("RenderDocComments_Disabled", out bool disabled) && disabled)
                 yield break;
@@ -188,6 +202,9 @@ namespace RenderDocComments.DocCommentRenderer.CommentBoxes
         /// (full-line comments may merge with neighbours; trailing ones may not).
         /// <see cref="HasTag"/> marks ranges the comment-tag feature will render
         /// (pill/card) — they are never boxed and act as grouping barriers.
+        /// <see cref="IsBanner"/> marks single-line ranges whose cleaned text is a
+        /// banner (solid rule or flanked heading); they render as header bars, win
+        /// over pill eligibility, and start multi-line banner units.
         /// </summary>
         private struct RawRange
         {
@@ -198,8 +215,22 @@ namespace RenderDocComments.DocCommentRenderer.CommentBoxes
             public bool IsBlock;
             public bool IsFullLine;
             public bool HasTag;
-            public string Opener;   // "//" or "'" or "/*" or "(*"
-            public string Closer;   // "" (line) or "*/" or "*)"
+            public bool IsBanner;
+            public BannerStyle Style;
+            public RailStyle Rail;
+            public string Opener;       // "//" or "'" or "/*" or "(*"
+            public string Closer;       // "" (line) or "*/" or "*)"
+
+            /// <summary>
+            /// Single-line ranges only: cleaned comment text (opener/closer and the
+            /// conventional one-space separator stripped, trailing whitespace
+            /// trimmed, leading content whitespace kept) — the input for banner
+            /// detection and multi-line banner windows. Null for multi-line ranges.
+            /// </summary>
+            public string CleanLine;
+
+            /// <summary>Banner display text; empty for pure fill rules.</summary>
+            public List<string> BannerText;
         }
 
         /// <summary>
@@ -340,6 +371,13 @@ namespace RenderDocComments.DocCommentRenderer.CommentBoxes
                         {
                             bool isDoc = i + 2 < n && (t[i + 2] == '*' || t[i + 2] == '!');
 
+                            // A one-line asterisk box (three or more stars flanking
+                            // short text, e.g. the degenerate /*** … */) is a
+                            // decorative banner, not an XML doc comment — reclaim it
+                            // for the box/banner feature when it closes on this line.
+                            if (isDoc && t[i + 2] == '*' && IsOneLineStarBox(t, i))
+                                isDoc = false;
+
                             if (isDoc)
                             {
                                 inDocBlock = true; closer = "*/";
@@ -430,14 +468,429 @@ namespace RenderDocComments.DocCommentRenderer.CommentBoxes
             return false;
         }
 
+        // ── Banner detection ──────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Characters that count as banner "fill" when they dominate a line: the
+        /// ASCII rules (equals, dashes, asterisks, tildes, hashes, pluses) and the
+        /// box-drawing horizontals.
+        /// </summary>
+        private static bool IsRunChar(char c)
+        {
+            switch (c)
+            {
+                case '=':
+                case '-':
+                case '*':
+                case '~':
+                case '#':
+                case '+':
+                case '─':
+                case '━':
+                case '═':
+                case '┄':
+                case '┈':
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        /// <summary>
+        /// Rule 1 — solid rule: the trimmed line is at least eight characters long
+        /// and at least sixty percent of its characters are fill characters.
+        /// </summary>
+        private static bool IsSolidRule(string line)
+        {
+            string t = line.Trim();
+            if (t.Length < 8) return false;
+            int run = 0;
+            foreach (char c in t)
+            {
+                if (IsRunChar(c)) run++;
+            }
+            return run * 10 >= t.Length * 6;
+        }
+
+        /// <summary>
+        /// Rule 2 — flanked text: the line starts and ends with a fill run and the
+        /// embedded text between the rails is 1–40 characters containing no fill
+        /// characters. Rails may be as short as two characters — real-world
+        /// headings like <c>── Title ────────</c> open with a short left rail —
+        /// except that asterisk rails in line comments still need three so
+        /// markdown bold (<c>**text**</c>) never becomes a banner.
+        /// <paramref name="allowStarRails"/> (single-line block comments only)
+        /// relaxes the asterisk rails to two for the one-line box form.
+        /// <paramref name="railChar"/> reports the leading rail character on success.
+        /// </summary>
+        private static bool TryGetFlankedText(
+            string line, bool allowStarRails, out string text, out char railChar)
+        {
+            text = null;
+            railChar = '─';
+            string t = line.Trim();
+            if (t.Length == 0) return false;   // bare "//" lines — t[0] would throw
+
+            int lead = 0;
+            while (lead < t.Length && IsRunChar(t[lead])) lead++;
+            int trail = 0;
+            while (trail < t.Length - lead && IsRunChar(t[t.Length - 1 - trail])) trail++;
+
+            int minRail = t[0] == '*' && !allowStarRails ? 3 : 2;
+            if (lead < minRail || trail < minRail) return false;
+
+            string middle = t.Substring(lead, t.Length - lead - trail);
+            // Fill runs of 3+ inside the middle mean embedded rails; shorter runs
+            // are ordinary text: "-" in "per-session", "#" in "C#", "*" in "a * b".
+            int midRun = 0;
+            foreach (char c in middle)
+            {
+                if (IsRunChar(c))
+                {
+                    midRun++;
+                    if (midRun >= 3) return false;
+                }
+                else
+                {
+                    midRun = 0;
+                }
+            }
+            text = middle.Trim();
+            if (text.Length == 0 || text.Length > 40)
+            {
+                text = null;
+                return false;
+            }
+            railChar = t[0];
+            return true;
+        }
+
+        /// <summary>
+        /// Determines whether one cleaned comment line is a banner, and extracts
+        /// its display text and rail character. Flanked text is tried FIRST: a line
+        /// with text between fill rails is a text banner even when the fill
+        /// dominates the line (<c>── Title ────────</c> is mostly fill but obviously
+        /// carries a heading) — checking the solid-rule percentage first would
+        /// discard the text. Only lines with no extractable text fall through to
+        /// the solid rule (style 1), rendering as textless divider bars.
+        /// <paramref name="isBlockLine"/> enables the relaxed asterisk rails for
+        /// single-line block comments.
+        /// </summary>
+        private static bool IsBannerLine(
+            string line, bool isBlockLine, out string bannerText, out char railChar)
+        {
+            if (TryGetFlankedText(line, isBlockLine, out string text, out railChar))
+            {
+                bannerText = text;
+                return true;
+            }
+            bannerText = null;
+            string t = line.Trim();
+            if (IsSolidRule(t))
+            {
+                railChar = t.Length > 0 ? t[0] : '─';
+                return true;
+            }
+            railChar = '─';
+            return false;
+        }
+
+        /// <summary>
+        /// Cleans one comment line for banner detection: strips the closer suffix
+        /// first (block comments — before the opener, so asterisk boxes keep their
+        /// rail lengths), then the opener prefix and the conventional one-space
+        /// separator. Leading content whitespace is kept so multi-line banner text
+        /// can be dedented relative to its deepest line.
+        /// </summary>
+        private static string CleanSingleLine(
+            string text, bool isBlock, string opener, string closer)
+        {
+            string s = text.Trim();
+            if (isBlock && closer.Length > 0 && s.EndsWith(closer, StringComparison.Ordinal))
+                s = s.Substring(0, s.Length - closer.Length);
+            if (s.StartsWith(opener, StringComparison.Ordinal))
+                s = s.Substring(opener.Length);
+            if (s.StartsWith(" ")) s = s.Substring(1);
+            return s.TrimEnd();
+        }
+
+        /// <summary>
+        /// Recognises the degenerate one-line asterisk box: an opening <c>/**</c>
+        /// whose line closes with the block closer at end of line and whose content
+        /// is asterisk rails around 1–40 plain characters (three stars, spaces, a
+        /// section name, spaces, three stars). Such lines are decorative banners,
+        /// not XML doc comments, so the box/banner feature may own them.
+        /// </summary>
+        /// <param name="t">The full line text.</param>
+        /// <param name="openIdx">Index of the opening slash of the <c>/**</c> opener.</param>
+        private static bool IsOneLineStarBox(string t, int openIdx)
+        {
+            string trimmed = t.TrimEnd();
+            int j = trimmed.LastIndexOf("*/", StringComparison.Ordinal);
+            if (j < openIdx + 3 || j + 2 != trimmed.Length) return false;
+
+            string content = trimmed.Substring(openIdx + 3, j - openIdx - 3).Trim();
+            if (content.Length < 3 || content[0] != '*' || content[content.Length - 1] != '*')
+                return false;
+
+            string core = content.Trim('*').Trim();
+            if (core.Length == 0 || core.Length > 40) return false;
+            foreach (char c in core)
+            {
+                if (IsRunChar(c)) return false;
+            }
+            return true;
+        }
+
+        /// <summary>Vertical border characters recognised inside ASCII boxes.</summary>
+        private static bool IsVerticalBorder(char c)
+            => c == '│' || c == '|' || c == '┃' || c == '║';
+
+        /// <summary>
+        /// A boxed-banner middle line: starts and ends with a vertical border
+        /// character (after trimming).
+        /// </summary>
+        private static bool IsBorderedLine(string t)
+            => t.Length >= 2 && IsVerticalBorder(t[0]) && IsVerticalBorder(t[t.Length - 1]);
+
+        /// <summary>
+        /// Removes the leading/trailing vertical borders from a boxed-banner middle
+        /// line and trims the remaining text.
+        /// </summary>
+        private static string StripVerticalBorders(string t)
+        {
+            if (t.Length >= 2 && IsVerticalBorder(t[0]) && IsVerticalBorder(t[t.Length - 1]))
+                return t.Substring(1, t.Length - 2).Trim();
+            if (t.Length >= 1 && IsVerticalBorder(t[0]))
+                return t.Substring(1).Trim();
+            if (t.Length >= 1 && IsVerticalBorder(t[t.Length - 1]))
+                return t.Substring(0, t.Length - 1).Trim();
+            return t;
+        }
+
+        /// <summary>
+        /// Box edge characters. The horizontals and <c>+ = * -</c> appear on both
+        /// edges; the corners are edge-specific (top: ┌ ┬ ╭ ┐ ╮, bottom: └ ┴ ╰ ┘ ╯).
+        /// </summary>
+        private static bool IsBoxEdgeChar(char c, bool top)
+        {
+            switch (c)
+            {
+                case '─':
+                case '═':
+                case '━':
+                case '┄':
+                case '┈':
+                case '+':
+                case '=':
+                case '*':
+                case '-':
+                    return true;
+                case '┌':
+                case '┬':
+                case '╭':
+                case '┐':
+                case '╮':
+                    return top;
+                case '└':
+                case '┴':
+                case '╰':
+                case '┘':
+                case '╯':
+                    return !top;
+                default:
+                    return false;
+            }
+        }
+
+        /// <summary>
+        /// A box top/bottom edge: the line is composed only of edge characters and
+        /// spaces, with at least sixty percent edge characters.
+        /// </summary>
+        private static bool IsBoxEdge(string line, bool top)
+        {
+            string t = line.Trim();
+            if (t.Length < 4) return false;
+            int edge = 0;
+            foreach (char c in t)
+            {
+                if (c == ' ') continue;
+                if (!IsBoxEdgeChar(c, top)) return false;
+                edge++;
+            }
+            return edge * 10 >= t.Length * 6;
+        }
+
+        /// <summary>
+        /// Removes one trailing asterisk decorator from a cleaned block-comment
+        /// line (the <c>* text *</c> decoration convention keeps a trailing star
+        /// after ExtractDisplayLines strips the leading one) so ruled-block middles
+        /// stay plain prose and the star never leaks into banner text. No-op for
+        /// line-comment windows, where a trailing star is content.
+        /// </summary>
+        private static string TrimTrailingStarDecorator(string line, bool enabled)
+        {
+            if (!enabled) return line;
+            string t = line.TrimEnd();
+            if (t.Length > 0 && t[t.Length - 1] == '*')
+                t = t.Substring(0, t.Length - 1);
+            return t;
+        }
+
+        /// <summary>
+        /// A ruled-block middle line: any non-empty line that does not start with a
+        /// vertical border (bordered lines belong to the boxed banner form).
+        /// Callers guarantee the line is not a solid rule.
+        /// </summary>
+        private static bool IsProseLine(string trimmed)
+            => !IsVerticalBorder(trimmed[0]);
+
+        /// <summary>
+        /// Classifies a window of cleaned comment lines as a multi-line banner:
+        /// <list type="bullet">
+        /// <item><description><b>Ruled block</b> — first and last lines are solid
+        /// rules with 1–8 prose lines between them. A solid rule seen mid-scan
+        /// closes the block, so stacked multi-banners match one pass at a time and
+        /// the caller re-runs the remaining lines.</description></item>
+        /// <item><description><b>Boxed banner</b> — first and last lines are box
+        /// edges with 1–8 bordered (or empty) lines between them; the border
+        /// characters are stripped from the extracted text.</description></item>
+        /// </list>
+        /// Ruled blocks are tried first so prose middles never fall through to the
+        /// boxed form. On success <paramref name="consumed"/> reports how many
+        /// leading lines form the banner and <paramref name="textLines"/> holds the
+        /// cleaned display text.
+        /// </summary>
+        /// <param name="lines">Cleaned comment lines (opener tokens stripped).</param>
+        /// <param name="stripTrailingStars">Strip one trailing asterisk decorator
+        /// per line (block-comment sources, where the <c>* text *</c> decoration is
+        /// conventional).</param>
+        /// <param name="boxed">True when the match is an ASCII/unicode box
+        /// (outlined-box rendering); false for a ruled block (sandwich).</param>
+        /// <param name="railChar">Leading rail character of the first line
+        /// (drives single/double/fence/sparkle/wave line treatment).</param>
+        private static bool TryMatchMultiLineBanner(
+            IReadOnlyList<string> lines, bool stripTrailingStars,
+            out int consumed, out List<string> textLines,
+            out bool boxed, out char railChar)
+        {
+            consumed = 0;
+            textLines = null;
+            boxed = false;
+            railChar = '─';
+            if (lines.Count < 3) return false;
+
+            string first = lines[0].Trim();
+            char lead = first.Length > 0 ? first[0] : '─';
+
+            // ── Ruled block: rule / 1–40 prose lines / rule ────────────────────
+            if (IsSolidRule(lines[0]))
+            {
+                var middle = new List<string>();
+                for (int j = 1; j < lines.Count && j <= 41; j++)
+                {
+                    string cur = TrimTrailingStarDecorator(lines[j], stripTrailingStars);
+                    if (IsSolidRule(cur))
+                    {
+                        if (middle.Count == 0) break;   // adjacent rules — not a block
+                        consumed = j + 1;
+                        textLines = middle;             // original indentation kept
+                        boxed = false;
+                        railChar = lead;
+                        return true;
+                    }
+                    string probe = cur.Trim();
+                    if (probe.Length > 0)
+                    {
+                        if (!IsProseLine(probe)) break; // bordered — boxed form's job
+                        middle.Add(cur);                // leading whitespace kept
+                    }
+                }
+            }
+
+            // ── Boxed banner: top edge / 1–8 bordered lines / bottom edge ─────
+            if (IsBoxEdge(lines[0], true))
+            {
+                var middle = new List<string>();
+                for (int j = 1; j < lines.Count && j <= 41; j++)
+                {
+                    string trimmed = lines[j].Trim();
+                    if (IsBoxEdge(trimmed, false))
+                    {
+                        if (middle.Count == 0) break;   // adjacent edges — degenerate
+                        consumed = j + 1;
+                        textLines = middle;
+                        boxed = true;
+                        railChar = lead;
+                        return true;
+                    }
+                    if (trimmed.Length > 0)
+                    {
+                        if (!IsBorderedLine(trimmed)) break;
+                        string inner = StripVerticalBorders(trimmed);
+                        if (inner.Length > 0) middle.Add(inner);
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Attempts to extend the banner-marked range at <paramref name="start"/>
+        /// into a multi-line banner unit (ruled block or boxed banner) spanning the
+        /// following contiguous full-line line-comment ranges. On success the
+        /// returned unit carries the banner text and <paramref name="consumed"/>
+        /// the number of ranges absorbed; tagged, block, trailing, and multi-line
+        /// ranges stop the window exactly as they break grouping.
+        /// </summary>
+        private static bool TryBuildMultiLineBannerUnit(
+            List<RawRange> ranges, int start, out RawRange unit, out int consumed)
+        {
+            unit = default;
+            consumed = 0;
+
+            // The window cap mirrors the classifier's 1–40 middle lines plus the
+            // two rails (a closer beyond that cannot match anyway).
+            var window = new List<string> { ranges[start].CleanLine ?? string.Empty };
+            int last = start;
+            while (window.Count < 43 && last + 1 < ranges.Count)
+            {
+                var next = ranges[last + 1];
+                if (next.IsBlock || next.HasTag || !next.IsFullLine ||
+                    next.StartLine != next.EndLine ||
+                    next.StartLine != ranges[last].EndLine + 1)
+                    break;
+                window.Add(next.CleanLine ?? string.Empty);
+                last++;
+            }
+            if (window.Count < 3) return false;
+
+            if (!TryMatchMultiLineBanner(window, false, out int used, out List<string> text,
+                    out bool boxed, out char railChar))
+                return false;
+
+            var endRange = ranges[start + used - 1];
+            unit = ranges[start];
+            unit.End = endRange.End;
+            unit.EndLine = endRange.EndLine;
+            unit.IsBanner = true;
+            unit.Style = boxed ? BannerStyle.Box : BannerStyle.Sandwich;
+            unit.Rail = MapRail(railChar);
+            unit.BannerText = text;
+            consumed = used;
+            return true;
+        }
+
         // ── BuildTags ─────────────────────────────────────────────────────────────
 
         /// <summary>
-        /// Single full pass: collect raw comment ranges, mark ranges the comment-tag
-        /// feature will render, merge the remaining adjacent full-line line comments
-        /// into blocks, strip comment tokens, and emit one bordered box per block —
-        /// spanning the whole comment region so the editor collapses exactly the
-        /// comment text.
+        /// Single full pass: collect raw comment ranges, mark single-line banners
+        /// and ranges the comment-tag feature will render, merge the remaining
+        /// adjacent full-line line comments into blocks (banner lines break groups
+        /// and may extend into multi-line banner units), strip comment tokens, and
+        /// emit one header bar or bordered box per block — spanning the whole
+        /// comment region so the editor collapses exactly the comment text.
         /// </summary>
         /// <remarks>
         /// <para><b>Span safety rules:</b></para>
@@ -453,50 +906,85 @@ namespace RenderDocComments.DocCommentRenderer.CommentBoxes
         /// trailing comments and block comments always stand alone.</description></item>
         /// <item><description>Ranges containing renderable tags are left to the
         /// pill/card feature and act as grouping barriers, so a box never overlaps a
-        /// pill/card adornment.</description></item>
+        /// pill/card adornment. Banner lines win over pill eligibility — they are
+        /// marked before the tag scan and never carry a pill.</description></item>
         /// </list>
         /// </remarks>
         private IReadOnlyList<TagSpan<IntraTextAdornmentTag>> BuildTags(ITextSnapshot snapshot)
         {
             var result = new List<TagSpan<IntraTextAdornmentTag>>();
             var opts = RenderDocOptions.Instance;
+            bool bannersOn = opts.EffectiveBannerCommentsEnabled;
+            bool boxesOn = opts.EffectiveCommentBoxesEnabled;
+            if (!bannersOn && !boxesOn) return result;
 
             var lang = CommentTagLocator.GetLanguage(_buffer);
             var ranges = new List<RawRange>();
             CollectRawRanges(snapshot, lang, ranges);
 
-            // Mark SINGLE-LINE ranges the comment-tag feature will render
-            // (pills/cards) — those are not boxed. Skipped entirely when tag
-            // highlighting is off. Multi-line ranges always box: a per-line
-            // pill/card inside a boxed block would overlap the box and leave the
-            // rest of the block raw.
+            // Single-line range prep. Banners are detected FIRST so they win over
+            // pill eligibility ("// ---- TODO list ----" renders as one bar, not a
+            // pill plus a box). Everything else is marked when the comment-tag
+            // feature will render it — those ranges are not boxed. Multi-line
+            // ranges always box (or banner via block classification after
+            // grouping): a per-line pill/card inside a collapsed block would
+            // overlap the adornment and leave the rest of the block raw.
             string tagStyle = opts.TagBadgesEnabled ? opts.EffectiveTagStyle : null;
-            if (tagStyle != null)
+            if (bannersOn || tagStyle != null)
             {
                 for (int i = 0; i < ranges.Count; i++)
                 {
                     var r = ranges[i];
-                    if (r.StartLine != r.EndLine) continue;   // multi-line → box owns it
+                    if (r.StartLine != r.EndLine) continue;   // multi-line → post-grouping
                     int len = r.End - r.Start;
                     if (len <= 0) continue;
                     string text;
                     try { text = snapshot.GetText(r.Start, len); }
                     catch { continue; }
 
-                    r.HasTag = ContainsRenderableTag(
-                        snapshot, r.Start, text, r.Opener.Length, tagStyle);
-                    ranges[i] = r;
+                    if (bannersOn)
+                    {
+                        r.CleanLine = CleanSingleLine(text, r.IsBlock, r.Opener, r.Closer);
+                        if (IsBannerLine(r.CleanLine, r.IsBlock, out string bannerText, out char railChar))
+                        {
+                            r.IsBanner = true;
+                            r.Rail = MapRail(railChar);
+                            r.Style = r.IsBlock
+                                ? BannerStyle.Badge
+                                : (bannerText != null && bannerText.Length > 0
+                                    ? BannerStyle.Heading
+                                    : BannerStyle.Divider);
+                            r.BannerText = bannerText != null && bannerText.Length > 0
+                                ? new List<string> { bannerText }
+                                : new List<string>();
+                            ranges[i] = r;
+                            continue;   // banner wins over pill eligibility
+                        }
+                        ranges[i] = r;
+                    }
+
+                    if (tagStyle != null)
+                    {
+                        r.HasTag = ContainsRenderableTag(
+                            snapshot, r.Start, text, r.Opener.Length, tagStyle);
+                        ranges[i] = r;
+                    }
                 }
             }
 
             // Merge consecutive full-line line comments on adjacent lines into one
             // box; trailing comments and block comments stand alone. Tagged ranges
-            // break any open group and are never boxed.
+            // break any open group and are never boxed. Banner lines also break any
+            // open group; each then either extends into a multi-line banner unit
+            // (ruled block / boxed banner) or stands alone as a single-line bar.
             var blocks = new List<RawRange>(ranges.Count);
             RawRange open = default;
             bool hasOpen = false;
-            foreach (var r in ranges)
+            int index = 0;
+            while (index < ranges.Count)
             {
+                var r = ranges[index];
+
                 if (r.HasTag)
                 {
                     if (hasOpen)
@@ -504,6 +992,25 @@ namespace RenderDocComments.DocCommentRenderer.CommentBoxes
                         blocks.Add(open);
                         hasOpen = false;
                     }
+                    index++;
+                    continue;
+                }
+
+                if (bannersOn && r.IsBanner)
+                {
+                    if (hasOpen)
+                    {
+                        blocks.Add(open);
+                        hasOpen = false;
+                    }
+                    if (TryBuildMultiLineBannerUnit(ranges, index, out RawRange unit, out int consumed))
+                    {
+                        blocks.Add(unit);
+                        index += consumed;
+                        continue;
+                    }
+                    blocks.Add(r);
+                    index++;
                     continue;
                 }
 
@@ -513,11 +1020,13 @@ namespace RenderDocComments.DocCommentRenderer.CommentBoxes
                 {
                     open.End = r.End;
                     open.EndLine = r.EndLine;
+                    index++;
                     continue;
                 }
                 if (hasOpen) blocks.Add(open);
                 open = r;
                 hasOpen = true;
+                index++;
             }
             if (hasOpen) blocks.Add(open);
 
@@ -552,16 +1061,58 @@ namespace RenderDocComments.DocCommentRenderer.CommentBoxes
                 try { raw = snapshot.GetText(spanStart, len); }
                 catch { continue; }
 
-                var lines = ExtractDisplayLines(raw, b.IsBlock, b.Opener, b.Closer);
-
-                bool hasContent = false;
-                foreach (var t in lines)
+                // ── Banner or box ─────────────────────────────────────────────
+                // Units marked during grouping render as header bars directly.
+                // Block comments never pass through the grouping lookahead (they
+                // never merge), so they are classified here from their cleaned
+                // display lines.
+                List<string> bannerText = b.IsBanner ? b.BannerText : null;
+                BannerStyle bannerStyle = b.Style;
+                RailStyle bannerRail = b.Rail;
+                List<string> lines = null;
+                if (bannerText == null && bannersOn && b.IsBlock && multiline)
                 {
-                    if (t.Trim().Length > 0) { hasContent = true; break; }
+                    lines = ExtractDisplayLines(raw, true, b.Opener, b.Closer);
+                    if (TryMatchMultiLineBanner(lines, true, out _,
+                            out List<string> blockBanner, out bool boxed, out char railChar))
+                    {
+                        bannerText = blockBanner;
+                        bannerStyle = boxed ? BannerStyle.Box : BannerStyle.Sandwich;
+                        bannerRail = MapRail(railChar);
+                    }
                 }
-                if (!hasContent) continue;
 
-                var control = CreateBox(lines, snapshot, spanStart, indent);
+                UIElement control = null;
+                try
+                {
+                    if (bannerText != null)
+                    {
+                        control = CreateBanner(bannerText, bannerStyle, bannerRail,
+                            snapshot, spanStart, indent);
+                    }
+                    else
+                    {
+                    // Boxes are independently toggleable — with box rendering off,
+                    // non-banner comments stay as plain text.
+                    if (!boxesOn) continue;
+
+                    if (lines == null)
+                        lines = ExtractDisplayLines(raw, b.IsBlock, b.Opener, b.Closer);
+
+                    bool hasContent = false;
+                    foreach (var t in lines)
+                    {
+                        if (t.Trim().Length > 0) { hasContent = true; break; }
+                    }
+                    if (!hasContent) continue;
+
+                        control = CreateBox(lines, snapshot, spanStart, indent);
+                    }
+                }
+                catch
+                {
+                    control = null;   // one bad visual must not blank the file
+                }
                 if (control == null) continue;
 
                 var span = new SnapshotSpan(snapshot, spanStart, len);
@@ -695,6 +1246,57 @@ namespace RenderDocComments.DocCommentRenderer.CommentBoxes
         // ── Box construction ──────────────────────────────────────────────────────
 
         /// <summary>
+        /// Shared style resolution for box and banner visuals: the effective font
+        /// (option override, else the editor's font) and the colour set — text and
+        /// border from the theme's comment classification or the user overrides,
+        /// background always the editor background.
+        /// </summary>
+        private void ResolveBoxStyle(
+            out FontFamily fontFamily, out double fontSize,
+            out Brush fgBrush, out Brush borderBrush, out Brush bgBrush)
+        {
+            var opts = RenderDocOptions.Instance;
+
+            // ── Font: option override, else the editor's font ────────────────
+            string famOverride = opts.EffectiveCommentBoxFontFamily;
+            fontFamily = null;
+            if (!string.IsNullOrEmpty(famOverride))
+            {
+                try { fontFamily = new FontFamily(famOverride); }
+                catch { fontFamily = null; }
+            }
+
+            fontSize = 13.0;
+            Typeface editorTypeface = null;
+            try
+            {
+                var tp = _view.FormattedLineSource?.DefaultTextProperties;
+                if (tp != null && tp.FontRenderingEmSize > 0)
+                {
+                    fontSize = tp.FontRenderingEmSize;
+                    editorTypeface = tp.Typeface;
+                }
+            }
+            catch { }
+            if (fontFamily == null)
+                fontFamily = editorTypeface?.FontFamily ?? new FontFamily("Consolas");
+
+            // ── Colours: theme comment colour or user-picked; bg always editor ─
+            if (opts.EffectiveCommentBoxUseThemeColors)
+            {
+                var theme = ResolveThemeCommentBrush();
+                fgBrush = theme;
+                borderBrush = theme;
+            }
+            else
+            {
+                fgBrush = Frozen(opts.EffectiveCommentBoxTextColor);
+                borderBrush = Frozen(opts.EffectiveCommentBoxBorderColor);
+            }
+            bgBrush = ResolveEditorBackgroundBrush();
+        }
+
+        /// <summary>
         /// Builds the bordered box visual: 1px border in the comment colour
         /// (theme-derived or user-picked), editor-background fill, and one text row
         /// per comment line in the effective font.
@@ -710,47 +1312,9 @@ namespace RenderDocComments.DocCommentRenderer.CommentBoxes
         private UIElement CreateBox(
             IReadOnlyList<string> lines, ITextSnapshot snapshot, int spanStart, double indentPx)
         {
-            var opts = RenderDocOptions.Instance;
-
-            // ── Font: option override, else the editor's font ────────────────────
-            string famOverride = opts.EffectiveCommentBoxFontFamily;
-            FontFamily fontFamily = null;
-            if (!string.IsNullOrEmpty(famOverride))
-            {
-                try { fontFamily = new FontFamily(famOverride); }
-                catch { fontFamily = null; }
-            }
-
-            double fontSize = 13.0;
-            Typeface editorTypeface = null;
-            try
-            {
-                var tp = _view.FormattedLineSource?.DefaultTextProperties;
-                if (tp != null && tp.FontRenderingEmSize > 0)
-                {
-                    fontSize = tp.FontRenderingEmSize;
-                    editorTypeface = tp.Typeface;
-                }
-            }
-            catch { }
-            if (fontFamily == null)
-                fontFamily = editorTypeface?.FontFamily ?? new FontFamily("Consolas");
-
-            // ── Colours: theme comment colour or user-picked; bg always editor ───
-            Brush fgBrush;
-            Brush borderBrush;
-            if (opts.EffectiveCommentBoxUseThemeColors)
-            {
-                var theme = ResolveThemeCommentBrush();
-                fgBrush = theme;
-                borderBrush = theme;
-            }
-            else
-            {
-                fgBrush = Frozen(opts.EffectiveCommentBoxTextColor);
-                borderBrush = Frozen(opts.EffectiveCommentBoxBorderColor);
-            }
-            Brush bgBrush = ResolveEditorBackgroundBrush();
+            ResolveBoxStyle(
+                out FontFamily fontFamily, out double fontSize,
+                out Brush fgBrush, out Brush borderBrush, out Brush bgBrush);
 
             // ── Rows ─────────────────────────────────────────────────────────────
             var stack = new StackPanel();
@@ -778,6 +1342,147 @@ namespace RenderDocComments.DocCommentRenderer.CommentBoxes
                 HorizontalAlignment = HorizontalAlignment.Left,
                 Child = stack,
             };
+        }
+
+        /// <summary>
+        /// Builds the banner visual, per the comment shape it came from:
+        /// <list type="bullet">
+        /// <item><description><b>Heading</b> — title + trailing rule (trail
+        /// treatment per rail character: single/double line, picket fence,
+        /// sparkle trail, or wave).</description></item>
+        /// <item><description><b>Divider</b> — bare fill rule → the line only.</description></item>
+        /// <item><description><b>Sandwich</b> — ruled block → full-width line
+        /// above, stacked title lines, line below.</description></item>
+        /// <item><description><b>Box</b> — ASCII/unicode box → thin outlined box
+        /// around the title.</description></item>
+        /// <item><description><b>Badge</b> — one-line asterisk box → small pill.</description></item>
+        /// </list>
+        /// No background band, no accent segment.
+        /// </summary>
+        private UIElement CreateBanner(
+            IReadOnlyList<string> textLines, BannerStyle style, RailStyle rail,
+            ITextSnapshot snapshot, int spanStart, double indentPx)
+        {
+            BannerFactory.ResolveStyle(
+                _view, out FontFamily fontFamily, out double fontSize,
+                out Brush textBrush, out Color ruleColor);
+            double ruleThickness = RenderDocOptions.Instance.EffectiveBannerRuleThickness;
+            double barHeight = RenderDocOptions.Instance.EffectiveBannerBarHeight;
+
+            // Banner text keeps the comment's original casing — and sandwich
+            // text its original indentation (continuations, bullets, sub-bullets).
+            var textStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+            foreach (var rawLine in textLines)
+            {
+                if (rawLine.Trim().Length == 0) continue;
+                textStack.Children.Add(new TextBlock
+                {
+                    Text = rawLine,
+                    FontFamily = fontFamily,
+                    FontSize = fontSize,
+                    FontWeight = FontWeights.SemiBold,
+                    Foreground = textBrush,
+                    TextWrapping = TextWrapping.Wrap,
+                });
+            }
+
+            // A textless badge would be a hollow pill — render a divider instead.
+            if (style == BannerStyle.Badge && textStack.Children.Count == 0)
+                style = BannerStyle.Divider;
+
+            switch (style)
+            {
+                case BannerStyle.Box:
+                    return new Border
+                    {
+                        BorderBrush = Frozen(Color.FromArgb(0x8C, ruleColor.R, ruleColor.G, ruleColor.B)),
+                        BorderThickness = new Thickness(1),
+                        CornerRadius = new CornerRadius(6),
+                        Padding = new Thickness(16, 3, 16, 3),
+                        Margin = new Thickness(indentPx + 2, 0, 2, 0),
+                        HorizontalAlignment = HorizontalAlignment.Left,
+                        Child = textStack,
+                    };
+
+                case BannerStyle.Badge:
+                    return new Border
+                    {
+                        Background = Frozen(Color.FromArgb(0x29, ruleColor.R, ruleColor.G, ruleColor.B)),
+                        CornerRadius = new CornerRadius(10),
+                        Padding = new Thickness(14, 2, 14, 2),
+                        Margin = new Thickness(indentPx + 2, 0, 2, 0),
+                        HorizontalAlignment = HorizontalAlignment.Left,
+                        Child = textStack,
+                    };
+
+                case BannerStyle.Sandwich:
+                {
+                    var sandwich = new StackPanel { Margin = new Thickness(indentPx + 2, 0, 2, 0) };
+                    sandwich.Children.Add(BuildTrail(rail, ruleColor, ruleThickness, fullWidth: true));
+                    var mid = new StackPanel { Margin = new Thickness(0, 3, 0, 3) };
+                    mid.Children.Add(textStack);
+                    sandwich.Children.Add(mid);
+                    sandwich.Children.Add(BuildTrail(rail, ruleColor, ruleThickness, fullWidth: true));
+
+                    var frame = new Border
+                    {
+                        Padding = new Thickness(0, 1, 0, 1),
+                        HorizontalAlignment = HorizontalAlignment.Left,
+                        Child = sandwich,
+                    };
+                    double barWidth = ComputeMaxWidth(snapshot, spanStart, indentPx);
+                    if (!double.IsInfinity(barWidth))
+                        frame.Width = barWidth;
+                    if (barHeight > 0)
+                        frame.Height = barHeight;
+                    return frame;
+                }
+
+                default:   // Heading or Divider — title (optional) + trailing rule
+                {
+                    bool hasTitle = textStack.Children.Count > 0;
+                    var grid = new Grid { ClipToBounds = true };
+
+                    if (hasTitle)
+                    {
+                        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                        textStack.Margin = new Thickness(0, 1, 0, 1);
+                        Grid.SetColumn(textStack, 0);
+                        grid.Children.Add(textStack);
+
+                        var headingTrail = BuildTrail(rail, ruleColor, ruleThickness, fullWidth: false);
+                        headingTrail.Margin = new Thickness(14, 0, 0, 0);
+                        headingTrail.VerticalAlignment = VerticalAlignment.Center;
+                        Grid.SetColumn(headingTrail, 1);
+                        grid.Children.Add(headingTrail);
+                    }
+                    else
+                    {
+                        // Textless divider: the trail must live in a STAR column —
+                        // an Auto column collapses to the trail's zero desired
+                        // width and the line vanishes.
+                        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                        var dividerTrail = BuildTrail(rail, ruleColor, ruleThickness, fullWidth: true);
+                        Grid.SetColumn(dividerTrail, 0);
+                        grid.Children.Add(dividerTrail);
+                    }
+
+                    var border = new Border
+                    {
+                        Padding = new Thickness(0, 1, 0, 1),
+                        Margin = new Thickness(indentPx + 2, 0, 2, 0),
+                        HorizontalAlignment = HorizontalAlignment.Left,
+                        Child = grid,
+                    };
+                    double barWidth = ComputeMaxWidth(snapshot, spanStart, indentPx);
+                    if (!double.IsInfinity(barWidth))
+                        border.Width = barWidth;
+                    if (barHeight > 0)
+                        border.Height = barHeight;
+                    return border;
+                }
+            }
         }
 
         /// <summary>

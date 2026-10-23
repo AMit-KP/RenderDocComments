@@ -93,6 +93,8 @@ From here, you can toggle between **Caret-based hiding** and **Margin Glyph cont
 | **Accent Bars** | Left Side Only | **🔥 Multi-side Layout** |
 | **Color Profiles** | Default | **🌈 Full Customization** |
 | **Tag Comments Render Color** | Default | **🌈 Full Customization** |
+| **Comment Boxes (plain `//` comments)** | ❌ | **✅ Premium** |
+| **Banner Comments (section header bars)** | ❌ | **✅ Premium** |
 
 ---
 
