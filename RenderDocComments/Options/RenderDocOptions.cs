@@ -56,13 +56,17 @@ namespace RenderDocComments.Options
         // ── FREE settings (always active) ─────────────────────────────────────────
 
         /// <summary>
-        /// Gets or sets the global rendering toggle. When <c>false</c>, all documentation comment<br/>
-        /// rendering is disabled regardless of Premium status. Default is <c>true</c>.
+        /// Gets or sets the doc comment rendering toggle. When <c>false</c>, doc comment<br/>
+        /// cards (and the margin glyph buttons) are hidden regardless of Premium status.<br/>
+        /// Default is <c>true</c>.
         /// </summary>
         /// <remarks>
         /// This is a free-tier setting — always active regardless of license status.<br/>
         /// When disabled, the <see cref="DocCommentRenderer.DocCommentAdornmentTagger.GetTags"/> method<br/>
         /// yields no tags, effectively hiding all rendered documentation comments.
+        /// <para>This switch governs <b>only</b> doc comment rendering. Comment tag highlighting<br/>
+        /// (<see cref="TagBadgesEnabled"/>) and comment box rendering (<see cref="CommentBoxesEnabled"/>)<br/>
+        /// have their own master toggles and keep working when this is switched off.</para>
         /// </remarks>
         public bool RenderEnabled { get; set; } = true;
 
@@ -143,11 +147,14 @@ namespace RenderDocComments.Options
 
         /// <summary>
         /// Gets or sets the font family name used for rendered documentation text. Requires Premium.
+        /// An empty or whitespace value means "follow the editor font".
         /// </summary>
         /// <remarks>
         /// <para>Default value: <c>"Segoe UI"</c> — the Windows default UI font.</para>
         /// <para>When Premium is locked, the effective font family is always <c>"Segoe UI"</c> regardless<br/>
-        /// of this property's stored value. The effective value is exposed via <see cref="EffectiveFontFamily"/>.</para>
+        /// of this property's stored value. The effective value is exposed via <see cref="EffectiveFontFamily"/>.<br/>
+        /// An empty value (the <c>"(Editor font)"</c> combo sentinel) makes the rendered cards use the<br/>
+        /// editor's current typeface.</para>
         /// <para>The font family string should be a valid WPF font family name (e.g., <c>"Consolas"</c>,<br/>
         /// <c>"Cascadia Code"</c>, <c>"Segoe UI"</c>). WPF font fallback chains are supported<br/>
         /// (e.g., <c>"Cascadia Mono, Consolas, Courier New"</c>).</para>
@@ -296,10 +303,69 @@ namespace RenderDocComments.Options
         public string TagColorOverrides { get; set; } = string.Empty;
 
         /// <summary>
-        /// Gets or sets the comma-separated list of Premium-disabled canonical tag
+        /// Gets or sets comma-separated list of Premium-disabled canonical tag
         /// names, e.g. <c>"MAGIC,ASSUME"</c>. Empty string = all enabled.
         /// </summary>
         public string TagsDisabled { get; set; } = string.Empty;
+
+        // ── Comment boxes (plain // comments) ─────────────────────────────────────
+
+        /// <summary>
+        /// Gets or sets the master toggle for comment box rendering — plain (non-doc)
+        /// comments such as <c>// note</c> are replaced by a thin bordered box.
+        /// Requires Premium. Default: <c>true</c>.
+        /// </summary>
+        /// <remarks>
+        /// Gated by <see cref="EffectiveCommentBoxesEnabled"/> — when Premium is
+        /// locked, boxes never render regardless of this property's stored value.
+        /// Independent of <see cref="RenderEnabled"/> so users can disable doc-comment
+        /// cards without losing comment boxes, and vice versa. While effective, comment
+        /// tag pills/cards are superseded (the box replaces the whole comment).
+        /// </remarks>
+        public bool CommentBoxesEnabled { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets whether the box border and text follow the IDE's current
+        /// comment colour scheme ("Comment" classification). Requires Premium to turn
+        /// off; free tier always uses theme colours. Default: <c>true</c>.
+        /// </summary>
+        /// <remarks>
+        /// When <c>true</c> (or Premium is locked), both the border and the text use
+        /// the foreground colour the active colour theme assigns to comments.
+        /// When <c>false</c> and Premium is unlocked, the two colours below are used.
+        /// The box background always follows the editor background either way.
+        /// </remarks>
+        public bool CommentBoxThemeColors { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets the ARGB color value for the comment box border, used when
+        /// <see cref="CommentBoxThemeColors"/> is <c>false</c>. Requires Premium.
+        /// Stored as a 32-bit signed integer with bytes in ARGB order.
+        /// Default: <c>#57A64A</c> (the default Visual Studio comment green).
+        /// </summary>
+        public int CommentBoxBorderColor { get; set; } = unchecked((int)0xFF57A64A);
+
+        /// <summary>
+        /// Gets or sets the ARGB color value for the comment box text, used when
+        /// <see cref="CommentBoxThemeColors"/> is <c>false</c>. Requires Premium.
+        /// Stored as a 32-bit signed integer with bytes in ARGB order.
+        /// Default: <c>#57A64A</c> (the default Visual Studio comment green).
+        /// </summary>
+        public int CommentBoxTextColor { get; set; } = unchecked((int)0xFF57A64A);
+
+        /// <summary>
+        /// Gets or sets the font family name used for comment tag pills and cards.
+        /// An empty or whitespace value means "follow the editor font".
+        /// Requires Premium; free tier always follows the editor font.
+        /// </summary>
+        /// <remarks>
+        /// Default value: <c>string.Empty</c> (editor font).
+        /// Independent of <see cref="CustomFontFamily"/> so tag rendering can use a
+        /// different typeface than the doc comment cards.
+        /// The font family string should be a valid WPF font family name
+        /// (e.g., <c>"Consolas"</c>, <c>"Cascadia Code"</c>).
+        /// </remarks>
+        public string TagFontFamily { get; set; } = string.Empty;
 
         // ── Comment boxes (plain // comments) ─────────────────────────────────────
 
@@ -439,7 +505,9 @@ namespace RenderDocComments.Options
 
         /// <summary>
         /// Gets the effective font family for rendered documentation.<br/>
-        /// Returns <see cref="CustomFontFamily"/> if Premium is unlocked; otherwise, returns <c>"Segoe UI"</c>.
+        /// Returns <see cref="CustomFontFamily"/> if Premium is unlocked; otherwise, returns <c>"Segoe UI"</c>.<br/>
+        /// An empty result (Premium unlocked, <see cref="CustomFontFamily"/> empty) means
+        /// "follow the editor font" and is resolved by the renderer.
         /// </summary>
         public string EffectiveFontFamily => Premium ? CustomFontFamily : "Segoe UI";
 
@@ -552,6 +620,17 @@ namespace RenderDocComments.Options
         /// Gets the active rendering style for comment tags.
         /// </summary>
         public string EffectiveTagStyle => TagStyle;
+
+        /// <summary>
+        /// Gets the effective font family for comment tag pills and cards.<br/>
+        /// Returns <see cref="TagFontFamily"/> if Premium is unlocked and a non-empty
+        /// family is configured; otherwise <c>string.Empty</c>, which the tag
+        /// renderers interpret as "follow the editor font".
+        /// </summary>
+        public string EffectiveTagFontFamily
+            => Premium && !string.IsNullOrWhiteSpace(TagFontFamily)
+               ? TagFontFamily
+               : string.Empty;
 
         // ── Comment boxes: effective values ──────────────────────────────────────
 
@@ -748,6 +827,9 @@ namespace RenderDocComments.Options
                 TagsDisabled = store.PropertyExists(CollectionPath, nameof(TagsDisabled))
                                             ? store.GetString(CollectionPath, nameof(TagsDisabled))
                                             : TagsDisabled;
+                TagFontFamily = store.PropertyExists(CollectionPath, nameof(TagFontFamily))
+                                            ? store.GetString(CollectionPath, nameof(TagFontFamily))
+                                            : TagFontFamily;
                 CommentExplorerView = store.PropertyExists(CollectionPath, nameof(CommentExplorerView))
                                             ? store.GetString(CollectionPath, nameof(CommentExplorerView))
                                             : CommentExplorerView;
@@ -827,6 +909,7 @@ namespace RenderDocComments.Options
                 store.SetString(CollectionPath, nameof(TagStyle), TagStyle ?? string.Empty);
                 store.SetString(CollectionPath, nameof(TagColorOverrides), TagColorOverrides ?? string.Empty);
                 store.SetString(CollectionPath, nameof(TagsDisabled), TagsDisabled ?? string.Empty);
+                store.SetString(CollectionPath, nameof(TagFontFamily), TagFontFamily ?? string.Empty);
                 store.SetString(CollectionPath, nameof(CommentExplorerView), CommentExplorerView ?? "Tags");
                 store.SetString(CollectionPath, nameof(CollapsedTags), CollapsedTags ?? string.Empty);
 

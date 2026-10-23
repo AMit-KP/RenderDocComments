@@ -111,7 +111,7 @@ namespace RenderDocComments.Options
         /// <item><description>Populates the font family combo box with all available system fonts (sorted alphabetically).</description></item>
         /// <item><description>Calls <see cref="LoadFromOptions"/> to populate all controls from <see cref="RenderDocOptions.Instance"/>.</description></item>
         /// <item><description>Calls <see cref="RefreshLicenceBadge"/> to update the license status indicator.</description></item>
-        /// <item><description>Calls <see cref="RefreshPremiumPanelEnabled"/> to disable/dim premium controls if not licensed.</description></item>
+        /// <item><description>Calls <see cref="RefreshSectionStates"/> to disable/dim premium sections if not licensed.</description></item>
         /// <item><description>Resets <see cref="_loading"/> to <c>false</c> to enable user interactions.</description></item>
         /// </list>
         /// </remarks>
@@ -119,20 +119,27 @@ namespace RenderDocComments.Options
         {
             _loading = true;
 
+            // Index 0 is a sentinel meaning "follow the editor font".
             FontFamilyCombo.Items.Clear();
+            FontFamilyCombo.Items.Add("(Editor font)");
             foreach (var ff in Fonts.SystemFontFamilies.OrderBy(f => f.Source))
                 FontFamilyCombo.Items.Add(ff.Source);
 
-            // Index 0 is a sentinel meaning "follow the editor font".
             CommentBoxFontCombo.Items.Clear();
             CommentBoxFontCombo.Items.Add("(Editor font)");
             foreach (var ff in Fonts.SystemFontFamilies.OrderBy(f => f.Source))
                 CommentBoxFontCombo.Items.Add(ff.Source);
 
+            // Index 0 is a sentinel meaning "follow the editor font".
+            TagFontCombo.Items.Clear();
+            TagFontCombo.Items.Add("(Editor font)");
+            foreach (var ff in Fonts.SystemFontFamilies.OrderBy(f => f.Source))
+                TagFontCombo.Items.Add(ff.Source);
+
             LoadFromOptions();
             _initialTagBadgesEnabled = RenderDocOptions.Instance.TagBadgesEnabled;
             RefreshLicenceBadge();
-            RefreshPremiumPanelEnabled();
+            RefreshSectionStates();
 
             _loading = false;
         }
@@ -156,7 +163,10 @@ namespace RenderDocComments.Options
             GlyphModeRadio.IsChecked = o.GlyphToggleEnabled;
             CaretModeRadio.IsChecked = !o.GlyphToggleEnabled;
 
-            int idx = FontFamilyCombo.Items.IndexOf(o.CustomFontFamily);
+            // Index 0 ("(Editor font)") maps to an empty stored family.
+            int idx = string.IsNullOrWhiteSpace(o.CustomFontFamily)
+                ? 0
+                : FontFamilyCombo.Items.IndexOf(o.CustomFontFamily);
             FontFamilyCombo.SelectedIndex = idx >= 0 ? idx : 0;
             UpdateFontPreview();
 
@@ -183,6 +193,12 @@ namespace RenderDocComments.Options
 
             TagPillsRadio.IsChecked = o.TagStyle == "Pills";
             TagCardsRadio.IsChecked = o.TagStyle == "Cards";
+
+            int tagFontIdx = string.IsNullOrWhiteSpace(o.TagFontFamily)
+                ? 0
+                : TagFontCombo.Items.IndexOf(o.TagFontFamily);
+            TagFontCombo.SelectedIndex = tagFontIdx >= 0 ? tagFontIdx : 0;
+            UpdateTagFontPreview();
 
             CommentBoxesCheck.IsChecked = o.CommentBoxesEnabled;
             CommentBoxThemeColorsCheck.IsChecked = o.CommentBoxThemeColors;
@@ -214,8 +230,7 @@ namespace RenderDocComments.Options
             BuildTagBadgeRows();
 
             RefreshAllSwatches();
-            UpdateTagStyleEnabled();
-            UpdateCommentBoxStyleEnabled();
+            RefreshSectionStates();
         }
 
         /// <summary>
@@ -248,19 +263,54 @@ namespace RenderDocComments.Options
         }
 
         /// <summary>
-        /// Enables or disables the premium options panel based on the current license status.<br/>
-        /// When Premium is locked, the panel is disabled and dimmed (45% opacity).
+        /// Recomputes the enabled/opacity state of every options section from the<br/>
+        /// current licence status and the feature master toggles.<br/>
+        /// A section is disabled and dimmed either because it is Premium-only and no<br/>
+        /// licence is active, or because its feature's master toggle is switched off.
         /// </summary>
-        /// <remarks>
-        /// <para>This method is called during window initialization and after any license<br/>
-        /// state change (activation/deactivation) to ensure the UI reflects the current<br/>
-        /// license status.</para>
-        /// </remarks>
-        private void RefreshPremiumPanelEnabled()
+        private void RefreshSectionStates()
         {
-            bool Premium = LicenseManager.PremiumUnlocked;
-            PremiumOptionsPanel.IsEnabled = Premium;
-            PremiumOptionsPanel.Opacity = Premium ? 1.0 : 0.45;
+            bool premium = LicenseManager.PremiumUnlocked;
+            bool docRenderEnabled = RenderEnabledCheck.IsChecked == true;
+            bool tagsEnabled = TagBadgesCheck.IsChecked == true;
+            bool boxesEnabled = CommentBoxesCheck.IsChecked == true;
+            bool boxCustomColors = boxesEnabled && CommentBoxThemeColorsCheck.IsChecked != true;
+
+            // Doc-comment sections — require the master toggle; additionally
+            // Premium-gated.
+            SetSectionState(GlyphSectionPanel, docRenderEnabled && premium);
+            SetSectionState(AutoRefreshSectionPanel, docRenderEnabled && premium);
+            SetSectionState(WidthSectionPanel, docRenderEnabled && premium);
+            SetSectionState(FontSectionPanel, docRenderEnabled && premium);
+            SetSectionState(BorderSectionPanel, docRenderEnabled && premium);
+            SetSectionState(ColorsSectionPanel, docRenderEnabled && premium);
+
+            // Comment tags — master toggle and style are free; tag font and
+            // per-tag list are Premium.
+            TagPillsRadio.IsEnabled = tagsEnabled;
+            TagCardsRadio.IsEnabled = tagsEnabled;
+            SetSectionState(TagFontSectionPanel, premium && tagsEnabled);
+            SetSectionState(TagCustomSectionPanel, premium && tagsEnabled);
+
+            // Comment boxes — the whole feature is Premium-gated; the custom colour
+            // swatches additionally require theme colours to be switched off.
+            SetSectionState(CommentBoxSectionPanel, premium);
+            CommentBoxThemeColorsCheck.IsEnabled = boxesEnabled;
+            SwatchCommentBoxBorder.IsEnabled = boxCustomColors;
+            SwatchCommentBoxText.IsEnabled = boxCustomColors;
+            CommentBoxFontCombo.IsEnabled = boxesEnabled;
+            CommentBoxFontPreview.Opacity = boxesEnabled ? 1.0 : 0.45;
+        }
+
+        /// <summary>
+        /// Applies a computed enabled state to a section panel, dimming it when disabled.
+        /// </summary>
+        /// <param name="panel">The section panel to update.</param>
+        /// <param name="enabled">Whether the section should be interactive.</param>
+        private static void SetSectionState(System.Windows.Controls.Panel panel, bool enabled)
+        {
+            panel.IsEnabled = enabled;
+            panel.Opacity = enabled ? 1.0 : 0.45;
         }
 
         // ── Licence actions ───────────────────────────────────────────────────────
@@ -288,7 +338,7 @@ namespace RenderDocComments.Options
             win.LicenseActivated += (s, args) =>
             {
                 RefreshLicenceBadge();
-                RefreshPremiumPanelEnabled();
+                RefreshSectionStates();
                 ShowLicenseMessage("Premium activated — Thank you ❤️ for your purchase!", isError: false);
             };
             win.ShowDialog();
@@ -321,7 +371,7 @@ namespace RenderDocComments.Options
             });
             RenderDocOptions.Instance.Save(_serviceProvider);
             RefreshLicenceBadge();
-            RefreshPremiumPanelEnabled();
+            RefreshSectionStates();
             ShowLicenseMessage("Premium licence deactivated.", isError: false);
         }
 
@@ -391,7 +441,10 @@ namespace RenderDocComments.Options
             o.RenderEnabled = RenderEnabledCheck.IsChecked == true;
             o.AutoRefreshOnThemeChange = AutoRefreshCheck.IsChecked == true;
             o.GlyphToggleEnabled = GlyphModeRadio.IsChecked == true;
-            o.CustomFontFamily = FontFamilyCombo.SelectedItem?.ToString() ?? "Segoe UI";
+            // Index 0 ("(Editor font)") stores an empty family.
+            o.CustomFontFamily = FontFamilyCombo.SelectedIndex > 0
+                ? (FontFamilyCombo.SelectedItem?.ToString() ?? "Segoe UI")
+                : string.Empty;
             o.BorderLeft = BorderLeftCheck.IsChecked == true;
             o.BorderTop = BorderTopCheck.IsChecked == true;
             o.BorderRight = BorderRightCheck.IsChecked == true;
@@ -411,6 +464,9 @@ namespace RenderDocComments.Options
             o.TagStyle = TagCardsRadio.IsChecked == true ? "Cards" : "Pills";
             o.TagColorOverrides = SerializeTagColorOverrides();
             o.TagsDisabled = SerializeDisabledTags();
+            o.TagFontFamily = TagFontCombo.SelectedIndex > 0
+                ? (TagFontCombo.SelectedItem?.ToString() ?? string.Empty)
+                : string.Empty;
 
             o.CommentBoxesEnabled = CommentBoxesCheck.IsChecked == true;
             o.CommentBoxThemeColors = CommentBoxThemeColorsCheck.IsChecked == true;
@@ -503,29 +559,103 @@ namespace RenderDocComments.Options
         }
 
         /// <summary>
-        /// Handles the comment tag master toggle, applying the change and disabling
-        /// the style radio buttons whenever tag rendering is switched off.
+        /// Handles the doc comment master toggle, applying the change and
+        /// refreshing every doc-comment section (visibility mode through
+        /// gradient bar colours), which are disabled while rendering is off.
+        /// </summary>
+        private void OnRenderEnabledChanged(object sender, RoutedEventArgs e)
+        {
+            OnSettingChanged(sender, e);
+            RefreshSectionStates();
+        }
+
+        /// <summary>
+        /// Handles the tag font combo selection changes (index 0 = editor font
+        /// sentinel), updating the preview and applying the change.
+        /// </summary>
+        private void OnTagFontChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_loading) return;
+            UpdateTagFontPreview();
+            OnSettingChanged(sender, null);
+        }
+
+        /// <summary>
+        /// Updates the tag font preview to match the selected combo entry;
+        /// index 0 keeps the window's default font (editor-follow sentinel).
+        /// </summary>
+        private void UpdateTagFontPreview()
+        {
+            if (TagFontCombo.SelectedIndex > 0 && TagFontCombo.SelectedItem is string name)
+            {
+                try { TagFontPreview.FontFamily = new FontFamily(name); }
+                catch { TagFontPreview.FontFamily = new FontFamily("Segoe UI"); }
+            }
+            else
+            {
+                TagFontPreview.FontFamily = new FontFamily("Segoe UI");
+            }
+        }
+
+        /// <summary>
+        /// Handles the comment tag master toggle, applying the change and refreshing
+        /// the Pills/Cards radio buttons and per-tag customization section.
         /// </summary>
         private void OnTagBadgesChanged(object sender, RoutedEventArgs e)
         {
             OnSettingChanged(sender, e);
-            UpdateTagStyleEnabled();
+            RefreshSectionStates();
+        }
+
+        // ── Comment box style ─────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Handles the comment box master toggle, applying the change and refreshing
+        /// the box-style section's enabled state.
+        /// </summary>
+        private void OnCommentBoxesChanged(object sender, RoutedEventArgs e)
+        {
+            OnSettingChanged(sender, e);
+            RefreshSectionStates();
         }
 
         /// <summary>
-        /// Enables or disables the Pills/Cards style radio buttons and the
-        /// per-tag colour section based on the "Enable comment tag highlighting"
-        /// master toggle. Comment boxes suppress pills only at runtime (they would
-        /// overlap); the tag controls themselves stay configurable regardless of
-        /// the comment-box checkbox.
+        /// Handles the "use theme comment colours" toggle, enabling/disabling the
+        /// custom border and text swatches accordingly.
         /// </summary>
-        private void UpdateTagStyleEnabled()
+        private void OnCommentBoxColorsChanged(object sender, RoutedEventArgs e)
         {
-            bool enabled = TagBadgesCheck.IsChecked == true;
-            TagPillsRadio.IsEnabled = enabled;
-            TagCardsRadio.IsEnabled = enabled;
-            TagBadgeSectionPanel.IsEnabled = enabled;
-            TagBadgeSectionPanel.Opacity = enabled ? 1.0 : 0.45;
+            OnSettingChanged(sender, e);
+            RefreshSectionStates();
+        }
+
+        /// <summary>
+        /// Handles comment box font selection changes, updating the preview text
+        /// and applying the change. Index 0 ("(Editor font)") stores an empty family.
+        /// </summary>
+        private void OnCommentBoxFontChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_loading) return;
+            UpdateCommentBoxFontPreview();
+            OnSettingChanged(sender, null);
+        }
+
+        /// <summary>
+        /// Updates the comment box font preview to match the selected combo entry;
+        /// index 0 keeps the window's default font (editor-follow sentinel).
+        /// </summary>
+        private void UpdateCommentBoxFontPreview()
+        {
+            if (CommentBoxFontCombo.SelectedIndex > 0 &&
+                CommentBoxFontCombo.SelectedItem is string name)
+            {
+                try { CommentBoxFontPreview.FontFamily = new FontFamily(name); }
+                catch { CommentBoxFontPreview.FontFamily = new FontFamily("Segoe UI"); }
+            }
+            else
+            {
+                CommentBoxFontPreview.FontFamily = new FontFamily("Segoe UI");
+            }
         }
 
         // ── Comment box style ─────────────────────────────────────────────────────
@@ -618,7 +748,8 @@ namespace RenderDocComments.Options
 
         /// <summary>
         /// Updates the font family of the preview text block to match the selected<br/>
-        /// font in the combo box, falling back to Segoe UI if the selected font is unavailable.
+        /// font in the combo box, falling back to Segoe UI for the editor-font sentinel<br/>
+        /// (index 0) or if the selected font is unavailable.
         /// </summary>
         /// <remarks>
         /// <para>The method attempts to create a <see cref="FontFamily"/> from the selected name.<br/>
@@ -627,9 +758,15 @@ namespace RenderDocComments.Options
         /// </remarks>
         private void UpdateFontPreview()
         {
-            var name = FontFamilyCombo.SelectedItem?.ToString() ?? "Segoe UI";
-            try { FontPreviewText.FontFamily = new FontFamily(name); }
-            catch { FontPreviewText.FontFamily = new FontFamily("Segoe UI"); }
+            if (FontFamilyCombo.SelectedIndex > 0 && FontFamilyCombo.SelectedItem is string name)
+            {
+                try { FontPreviewText.FontFamily = new FontFamily(name); }
+                catch { FontPreviewText.FontFamily = new FontFamily("Segoe UI"); }
+            }
+            else
+            {
+                FontPreviewText.FontFamily = new FontFamily("Segoe UI");
+            }
         }
 
         // ── Fixed width ───────────────────────────────────────────────────────────
@@ -915,6 +1052,26 @@ namespace RenderDocComments.Options
             OnSettingChanged(sender, null);
         }
 
+        /// <summary>
+        /// Handles the "Reset colours to defaults" button under Rendered Colours —
+        /// restores the five text colours and the three gradient accent bar stops
+        /// to their factory defaults. Tag badge colours are untouched (they have
+        /// their own reset button in the Comment Tags section).
+        /// </summary>
+        private void OnResetRenderedColorsClicked(object sender, RoutedEventArgs e)
+        {
+            _colorCodeFg = unchecked((int)0xFFCE9178);
+            _colorSummaryFg = unchecked((int)0xFFD4D4D4);
+            _colorParamName = unchecked((int)0xFF9CDCFE);
+            _colorLink = unchecked((int)0xFF569CD6);
+            _colorSectionLabel = unchecked((int)0xFF969696);
+            _colorGrad0 = unchecked((int)0xFFBE6EF0);
+            _colorGrad1 = unchecked((int)0xC8784BC8);
+            _colorGrad2 = unchecked((int)0x50502896);
+            RefreshAllSwatches();
+            OnSettingChanged(sender, null);
+        }
+
 // ── Comment tag UI ────────────────────────────────────────────────────────────────
 
         /// <summary>
@@ -924,7 +1081,8 @@ namespace RenderDocComments.Options
         /// <remarks>
         /// Rows are rebuilt wholesale on any change — trivial cost at 15 entries and
         /// immune to stale-control bookkeeping. The panel lives inside
-        /// <c>PremiumOptionsPanel</c>, which is disabled and dimmed without a licence.
+        /// <c>TagCustomSectionPanel</c>, which is disabled and dimmed without a
+        /// licence or when tag highlighting is switched off.
         /// </remarks>
         private void BuildTagBadgeRows()
         {
@@ -1136,6 +1294,13 @@ namespace RenderDocComments.Options
             o.TagStyle = "Pills";
             o.TagColorOverrides = string.Empty;
             o.TagsDisabled = string.Empty;
+            o.TagFontFamily = string.Empty;
+
+            o.CommentBoxesEnabled = true;
+            o.CommentBoxThemeColors = true;
+            o.CommentBoxBorderColor = unchecked((int)0xFF57A64A);
+            o.CommentBoxTextColor = unchecked((int)0xFF57A64A);
+            o.CommentBoxFontFamily = string.Empty;
 
             o.CommentBoxesEnabled = true;
             o.CommentBoxThemeColors = true;

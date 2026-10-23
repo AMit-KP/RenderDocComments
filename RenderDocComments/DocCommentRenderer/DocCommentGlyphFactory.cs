@@ -205,7 +205,8 @@ namespace RenderDocComments.DocCommentRenderer
         /// for the first line of each documentation comment block that intersects the requested spans.
         /// </returns>
         /// <remarks>
-        /// <para>The method immediately yields nothing if <see cref="RenderDocOptions.EffectiveGlyphToggle"/> is <c>false</c>.</para>
+        /// <para>The method immediately yields nothing if <see cref="RenderDocOptions.RenderEnabled"/> is <c>false</c> or<br/>
+        /// if <see cref="RenderDocOptions.EffectiveGlyphToggle"/> is <c>false</c>.</para>
         /// <para>For each line in the snapshot, the method:</para>
         /// <list type="number">
         /// <item>
@@ -224,6 +225,9 @@ namespace RenderDocComments.DocCommentRenderer
         /// </remarks>
         public IEnumerable<ITagSpan<DocCommentGlyphTag>> GetTags(NormalizedSnapshotSpanCollection spans)
         {
+            // Glyphs toggle doc-comment cards, so they follow the master render
+            // switch as well as the glyph mode.
+            if (!RenderDocOptions.Instance.RenderEnabled) yield break;
             if (!RenderDocOptions.Instance.EffectiveGlyphToggle) yield break;
 
             // Per-file override

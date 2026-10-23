@@ -328,13 +328,6 @@
 			<Setter Property="Cursor" Value="Hand" />
 			<Setter Property="Template" Value="{StaticResource RoundedButtonTemplate}" />
 		</Style>
-		<Style x:Key="PremiumBadge" TargetType="Border">
-			<Setter Property="Background" Value="{StaticResource AccentPurpleBrush}" />
-			<Setter Property="CornerRadius" Value="9" />
-			<Setter Property="Padding" Value="8,2" />
-			<Setter Property="Margin" Value="8,0,0,0" />
-			<Setter Property="VerticalAlignment" Value="Center" />
-		</Style>
 		<Style x:Key="SwatchButton" TargetType="Button">
 			<Setter Property="Width" Value="28" />
 			<Setter Property="Height" Value="22" />
@@ -343,6 +336,30 @@
 			<Setter Property="Padding" Value="0" />
 			<Setter Property="Cursor" Value="Hand" />
 			<Setter Property="Template" Value="{StaticResource RoundedButtonTemplate}" />
+		</Style>
+
+		<!--  Small inline pill marking Premium-only features  -->
+		<Style x:Key="PremiumPill" TargetType="ContentControl">
+			<Setter Property="VerticalAlignment" Value="Center" />
+			<Setter Property="Margin" Value="8,0,0,2" />
+			<Setter Property="IsHitTestVisible" Value="False" />
+			<Setter Property="Focusable" Value="False" />
+			<Setter Property="Template">
+				<Setter.Value>
+					<ControlTemplate TargetType="ContentControl">
+						<Border
+							Padding="6,1"
+							Background="{StaticResource AccentPurpleBrush}"
+							CornerRadius="8">
+							<TextBlock
+								FontSize="8"
+								FontWeight="Bold"
+								Foreground="White"
+								Text="PREMIUM" />
+						</Border>
+					</ControlTemplate>
+				</Setter.Value>
+			</Setter>
 		</Style>
 
 	</Window.Resources>
@@ -429,99 +446,61 @@
 					</StackPanel>
 				</Border>
 
-				<!--  ══ FREE: Global render toggle  -->
+				<!--  ══ Doc comments  -->
 				<Border Style="{StaticResource Card}">
 					<StackPanel>
-						<TextBlock Style="{StaticResource SectionHeader}" Text="GENERAL (FREE)" />
+						<TextBlock Style="{StaticResource SectionHeader}" Text="DOC COMMENTS" />
 
 						<CheckBox
 							x:Name="RenderEnabledCheck"
-							Checked="OnSettingChanged"
+							Checked="OnRenderEnabledChanged"
 							Content="Enable doc comment rendering"
-							Unchecked="OnSettingChanged" />
+							Unchecked="OnRenderEnabledChanged" />
 
-						<CheckBox
-							x:Name="TagBadgesCheck"
-							Checked="OnTagBadgesChanged"
-							Content="Enable comment tag highlighting"
-							Unchecked="OnTagBadgesChanged" />
+						<Border Style="{StaticResource Divider}" />
 
-						<StackPanel Margin="24,8,0,2" Orientation="Horizontal">
-							<TextBlock
-								VerticalAlignment="Center"
-								Style="{StaticResource OptionLabel}"
-								Text="Comment tag style:" />
-							<RadioButton
-								x:Name="TagPillsRadio"
-								Margin="8,0,0,0"
-								VerticalAlignment="Center"
-								Checked="OnTagStyleChanged"
-								Content="Pills"
-								GroupName="TagStyle" />
-							<RadioButton
-								x:Name="TagCardsRadio"
-								Margin="18,0,0,0"
-								VerticalAlignment="Center"
-								Checked="OnTagStyleChanged"
-								Content="Card"
-								GroupName="TagStyle" />
-						</StackPanel>
-					</StackPanel>
-				</Border>
-
-				<!--  ══ Premium section  -->
-				<Border Style="{StaticResource Card}">
-					<StackPanel>
-
-						<StackPanel Margin="0,0,0,4" Orientation="Horizontal">
-							<TextBlock
-								Margin="0"
-								Style="{StaticResource SectionHeader}"
-								Text="PREMIUM FEATURES" />
-							<Border
-								Margin="8,0,0,0"
-								RenderTransformOrigin="0.496,0.752"
-								Style="{StaticResource PremiumBadge}">
-								<TextBlock
-									FontSize="9"
-									FontWeight="Bold"
-									Foreground="White"
-									Text="PREMIUM" />
-							</Border>
-						</StackPanel>
-
-						<TextBlock Style="{StaticResource HintText}" Text="Requires a Premium licence. Options are shown but disabled without one." />
-
-						<StackPanel x:Name="PremiumOptionsPanel">
-
-							<!--  Glyph toggle  -->
-							<TextBlock Style="{StaticResource SectionHeader}" Text="MARGIN GLYPH TOGGLE" />
+						<!--  Visibility mode — the margin glyph button is Premium  -->
+						<StackPanel x:Name="GlyphSectionPanel">
+							<StackPanel Orientation="Horizontal">
+								<TextBlock Style="{StaticResource SectionHeader}" Text="VISIBILITY MODE" />
+								<ContentControl Style="{StaticResource PremiumPill}" />
+							</StackPanel>
 							<StackPanel Margin="0,0,0,4">
 								<RadioButton
 									x:Name="CaretModeRadio"
 									Margin="0,0,0,8"
 									Checked="OnToggleModeChanged"
-									Content="Caret-based (free) — caret in block shows raw XML" />
+									Content="Caret-based — caret in block shows raw XML" />
 								<RadioButton
 									x:Name="GlyphModeRadio"
 									Checked="OnToggleModeChanged"
-									Content="Margin glyph button (Premium) — click to toggle per comment" />
+									Content="Margin glyph button — click to toggle per comment" />
 							</StackPanel>
+						</StackPanel>
 
-							<Border Style="{StaticResource Divider}" />
+						<Border Style="{StaticResource Divider}" />
 
-							<!--  Auto theme refresh  -->
-							<TextBlock Style="{StaticResource SectionHeader}" Text="THEME AUTO-REFRESH" />
+						<!--  Auto theme refresh  -->
+						<StackPanel x:Name="AutoRefreshSectionPanel">
+							<StackPanel Orientation="Horizontal">
+								<TextBlock Style="{StaticResource SectionHeader}" Text="THEME AUTO-REFRESH" />
+								<ContentControl Style="{StaticResource PremiumPill}" />
+							</StackPanel>
 							<CheckBox
 								x:Name="AutoRefreshCheck"
 								Checked="OnSettingChanged"
 								Content="Auto-refresh colours when VS colour theme changes"
 								Unchecked="OnSettingChanged" />
+						</StackPanel>
 
-							<Border Style="{StaticResource Divider}" />
+						<Border Style="{StaticResource Divider}" />
 
-							<!--  Fixed width  -->
-							<TextBlock Style="{StaticResource SectionHeader}" Text="COMMENT WIDTH" />
+						<!--  Fixed width  -->
+						<StackPanel x:Name="WidthSectionPanel">
+							<StackPanel Orientation="Horizontal">
+								<TextBlock Style="{StaticResource SectionHeader}" Text="COMMENT WIDTH" />
+								<ContentControl Style="{StaticResource PremiumPill}" />
+							</StackPanel>
 							<CheckBox
 								x:Name="UseFixedWidthCheck"
 								Checked="OnFixedWidthChanged"
@@ -535,11 +514,16 @@
 									TextAlignment="Left"
 									TextChanged="OnFixedWidthTextChanged" />
 							</StackPanel>
+						</StackPanel>
 
-							<Border Style="{StaticResource Divider}" />
+						<Border Style="{StaticResource Divider}" />
 
-							<!--  Font  -->
-							<TextBlock Style="{StaticResource SectionHeader}" Text="RENDERED FONT" />
+						<!--  Font (applies to doc comment cards)  -->
+						<StackPanel x:Name="FontSectionPanel">
+							<StackPanel Orientation="Horizontal">
+								<TextBlock Style="{StaticResource SectionHeader}" Text="DOC COMMENT FONT" />
+								<ContentControl Style="{StaticResource PremiumPill}" />
+							</StackPanel>
 							<StackPanel Orientation="Horizontal">
 								<TextBlock Style="{StaticResource OptionLabel}" Text="Font family:" />
 								<ComboBox
@@ -553,11 +537,16 @@
 									Foreground="{StaticResource AccentPurpleBrush}"
 									Text="AaBbCc 123" />
 							</StackPanel>
+						</StackPanel>
 
-							<Border Style="{StaticResource Divider}" />
+						<Border Style="{StaticResource Divider}" />
 
-							<!--  Border sides  -->
-							<TextBlock Style="{StaticResource SectionHeader}" Text="ACCENT BAR SIDES" />
+						<!--  Border sides  -->
+						<StackPanel x:Name="BorderSectionPanel">
+							<StackPanel Orientation="Horizontal">
+								<TextBlock Style="{StaticResource SectionHeader}" Text="ACCENT BAR SIDES" />
+								<ContentControl Style="{StaticResource PremiumPill}" />
+							</StackPanel>
 							<StackPanel Orientation="Horizontal">
 								<CheckBox
 									x:Name="BorderLeftCheck"
@@ -583,11 +572,16 @@
 									Content="Bottom"
 									Unchecked="OnSettingChanged" />
 							</StackPanel>
+						</StackPanel>
 
-							<Border Style="{StaticResource Divider}" />
+						<Border Style="{StaticResource Divider}" />
 
-							<!--  Colours  -->
-							<TextBlock Style="{StaticResource SectionHeader}" Text="RENDERED COLOURS" />
+						<!--  Colours  -->
+						<StackPanel x:Name="ColorsSectionPanel">
+							<StackPanel Orientation="Horizontal">
+								<TextBlock Style="{StaticResource SectionHeader}" Text="RENDERED COLOURS" />
+								<ContentControl Style="{StaticResource PremiumPill}" />
+							</StackPanel>
 							<TextBlock Style="{StaticResource HintText}" Text="Click a swatch to open the colour picker." />
 
 							<Grid Margin="0,0,0,4">
@@ -765,80 +759,151 @@
 									CornerRadius="6" />
 							</StackPanel>
 
-							<Border Style="{StaticResource Divider}" />
-
-							<!--  Comment Tag Badges  -->
-							<StackPanel x:Name="TagBadgeSectionPanel">
-								<TextBlock Style="{StaticResource SectionHeader}" Text="COMMENT TAG BADGES" />
-								<TextBlock Style="{StaticResource HintText}" Text="Per-tag visibility and colours for plain comments (TODO, FIXME, …). WARNING is an alias of WARN." />
-								<StackPanel x:Name="TagBadgeListPanel" Margin="0,0,0,8" />
-								<Button
-									Margin="0"
-									Padding="9,4"
-									HorizontalAlignment="Left"
-									Click="OnResetBadgeColorsClicked"
-									Content="Reset colours to defaults"
-									Style="{StaticResource SecondaryButton}" />
-							</StackPanel>
-
-							<Border Style="{StaticResource Divider}" />
-
-							<!--  Comment Box Style  -->
-							<StackPanel x:Name="CommentBoxSectionPanel">
-								<TextBlock Style="{StaticResource SectionHeader}" Text="COMMENT BOX STYLE" />
-								<TextBlock Style="{StaticResource HintText}" Text="Renders normal // comments in a thin bordered box. Default: border and text follow the IDE's comment colour; the background always follows the editor. Single-line comments containing tags (TODO, FIXME, …) keep their tag pills/cards instead of a box; multi-line comments always box." />
-								<CheckBox
-									x:Name="CommentBoxesCheck"
-									Checked="OnCommentBoxesChanged"
-									Content="Enable comment box rendering"
-									Unchecked="OnCommentBoxesChanged" />
-
-								<CheckBox
-									x:Name="CommentBoxThemeColorsCheck"
-									Margin="0,6,0,0"
-									Checked="OnCommentBoxColorsChanged"
-									Content="Use theme comment colours for box border and text"
-									Unchecked="OnCommentBoxColorsChanged" />
-
-								<StackPanel Margin="24,4,0,4" Orientation="Horizontal">
-									<Button
-										x:Name="SwatchCommentBoxBorder"
-										Click="OnSwatchClicked"
-										Style="{StaticResource SwatchButton}"
-										Tag="CommentBoxBorder" />
-									<TextBlock
-										Margin="8,0,18,0"
-										Style="{StaticResource OptionLabel}"
-										Text="Box border" />
-									<Button
-										x:Name="SwatchCommentBoxText"
-										Click="OnSwatchClicked"
-										Style="{StaticResource SwatchButton}"
-										Tag="CommentBoxText" />
-									<TextBlock
-										Margin="8,0,0,0"
-										Style="{StaticResource OptionLabel}"
-										Text="Box text" />
-								</StackPanel>
-
-								<StackPanel Margin="0,4,0,0" Orientation="Horizontal">
-									<TextBlock Style="{StaticResource OptionLabel}" Text="Font:" />
-									<ComboBox
-										x:Name="CommentBoxFontCombo"
-										Width="200"
-										SelectionChanged="OnCommentBoxFontChanged" />
-									<TextBlock
-										x:Name="CommentBoxFontPreview"
-										Margin="12,0,0,0"
-										VerticalAlignment="Center"
-										Foreground="{StaticResource AccentPurpleBrush}"
-										Text="AaBbCc 123" />
-								</StackPanel>
-							</StackPanel>
-
+							<Button
+								Margin="0,8,0,0"
+								Padding="9,4"
+								HorizontalAlignment="Left"
+								Click="OnResetRenderedColorsClicked"
+								Content="Reset colours to defaults"
+								Style="{StaticResource SecondaryButton}" />
 						</StackPanel>
-						<!--  /PremiumOptionsPanel  -->
 
+					</StackPanel>
+				</Border>
+
+				<!--  ══ Comment tags  -->
+				<Border Style="{StaticResource Card}">
+					<StackPanel>
+						<TextBlock Style="{StaticResource SectionHeader}" Text="COMMENT TAGS" />
+
+						<CheckBox
+							x:Name="TagBadgesCheck"
+							Checked="OnTagBadgesChanged"
+							Content="Enable comment tag highlighting"
+							Unchecked="OnTagBadgesChanged" />
+
+						<StackPanel Margin="24,8,0,2" Orientation="Horizontal">
+							<TextBlock
+								VerticalAlignment="Center"
+								Style="{StaticResource OptionLabel}"
+								Text="Comment tag style:" />
+							<RadioButton
+								x:Name="TagPillsRadio"
+								Margin="8,0,0,0"
+								VerticalAlignment="Center"
+								Checked="OnTagStyleChanged"
+								Content="Pills"
+								GroupName="TagStyle" />
+							<RadioButton
+								x:Name="TagCardsRadio"
+								Margin="18,0,0,0"
+								VerticalAlignment="Center"
+								Checked="OnTagStyleChanged"
+								Content="Card"
+								GroupName="TagStyle" />
+						</StackPanel>
+
+						<Border Style="{StaticResource Divider}" />
+
+						<!--  Tag font (Premium, applies to tag pills/cards only)  -->
+						<StackPanel x:Name="TagFontSectionPanel">
+							<StackPanel Orientation="Horizontal">
+								<TextBlock Style="{StaticResource SectionHeader}" Text="TAG FONT" />
+								<ContentControl Style="{StaticResource PremiumPill}" />
+							</StackPanel>
+							<StackPanel Orientation="Horizontal">
+								<TextBlock Style="{StaticResource OptionLabel}" Text="Font:" />
+								<ComboBox
+									x:Name="TagFontCombo"
+									Width="200"
+									SelectionChanged="OnTagFontChanged" />
+								<TextBlock
+									x:Name="TagFontPreview"
+									Margin="12,0,0,0"
+									VerticalAlignment="Center"
+									Foreground="{StaticResource AccentPurpleBrush}"
+									Text="AaBbCc 123" />
+							</StackPanel>
+						</StackPanel>
+
+						<Border Style="{StaticResource Divider}" />
+
+						<!--  Per-tag customization (Premium)  -->
+						<StackPanel x:Name="TagCustomSectionPanel">
+							<StackPanel Orientation="Horizontal">
+								<TextBlock Style="{StaticResource SectionHeader}" Text="PER-TAG CUSTOMIZATION" />
+								<ContentControl Style="{StaticResource PremiumPill}" />
+							</StackPanel>
+							<TextBlock Style="{StaticResource HintText}" Text="Per-tag visibility and colours for plain comments (TODO, FIXME, …). WARNING is an alias of WARN." />
+							<StackPanel x:Name="TagBadgeListPanel" Margin="0,0,0,8" />
+							<Button
+								Margin="0"
+								Padding="9,4"
+								HorizontalAlignment="Left"
+								Click="OnResetBadgeColorsClicked"
+								Content="Reset colours to defaults"
+								Style="{StaticResource SecondaryButton}" />
+						</StackPanel>
+
+					</StackPanel>
+				</Border>
+
+				<!--  ══ Comment boxes  -->
+				<Border Style="{StaticResource Card}">
+					<StackPanel x:Name="CommentBoxSectionPanel">
+						<StackPanel Orientation="Horizontal">
+							<TextBlock Style="{StaticResource SectionHeader}" Text="COMMENT BOXES" />
+							<ContentControl Style="{StaticResource PremiumPill}" />
+						</StackPanel>
+						<TextBlock Style="{StaticResource HintText}" Text="Renders normal // comments in a thin bordered box. Default: border and text follow the IDE's comment colour; the background always follows the editor. Single-line comments containing tags (TODO, FIXME, …) keep their tag pills/cards instead of a box; multi-line comments always box." />
+
+						<CheckBox
+							x:Name="CommentBoxesCheck"
+							Checked="OnCommentBoxesChanged"
+							Content="Enable comment box rendering"
+							Unchecked="OnCommentBoxesChanged" />
+
+						<CheckBox
+							x:Name="CommentBoxThemeColorsCheck"
+							Margin="0,6,0,0"
+							Checked="OnCommentBoxColorsChanged"
+							Content="Use theme comment colours for box border and text"
+							Unchecked="OnCommentBoxColorsChanged" />
+
+						<StackPanel Margin="24,4,0,4" Orientation="Horizontal">
+							<Button
+								x:Name="SwatchCommentBoxBorder"
+								Click="OnSwatchClicked"
+								Style="{StaticResource SwatchButton}"
+								Tag="CommentBoxBorder" />
+							<TextBlock
+								Margin="8,0,18,0"
+								Style="{StaticResource OptionLabel}"
+								Text="Box border" />
+							<Button
+								x:Name="SwatchCommentBoxText"
+								Click="OnSwatchClicked"
+								Style="{StaticResource SwatchButton}"
+								Tag="CommentBoxText" />
+							<TextBlock
+								Margin="8,0,0,0"
+								Style="{StaticResource OptionLabel}"
+								Text="Box text" />
+						</StackPanel>
+
+						<StackPanel Margin="0,4,0,0" Orientation="Horizontal">
+							<TextBlock Style="{StaticResource OptionLabel}" Text="Font:" />
+							<ComboBox
+								x:Name="CommentBoxFontCombo"
+								Width="200"
+								SelectionChanged="OnCommentBoxFontChanged" />
+							<TextBlock
+								x:Name="CommentBoxFontPreview"
+								Margin="12,0,0,0"
+								VerticalAlignment="Center"
+								Foreground="{StaticResource AccentPurpleBrush}"
+								Text="AaBbCc 123" />
+						</StackPanel>
 					</StackPanel>
 				</Border>
 

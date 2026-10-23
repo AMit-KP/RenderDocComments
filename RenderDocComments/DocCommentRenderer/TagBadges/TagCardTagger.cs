@@ -532,6 +532,30 @@ namespace RenderDocComments.DocCommentRenderer.TagBadges
         // ── Card construction ─────────────────────────────────────────────────────
 
         /// <summary>
+        /// Resolves the font family for tag visuals: the Premium tag font when
+        /// configured, otherwise the editor's current typeface.
+        /// </summary>
+        private FontFamily ResolveTagFontFamily()
+        {
+            string fam = RenderDocOptions.Instance.EffectiveTagFontFamily;
+            if (!string.IsNullOrWhiteSpace(fam))
+            {
+                try { return new FontFamily(fam); }
+                catch { }
+            }
+
+            FontFamily editor = null;
+            try
+            {
+                var tp = _view.FormattedLineSource?.DefaultTextProperties;
+                if (tp != null) editor = tp.Typeface.FontFamily;
+            }
+            catch { }
+            if (editor != null && !string.IsNullOrEmpty(editor.Source)) return editor;
+            return new FontFamily("Consolas");
+        }
+
+        /// <summary>
         /// Builds the card visual: theme-matched rounded container, coloured accent
         /// bar, one chip per unique tag, and a wrapping (≤3-line) description.
         /// </summary>
@@ -566,7 +590,7 @@ namespace RenderDocComments.DocCommentRenderer.TagBadges
             catch { }
 
             // ── Font ─────────────────────────────────────────────────────────────
-            var fontFamily = new FontFamily(opts.EffectiveFontFamily);
+            var fontFamily = ResolveTagFontFamily();
             double fontSize = 13.0;
             try
             {
@@ -621,6 +645,7 @@ namespace RenderDocComments.DocCommentRenderer.TagBadges
                         Text = name,
                         Foreground = fgBrush,
                         FontSize = chipFontSize,
+                        FontFamily = fontFamily,
                         VerticalAlignment = VerticalAlignment.Center,
                     },
                 });
@@ -634,6 +659,7 @@ namespace RenderDocComments.DocCommentRenderer.TagBadges
                     : tooltipTail,
                 Foreground = themeFg,
                 FontWeight = FontWeights.SemiBold,
+                FontFamily = fontFamily,
                 TextWrapping = TextWrapping.Wrap,
                 TextTrimming = TextTrimming.CharacterEllipsis,
                 MaxHeight = MaxDescriptionLines * lineHeight,
