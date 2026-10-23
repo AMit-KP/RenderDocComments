@@ -1149,52 +1149,72 @@
 									Text="Rule / fence / wave / box" />
 							</StackPanel>
 
-							<StackPanel Margin="0,4,0,0" Orientation="Horizontal" VerticalAlignment="Center">
-								<TextBlock Style="{StaticResource OptionLabel}" Text="Rule thickness:" VerticalAlignment="Center" />
-								<TextBox
-									x:Name="BannerRuleThicknessText"
-									Width="60"
-									VerticalAlignment="Center"
-									TextChanged="OnBannerRuleThicknessChanged" />
-								<ContentControl Style="{StaticResource InfoTip}" ToolTip="Hairline rule thickness in pixels (1–8). Default is 1." />
-								<TextBlock
-									Margin="14,0,6,0"
-									Style="{StaticResource OptionLabel}"
-									VerticalAlignment="Center"
-									Text="Bar height (0 = auto):" />
-								<TextBox
-									x:Name="BannerBarHeightText"
-									Width="60"
-									VerticalAlignment="Center"
-									TextChanged="OnBannerBarHeightChanged" />
-								<ContentControl Style="{StaticResource InfoTip}" ToolTip="Fixed bar height in pixels (10–80). 0 = size the bar to its text." />
-							</StackPanel>
+							<DockPanel Margin="0,4,0,0" LastChildFill="False">
+								<StackPanel
+									DockPanel.Dock="Left"
+									Orientation="Horizontal"
+									VerticalAlignment="Center">
+									<TextBlock Style="{StaticResource OptionLabel}" Text="Rule thickness:" VerticalAlignment="Center" />
+									<TextBox
+										x:Name="BannerRuleThicknessText"
+										Width="60"
+										VerticalAlignment="Center"
+										TextChanged="OnBannerRuleThicknessChanged" />
+									<ContentControl Style="{StaticResource InfoTip}" ToolTip="Hairline rule thickness in pixels (1–8). Default is 1." />
+								</StackPanel>
+								<StackPanel
+									DockPanel.Dock="Right"
+									Orientation="Horizontal"
+									VerticalAlignment="Center">
+									<TextBlock
+										Margin="0,0,6,0"
+										Style="{StaticResource OptionLabel}"
+										VerticalAlignment="Center"
+										Text="Bar height (0 = auto):" />
+									<TextBox
+										x:Name="BannerBarHeightText"
+										Width="60"
+										VerticalAlignment="Center"
+										TextChanged="OnBannerBarHeightChanged" />
+									<ContentControl Style="{StaticResource InfoTip}" ToolTip="Fixed bar height in pixels (10–80). 0 = size the bar to its text." />
+								</StackPanel>
+							</DockPanel>
 
-							<StackPanel Margin="0,4,0,0" Orientation="Horizontal" VerticalAlignment="Center">
-								<TextBlock Style="{StaticResource OptionLabel}" Text="Font:" VerticalAlignment="Center" />
-								<ComboBox
-									x:Name="BannerFontCombo"
-									Width="170"
-									VerticalAlignment="Center"
-									SelectionChanged="OnBannerFontChanged" />
-								<TextBlock
-									x:Name="BannerFontPreview"
-									Margin="10,0,0,0"
-									VerticalAlignment="Center"
-									Foreground="{StaticResource AccentPurpleBrush}"
-									Text="AaBbCc 123" />
-								<TextBlock
-									Margin="14,0,6,0"
-									VerticalAlignment="Center"
-									Style="{StaticResource OptionLabel}"
-									Text="Size:" />
-								<TextBox
-									x:Name="BannerFontSizeText"
-									Width="60"
-									VerticalAlignment="Center"
-									TextChanged="OnBannerFontSizeChanged" />
-								<ContentControl Style="{StaticResource InfoTip}" ToolTip="Banner font and size in pixels. 0 = follow the editor font size. Leave font on '(Box / editor font)' to match." />
-							</StackPanel>
+							<DockPanel Margin="0,6,0,0" LastChildFill="False">
+								<StackPanel
+									DockPanel.Dock="Left"
+									Orientation="Horizontal"
+									VerticalAlignment="Center">
+									<TextBlock Style="{StaticResource OptionLabel}" Text="Font:" VerticalAlignment="Center" />
+									<ComboBox
+										x:Name="BannerFontCombo"
+										Width="170"
+										VerticalAlignment="Center"
+										SelectionChanged="OnBannerFontChanged" />
+									<TextBlock
+										x:Name="BannerFontPreview"
+										Margin="10,0,0,0"
+										VerticalAlignment="Center"
+										Foreground="{StaticResource AccentPurpleBrush}"
+										Text="AaBbCc 123" />
+								</StackPanel>
+								<StackPanel
+									DockPanel.Dock="Right"
+									Orientation="Horizontal"
+									VerticalAlignment="Center">
+									<TextBlock
+										Margin="0,0,6,0"
+										VerticalAlignment="Center"
+										Style="{StaticResource OptionLabel}"
+										Text="Size:" />
+									<TextBox
+										x:Name="BannerFontSizeText"
+										Width="60"
+										VerticalAlignment="Center"
+										TextChanged="OnBannerFontSizeChanged" />
+									<ContentControl Style="{StaticResource InfoTip}" ToolTip="Banner font and size in pixels. 0 = follow the editor font size. Leave font on '(Box / editor font)' to match." />
+								</StackPanel>
+							</DockPanel>
 						</StackPanel>
 					</StackPanel>
 				</Border>
