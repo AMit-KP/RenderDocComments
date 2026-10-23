@@ -278,6 +278,12 @@ namespace RenderDocComments.DocCommentRenderer.TagBadges
                 try { text = snapshot.GetText(range.Start, len); }
                 catch { continue; }
 
+                // Multi-line ranges (block comments) are owned by the comment-box
+                // feature — a card inside a boxed block would overlap its adornment.
+                if (snapshot.GetLineNumberFromPosition(range.Start) !=
+                    snapshot.GetLineNumberFromPosition(range.End - 1))
+                    continue;
+
                 foreach (Match m in _tagRegex.Matches(text))
                 {
                     if (!IsAnchored(text, range.PrefixLen, m.Index)) continue;
