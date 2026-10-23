@@ -79,14 +79,14 @@ namespace RenderDocComments.Options
 
         /// <summary>
         /// Gets or sets the number of lines above and below the visible viewport to pre-render comments.<br/>
-        /// Default: <c>100</c>. Clamped between <c>25</c> and <c>500</c>.
+        /// Default: <c>100</c>. Clamped between <c>50</c> and <c>500</c>.
         /// </summary>
         public int ViewportBufferLines { get; set; } = 100;
 
         /// <summary>
-        /// Gets <see cref="ViewportBufferLines"/> clamped to [25, 500].
+        /// Gets <see cref="ViewportBufferLines"/> clamped to [50, 500].
         /// </summary>
-        public int ClampedViewportBufferLines => Math.Max(25, Math.Min(500, ViewportBufferLines));
+        public int ClampedViewportBufferLines => Math.Max(50, Math.Min(500, ViewportBufferLines));
 
         // ── Premium settings (disabled / ignored when PremiumUnlocked == false) ───────────
 

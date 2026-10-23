@@ -457,6 +457,26 @@
 							Content="Enable doc comment rendering"
 							Unchecked="OnRenderEnabledChanged" />
 
+						<StackPanel x:Name="ViewportWindowingSectionPanel" Margin="0,8,0,0">
+							<CheckBox
+								x:Name="ViewportWindowingCheck"
+								Checked="OnViewportWindowingChanged"
+								Content="Enable viewport pre-rendering (recommended for large files)"
+								Unchecked="OnViewportWindowingChanged" />
+							<StackPanel Margin="24,6,0,2" Orientation="Horizontal">
+								<TextBlock Style="{StaticResource OptionLabel}" Text="Pre-render lines above &amp; below (50–500):" />
+								<TextBox
+									x:Name="PreRenderLinesText"
+									Width="60"
+									TextAlignment="Left"
+									TextChanged="OnPreRenderLinesTextChanged" />
+							</StackPanel>
+							<TextBlock
+								Margin="24,2,0,0"
+								Style="{StaticResource HintText}"
+								Text="Controls how many lines outside the visible screen are rendered in advance. Default is 100." />
+						</StackPanel>
+
 						<Border Style="{StaticResource Divider}" />
 
 						<!--  Visibility mode — the margin glyph button is Premium  -->

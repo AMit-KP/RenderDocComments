@@ -58,6 +58,9 @@ namespace RenderDocComments.Options
         /// <summary>Backing field for the fixed width setting.</summary>
         private double _fixedWidth = 700.0;
 
+        /// <summary>Backing field for the pre-render buffer lines setting.</summary>
+        private int _viewportBufferLines = 100;
+
         /// <summary>Backing fields for the banner size settings (0 = auto).</summary>
         private double _bannerFontSize = 0.0;
         private double _bannerRuleThickness = 1.0;
@@ -171,6 +174,10 @@ namespace RenderDocComments.Options
             var o = RenderDocOptions.Instance;
 
             RenderEnabledCheck.IsChecked = o.RenderEnabled;
+            ViewportWindowingCheck.IsChecked = o.ViewportWindowingEnabled;
+            _viewportBufferLines = o.ClampedViewportBufferLines;
+            PreRenderLinesText.Text = _viewportBufferLines.ToString();
+            UpdateViewportWindowingEnabled();
             AutoRefreshCheck.IsChecked = o.AutoRefreshOnThemeChange;
             GlyphModeRadio.IsChecked = o.GlyphToggleEnabled;
             CaretModeRadio.IsChecked = !o.GlyphToggleEnabled;
@@ -311,6 +318,11 @@ namespace RenderDocComments.Options
 
             // Doc-comment sections — require the master toggle; additionally
             // Premium-gated.
+            ViewportWindowingSectionPanel.IsEnabled = docRenderEnabled;
+            ViewportWindowingSectionPanel.Opacity = docRenderEnabled ? 1.0 : 0.45;
+            if (docRenderEnabled)
+                UpdateViewportWindowingEnabled();
+
             SetSectionState(GlyphSectionPanel, docRenderEnabled && premium);
             SetSectionState(AutoRefreshSectionPanel, docRenderEnabled && premium);
             SetSectionState(WidthSectionPanel, docRenderEnabled && premium);
@@ -490,6 +502,10 @@ namespace RenderDocComments.Options
         {
             var o = RenderDocOptions.Instance;
             o.RenderEnabled = RenderEnabledCheck.IsChecked == true;
+            o.ViewportWindowingEnabled = ViewportWindowingCheck.IsChecked == true;
+            if (int.TryParse(PreRenderLinesText.Text, out int linesVal))
+                _viewportBufferLines = Math.Max(50, Math.Min(500, linesVal));
+            o.ViewportBufferLines = _viewportBufferLines;
             o.AutoRefreshOnThemeChange = AutoRefreshCheck.IsChecked == true;
             o.GlyphToggleEnabled = GlyphModeRadio.IsChecked == true;
             // Index 0 ("(Editor font)") stores an empty family.
@@ -879,6 +895,34 @@ namespace RenderDocComments.Options
             {
                 FontPreviewText.FontFamily = new FontFamily("Segoe UI");
             }
+        }
+
+        // ── Viewport windowing / Pre-render lines ──────────────────────────────────
+
+        private void OnViewportWindowingChanged(object sender, RoutedEventArgs e)
+        {
+            if (_loading) return;
+            UpdateViewportWindowingEnabled();
+            OnSettingChanged(sender, e);
+        }
+
+        private void OnPreRenderLinesTextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (_loading) return;
+            var text = PreRenderLinesText.Text.Trim();
+            if (int.TryParse(text, out int val))
+            {
+                val = Math.Max(50, Math.Min(500, val));
+                _viewportBufferLines = val;
+                OnSettingChanged(sender, null);
+            }
+        }
+
+        private void UpdateViewportWindowingEnabled()
+        {
+            bool enabled = ViewportWindowingCheck.IsChecked == true && RenderEnabledCheck.IsChecked == true;
+            PreRenderLinesText.IsEnabled = enabled;
+            PreRenderLinesText.Opacity = enabled ? 1.0 : 0.45;
         }
 
         // ── Fixed width ───────────────────────────────────────────────────────────
@@ -1395,6 +1439,8 @@ namespace RenderDocComments.Options
 
             var o = RenderDocOptions.Instance;
             o.RenderEnabled = true;
+            o.ViewportWindowingEnabled = true;
+            o.ViewportBufferLines = 100;
             o.AutoRefreshOnThemeChange = false;
             o.GlyphToggleEnabled = false;
             o.CustomFontFamily = "Segoe UI";
