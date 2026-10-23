@@ -190,6 +190,7 @@ namespace RenderDocComments.Options
             _colorGrad2 = o.GradientStop2;
 
             TagBadgesCheck.IsChecked = o.TagBadgesEnabled;
+            ScrollMarkersCheck.IsChecked = o.ScrollMarkersEnabled;
 
             TagPillsRadio.IsChecked = o.TagStyle == "Pills";
             TagCardsRadio.IsChecked = o.TagStyle == "Cards";
@@ -285,10 +286,12 @@ namespace RenderDocComments.Options
             SetSectionState(BorderSectionPanel, docRenderEnabled && premium);
             SetSectionState(ColorsSectionPanel, docRenderEnabled && premium);
 
-            // Comment tags — master toggle and style are free; tag font and
-            // per-tag list are Premium.
+            // Comment tags — master toggle and style are free; scroll markers,
+            // tag font, and per-tag list are Premium and additionally require
+            // the master toggle.
             TagPillsRadio.IsEnabled = tagsEnabled;
             TagCardsRadio.IsEnabled = tagsEnabled;
+            SetSectionState(ScrollMarkersSectionPanel, premium && tagsEnabled);
             SetSectionState(TagFontSectionPanel, premium && tagsEnabled);
             SetSectionState(TagCustomSectionPanel, premium && tagsEnabled);
 
@@ -461,6 +464,7 @@ namespace RenderDocComments.Options
             o.GradientStop2 = _colorGrad2;
 
             o.TagBadgesEnabled = TagBadgesCheck.IsChecked == true;
+            o.ScrollMarkersEnabled = ScrollMarkersCheck.IsChecked == true;
             o.TagStyle = TagCardsRadio.IsChecked == true ? "Cards" : "Pills";
             o.TagColorOverrides = SerializeTagColorOverrides();
             o.TagsDisabled = SerializeDisabledTags();
@@ -607,6 +611,14 @@ namespace RenderDocComments.Options
             RefreshSectionStates();
         }
 
+        /// <summary>
+        /// Handles the scroll-bar tag markers toggle, applying the change.
+        /// </summary>
+        private void OnScrollMarkersChanged(object sender, RoutedEventArgs e)
+        {
+            OnSettingChanged(sender, e);
+        }
+
         // ── Comment box style ─────────────────────────────────────────────────────
 
         /// <summary>
@@ -656,75 +668,6 @@ namespace RenderDocComments.Options
             {
                 CommentBoxFontPreview.FontFamily = new FontFamily("Segoe UI");
             }
-        }
-
-        // ── Comment box style ─────────────────────────────────────────────────────
-
-        /// <summary>
-        /// Handles the comment box master toggle, applying the change and refreshing
-        /// the box-style section's enabled state.
-        /// </summary>
-        private void OnCommentBoxesChanged(object sender, RoutedEventArgs e)
-        {
-            OnSettingChanged(sender, e);
-            UpdateCommentBoxStyleEnabled();
-        }
-
-        /// <summary>
-        /// Handles the "use theme comment colours" toggle, enabling/disabling the
-        /// custom border and text swatches accordingly.
-        /// </summary>
-        private void OnCommentBoxColorsChanged(object sender, RoutedEventArgs e)
-        {
-            OnSettingChanged(sender, e);
-            UpdateCommentBoxStyleEnabled();
-        }
-
-        /// <summary>
-        /// Handles comment box font selection changes, updating the preview text
-        /// and applying the change. Index 0 ("(Editor font)") stores an empty family.
-        /// </summary>
-        private void OnCommentBoxFontChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (_loading) return;
-            UpdateCommentBoxFontPreview();
-            OnSettingChanged(sender, null);
-        }
-
-        /// <summary>
-        /// Updates the comment box font preview to match the selected combo entry;
-        /// index 0 keeps the window's default font (editor-follow sentinel).
-        /// </summary>
-        private void UpdateCommentBoxFontPreview()
-        {
-            if (CommentBoxFontCombo.SelectedIndex > 0 &&
-                CommentBoxFontCombo.SelectedItem is string name)
-            {
-                try { CommentBoxFontPreview.FontFamily = new FontFamily(name); }
-                catch { CommentBoxFontPreview.FontFamily = new FontFamily("Segoe UI"); }
-            }
-            else
-            {
-                CommentBoxFontPreview.FontFamily = new FontFamily("Segoe UI");
-            }
-        }
-
-        /// <summary>
-        /// Enables or disables the comment box style controls based on the
-        /// "Enable comment box rendering" master toggle; the custom colour swatches
-        /// additionally require theme colours to be switched off. The panel lives
-        /// inside <c>PremiumOptionsPanel</c>, which is disabled and dimmed without
-        /// a licence.
-        /// </summary>
-        private void UpdateCommentBoxStyleEnabled()
-        {
-            bool enabled = CommentBoxesCheck.IsChecked == true;
-            bool customColors = enabled && CommentBoxThemeColorsCheck.IsChecked != true;
-            CommentBoxThemeColorsCheck.IsEnabled = enabled;
-            SwatchCommentBoxBorder.IsEnabled = customColors;
-            SwatchCommentBoxText.IsEnabled = customColors;
-            CommentBoxFontCombo.IsEnabled = enabled;
-            CommentBoxFontPreview.Opacity = enabled ? 1.0 : 0.45;
         }
 
         // ── Font ──────────────────────────────────────────────────────────────────
@@ -1291,16 +1234,11 @@ namespace RenderDocComments.Options
             o.GradientStop1 = unchecked((int)0xC8784BC8);
             o.GradientStop2 = unchecked((int)0x50502896);
             o.TagBadgesEnabled = true;
+            o.ScrollMarkersEnabled = true;
             o.TagStyle = "Pills";
             o.TagColorOverrides = string.Empty;
             o.TagsDisabled = string.Empty;
             o.TagFontFamily = string.Empty;
-
-            o.CommentBoxesEnabled = true;
-            o.CommentBoxThemeColors = true;
-            o.CommentBoxBorderColor = unchecked((int)0xFF57A64A);
-            o.CommentBoxTextColor = unchecked((int)0xFF57A64A);
-            o.CommentBoxFontFamily = string.Empty;
 
             o.CommentBoxesEnabled = true;
             o.CommentBoxThemeColors = true;

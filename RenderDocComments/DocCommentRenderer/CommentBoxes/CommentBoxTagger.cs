@@ -56,7 +56,6 @@
  * ═══════════════════════════════════════════════════════════════════════════════ */
 using System;
 using System.Collections.Generic;
-using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -67,6 +66,7 @@ using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.Text.Tagging;
 using Microsoft.VisualStudio.Threading;
 using RenderDocComments.DocCommentRenderer.TagBadges;
+using RenderDocComments.DocCommentRenderer.TagScan;
 using RenderDocComments.Options;
 
 namespace RenderDocComments.DocCommentRenderer.CommentBoxes
@@ -179,28 +179,6 @@ namespace RenderDocComments.DocCommentRenderer.CommentBoxes
             return _cachedTags;
         }
 
-        // ── Language detection ────────────────────────────────────────────────────
-
-        /// <summary>Supported buffer languages (mirrors the other taggers' mapping).</summary>
-        private enum BufferLanguage { CSharp, VBNet, FSharp, Cpp }
-
-        /// <summary>
-        /// Maps the buffer's content type onto a <see cref="BufferLanguage"/>.
-        /// Unknown content types default to C# semantics (<c>//</c> comments).
-        /// </summary>
-        private static BufferLanguage GetLanguage(ITextBuffer buffer)
-        {
-            try
-            {
-                var ct = buffer.ContentType;
-                if (ct.IsOfType("C/C++")) return BufferLanguage.Cpp;
-                if (ct.IsOfType("Basic")) return BufferLanguage.VBNet;
-                if (ct.IsOfType("F#") || ct.IsOfType("FSharp")) return BufferLanguage.FSharp;
-                return BufferLanguage.CSharp;
-            }
-            catch { return BufferLanguage.CSharp; }
-        }
-
         // ── Raw comment ranges ────────────────────────────────────────────────────
 
         /// <summary>
@@ -247,10 +225,10 @@ namespace RenderDocComments.DocCommentRenderer.CommentBoxes
         /// never emit a range (matching the badge scanner's behaviour).</para>
         /// </remarks>
         private static void CollectRawRanges(
-            ITextSnapshot snapshot, BufferLanguage lang, List<RawRange> ranges)
+            ITextSnapshot snapshot, CommentTagLocator.BufferLanguage lang, List<RawRange> ranges)
         {
-            bool isVb = lang == BufferLanguage.VBNet;
-            bool isFSharp = lang == BufferLanguage.FSharp;
+            bool isVb = lang == CommentTagLocator.BufferLanguage.VBNet;
+            bool isFSharp = lang == CommentTagLocator.BufferLanguage.FSharp;
 
             bool inBlock = false;     // inside /* … */ or (* … *)
             bool inDocBlock = false;  // inside /** … */ or /*! … */ (skip silently)
@@ -418,43 +396,12 @@ namespace RenderDocComments.DocCommentRenderer.CommentBoxes
         // ── Tag-aware skipping ────────────────────────────────────────────────────
 
         /// <summary>
-        /// UPPERCASE-only tag alternation — identical to the one in
-        /// <see cref="TagBadges.CommentTagBadgeTagger"/> so both taggers agree on
-        /// which comments the tag feature will render.
-        /// </summary>
-        private static readonly Regex _tagRegex = new Regex(
-            @"\b(TODO|FIXME|HACK|NOTE|BUG|REVIEW|OPTIMIZE|TEMP|WARNING|WARN|" +
-            @"DEPRECATED|CHANGED|SAFETY|INVARIANT|ASSUME|MAGIC)\b",
-            RegexOptions.Compiled);
-
-        /// <summary>
-        /// Determines whether a match is <b>anchored</b> — relative to the match's
-        /// OWN line inside the comment: every character from the line's first
-        /// character (or from <paramref name="contentStart"/> on the opener line,
-        /// skipping the opener itself) up to the match must be whitespace or a block
-        /// decorator (<c>*</c>). Verbatim copy of the badge tagger's rule.
-        /// </summary>
-        private static bool IsAnchored(string text, int contentStart, int matchIndex)
-        {
-            int lineStart = contentStart;
-            for (int i = matchIndex - 1; i >= contentStart; i--)
-            {
-                if (text[i] == '\n') { lineStart = i + 1; break; }
-            }
-            for (int i = lineStart; i < matchIndex; i++)
-            {
-                char c = text[i];
-                if (char.IsWhiteSpace(c) || c == '*') continue;
-                return false;
-            }
-            return true;
-        }
-
-        /// <summary>
         /// Determines whether the comment-tag feature would render anything inside
         /// this comment range — mirroring the active style's own eligibility rules so
         /// a range is skipped from boxing exactly when a pill/card appears in it:
         /// anchored, known, enabled, and (pills only) not click-dismissed.
+        /// Matching goes through the shared locator so the box feature and the
+        /// pill/card features can never disagree about where tags are.
         /// </summary>
         /// <param name="snapshot">Snapshot the range belongs to (dismissal key lookup).</param>
         /// <param name="rangeStart">Buffer position of the range start.</param>
@@ -468,16 +415,14 @@ namespace RenderDocComments.DocCommentRenderer.CommentBoxes
         {
             if (tagStyle == null) return false;
 
-            foreach (Match m in _tagRegex.Matches(rangeText))
+            foreach (var m in CommentTagLocator.Locate(rangeText, contentStart))
             {
-                if (!IsAnchored(rangeText, contentStart, m.Index)) continue;
-                if (!TagBadgeCatalog.TryNormalize(m.Value, out string canonical)) continue;
-                if (!RenderDocOptions.Instance.EffectiveTagEnabled(canonical)) continue;
+                if (!RenderDocOptions.Instance.EffectiveTagEnabled(m.CanonicalTag)) continue;
 
                 // Pills honour click-dismissal; cards deliberately do not.
                 if (tagStyle == "Pills" &&
                     TagBadgeToggleState.IsHidden(
-                        snapshot.GetLineFromPosition(rangeStart + m.Index).GetText().Trim()))
+                        snapshot.GetLineFromPosition(rangeStart + m.MatchIndex).GetText().Trim()))
                     continue;
 
                 return true;
@@ -516,7 +461,7 @@ namespace RenderDocComments.DocCommentRenderer.CommentBoxes
             var result = new List<TagSpan<IntraTextAdornmentTag>>();
             var opts = RenderDocOptions.Instance;
 
-            var lang = GetLanguage(_buffer);
+            var lang = CommentTagLocator.GetLanguage(_buffer);
             var ranges = new List<RawRange>();
             CollectRawRanges(snapshot, lang, ranges);
 

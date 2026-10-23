@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Threading;
@@ -16,6 +15,7 @@ using Microsoft.VisualStudio.Shell.Interop;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.TextManager.Interop;
 using RenderDocComments.DocCommentRenderer.TagBadges;
+using RenderDocComments.DocCommentRenderer.TagScan;
 using RenderDocComments.Options;
 using Task = System.Threading.Tasks.Task;
 
@@ -23,7 +23,8 @@ namespace RenderDocComments.CommentTagsExplorer
 {
     /// <summary>
     /// Scans solution files for conventional comment tags (TODO, FIXME, etc.) with real-time live typing updates,
-    /// solution event tracking, and comment boundary parsing matching CommentTagBadgeTagger.
+    /// solution event tracking, and comment boundary parsing matching the shared
+    /// comment-tag pipeline (TagScan/CommentTagLocator).
     /// </summary>
     internal sealed class CommentTagsScanner : IVsRunningDocTableEvents, IVsSolutionEvents, IDisposable
     {
@@ -54,35 +55,15 @@ namespace RenderDocComments.CommentTagsExplorer
         private readonly Dictionary<string, DispatcherTimer> _debounceTimers =
             new Dictionary<string, DispatcherTimer>(StringComparer.OrdinalIgnoreCase);
 
-        private static readonly Regex TagRegex = new Regex(
-            @"\b(TODO|FIXME|HACK|NOTE|BUG|REVIEW|OPTIMIZE|TEMP|WARNING|WARN|" +
-            @"DEPRECATED|CHANGED|SAFETY|INVARIANT|ASSUME|MAGIC)\b",
-            RegexOptions.Compiled);
-
-        private static readonly Regex TrailingCloser = new Regex(
-            @"\s*\*/\s*$", RegexOptions.Compiled);
-
-        private static readonly char[] NewlineChars = { '\r', '\n' };
-
         private static readonly HashSet<string> SupportedExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             ".cs", ".vb", ".fs", ".cpp", ".c", ".h", ".hpp", ".hxx", ".cxx", ".inl"
         };
 
-        private enum BufferLanguage { CSharp, VBNet, FSharp, Cpp }
-
-        private struct CommentRange
-        {
-            public int Start;
-            public int End;
-            public int PrefixLen;
-            public CommentRange(int start, int end, int prefixLen)
-            {
-                Start = start;
-                End = end;
-                PrefixLen = prefixLen;
-            }
-        }
+        // The file-based scan keeps its own line-start walk (it reads closed files
+        // from disk) but fills the shared CommentRange struct and matches tags
+        // through CommentTagLocator so Explorer results always match the editor
+        // features' occurrence sets.
 
         public class TagOccurrence
         {
@@ -525,13 +506,13 @@ namespace RenderDocComments.CommentTagsExplorer
             return true;
         }
 
-        private static BufferLanguage GetLanguage(string filePath)
+        private static CommentTagLocator.BufferLanguage GetLanguage(string filePath)
         {
             string ext = Path.GetExtension(filePath);
             if (string.Equals(ext, ".vb", StringComparison.OrdinalIgnoreCase))
-                return BufferLanguage.VBNet;
+                return CommentTagLocator.BufferLanguage.VBNet;
             if (string.Equals(ext, ".fs", StringComparison.OrdinalIgnoreCase))
-                return BufferLanguage.FSharp;
+                return CommentTagLocator.BufferLanguage.FSharp;
             if (string.Equals(ext, ".cpp", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(ext, ".c", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(ext, ".h", StringComparison.OrdinalIgnoreCase) ||
@@ -539,9 +520,9 @@ namespace RenderDocComments.CommentTagsExplorer
                 string.Equals(ext, ".hxx", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(ext, ".cxx", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(ext, ".inl", StringComparison.OrdinalIgnoreCase))
-                return BufferLanguage.Cpp;
+                return CommentTagLocator.BufferLanguage.Cpp;
 
-            return BufferLanguage.CSharp;
+            return CommentTagLocator.BufferLanguage.CSharp;
         }
 
         private static List<TagOccurrence> ScanText(string fullText, string filePath)
@@ -553,7 +534,7 @@ namespace RenderDocComments.CommentTagsExplorer
             var lang = GetLanguage(filePath);
 
             var lineStarts = ComputeLineStarts(fullText);
-            var ranges = new List<CommentRange>();
+            var ranges = new List<CommentTagLocator.CommentRange>();
             CollectCommentRanges(fullText, lineStarts, lang, ranges);
 
             foreach (var range in ranges)
@@ -563,27 +544,22 @@ namespace RenderDocComments.CommentTagsExplorer
 
                 string text = fullText.Substring(range.Start, len);
 
-                foreach (Match m in TagRegex.Matches(text))
+                foreach (var m in CommentTagLocator.Locate(text, range.PrefixLen))
                 {
-                    // 1. Anchoring check: match must only be preceded by whitespace or block decorator '*' on its comment line
-                    if (!IsAnchored(text, range.PrefixLen, m.Index)) continue;
+                    // The locator applies the anchoring and normalisation rules;
+                    // only the per-tag enablement filter remains here.
+                    if (!opts.EffectiveTagEnabled(m.CanonicalTag)) continue;
 
-                    // 2. Normalization check
-                    if (!TagBadgeCatalog.TryNormalize(m.Value, out var canonical)) continue;
-
-                    // 3. RenderDocOptions enabled check
-                    if (!opts.EffectiveTagEnabled(canonical)) continue;
-
-                    int absPos = range.Start + m.Index;
+                    int absPos = range.Start + m.MatchIndex;
                     int lineNumber = GetLineNumberFromPosition(lineStarts, absPos);
 
-                    string cleanTail = ExtractTail(text, m.Index + m.Length);
-                    if (string.IsNullOrWhiteSpace(cleanTail))
-                        cleanTail = "(no description)";
+                    string cleanTail = string.IsNullOrWhiteSpace(m.TailText)
+                        ? "(no description)"
+                        : m.TailText;
 
                     results.Add(new TagOccurrence
                     {
-                        CanonicalTag = canonical,
+                        CanonicalTag = m.CanonicalTag,
                         LineNumber = lineNumber,
                         CleanText = cleanTail,
                         FilePath = filePath
@@ -592,38 +568,6 @@ namespace RenderDocComments.CommentTagsExplorer
             }
 
             return results;
-        }
-
-        private static bool IsAnchored(string text, int contentStart, int matchIndex)
-        {
-            int lineStart = contentStart;
-            for (int i = matchIndex - 1; i >= contentStart; i--)
-            {
-                if (text[i] == '\n') { lineStart = i + 1; break; }
-            }
-            for (int i = lineStart; i < matchIndex; i++)
-            {
-                char c = text[i];
-                if (char.IsWhiteSpace(c) || c == '*') continue;
-                return false;
-            }
-            return true;
-        }
-
-        private static string ExtractTail(string rangeText, int tailStart)
-        {
-            if (tailStart >= rangeText.Length) return string.Empty;
-            var tail = rangeText.Substring(tailStart);
-
-            int nl = tail.IndexOfAny(NewlineChars);
-            if (nl >= 0) tail = tail.Substring(0, nl);
-
-            tail = TrailingCloser.Replace(tail, string.Empty);
-            tail = tail.TrimStart(':', ' ', '\t');
-
-            if (tail.Length > 200)
-                tail = tail.Substring(0, 200) + "…";
-            return tail;
         }
 
         private static List<int> ComputeLineStarts(string text)
@@ -647,10 +591,11 @@ namespace RenderDocComments.CommentTagsExplorer
         }
 
         private static void CollectCommentRanges(
-            string text, List<int> lineStarts, BufferLanguage lang, List<CommentRange> ranges)
+            string text, List<int> lineStarts, CommentTagLocator.BufferLanguage lang,
+            List<CommentTagLocator.CommentRange> ranges)
         {
-            bool isVb = lang == BufferLanguage.VBNet;
-            bool isFSharp = lang == BufferLanguage.FSharp;
+            bool isVb = lang == CommentTagLocator.BufferLanguage.VBNet;
+            bool isFSharp = lang == CommentTagLocator.BufferLanguage.FSharp;
 
             bool inBlock = false;
             bool inDocBlock = false;
@@ -685,7 +630,7 @@ namespace RenderDocComments.CommentTagsExplorer
                         {
                             if (inBlock)
                             {
-                                ranges.Add(new CommentRange(
+                                ranges.Add(new CommentTagLocator.CommentRange(
                                     blockStartAbs,
                                     lineStartPos + i + 2,
                                     blockPrefixLen));
@@ -716,7 +661,7 @@ namespace RenderDocComments.CommentTagsExplorer
                         {
                             if (i + 2 < n && t[i + 1] == '\'' && t[i + 2] == '\'')
                                 break; // doc comment — skip rest of line entirely
-                            ranges.Add(new CommentRange(lineStartPos + i, lineEndPos, 1));
+                            ranges.Add(new CommentTagLocator.CommentRange(lineStartPos + i, lineEndPos, 1));
                             break;
                         }
                         i++;
@@ -732,7 +677,7 @@ namespace RenderDocComments.CommentTagsExplorer
                         {
                             bool isDoc = i + 2 < n && (t[i + 2] == '/' || t[i + 2] == '!');
                             if (isDoc) break; // /// //// //! — skip line
-                            ranges.Add(new CommentRange(lineStartPos + i, lineEndPos, 2));
+                            ranges.Add(new CommentTagLocator.CommentRange(lineStartPos + i, lineEndPos, 2));
                             break;
                         }
 

@@ -291,6 +291,18 @@ namespace RenderDocComments.Options
         public string TagStyle { get; set; } = "Pills";
 
         /// <summary>
+        /// Gets or sets whether comment tags leave coloured markers in the editor's
+        /// vertical scroll bar, jumpable by click. Requires Premium. Default: <c>true</c>.
+        /// </summary>
+        /// <remarks>
+        /// Gated by <see cref="EffectiveScrollMarkersEnabled"/> — when the licence
+        /// is not active, no markers render regardless of this property's stored
+        /// value. Effective only while <see cref="TagBadgesEnabled"/> is also on —
+        /// the markers share the tag feature's per-tag enablement and colour settings.
+        /// </remarks>
+        public bool ScrollMarkersEnabled { get; set; } = true;
+
+        /// <summary>
         /// Gets or sets the serialized Premium per-tag colour overrides.<br/>
         /// Format: semicolon-separated <c>NAME=0xAARRGGBB</c> pairs, e.g.<br/>
         /// <c>"TODO=0xFF4FC1FF;MAGIC=0xFFDDB0FF"</c>. Empty string = all defaults.
@@ -352,6 +364,77 @@ namespace RenderDocComments.Options
         /// Default: <c>#57A64A</c> (the default Visual Studio comment green).
         /// </summary>
         public int CommentBoxTextColor { get; set; } = unchecked((int)0xFF57A64A);
+
+        /// <summary>
+        /// Gets or sets the font family name used for comment tag pills and cards.
+        /// An empty or whitespace value means "follow the editor font".
+        /// Requires Premium; free tier always follows the editor font.
+        /// </summary>
+        /// <remarks>
+        /// Default value: <c>string.Empty</c> (editor font).
+        /// Independent of <see cref="CustomFontFamily"/> so tag rendering can use a
+        /// different typeface than the doc comment cards.
+        /// The font family string should be a valid WPF font family name
+        /// (e.g., <c>"Consolas"</c>, <c>"Cascadia Code"</c>).
+        /// </remarks>
+        public string TagFontFamily { get; set; } = string.Empty;
+
+        // ── Comment boxes (plain // comments) ─────────────────────────────────────
+
+        /// <summary>
+        /// Gets or sets the master toggle for comment box rendering — plain (non-doc)
+        /// comments such as <c>// note</c> are replaced by a thin bordered box.
+        /// Requires Premium. Default: <c>true</c>.
+        /// </summary>
+        /// <remarks>
+        /// Gated by <see cref="EffectiveCommentBoxesEnabled"/> — when Premium is
+        /// locked, boxes never render regardless of this property's stored value.
+        /// Independent of <see cref="RenderEnabled"/> so users can disable doc-comment
+        /// cards without losing comment boxes, and vice versa. While effective, comment
+        /// tag pills/cards are superseded (the box replaces the whole comment).
+        /// </remarks>
+        public bool CommentBoxesEnabled { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets whether the box border and text follow the IDE's current
+        /// comment colour scheme ("Comment" classification). Requires Premium to turn
+        /// off; free tier always uses theme colours. Default: <c>true</c>.
+        /// </summary>
+        /// <remarks>
+        /// When <c>true</c> (or Premium is locked), both the border and the text use
+        /// the foreground colour the active colour theme assigns to comments.
+        /// When <c>false</c> and Premium is unlocked, the two colours below are used.
+        /// The box background always follows the editor background either way.
+        /// </remarks>
+        public bool CommentBoxThemeColors { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets the ARGB color value for the comment box border, used when
+        /// <see cref="CommentBoxThemeColors"/> is <c>false</c>. Requires Premium.
+        /// Stored as a 32-bit signed integer with bytes in ARGB order.
+        /// Default: <c>#57A64A</c> (the default Visual Studio comment green).
+        /// </summary>
+        public int CommentBoxBorderColor { get; set; } = unchecked((int)0xFF57A64A);
+
+        /// <summary>
+        /// Gets or sets the ARGB color value for the comment box text, used when
+        /// <see cref="CommentBoxThemeColors"/> is <c>false</c>. Requires Premium.
+        /// Stored as a 32-bit signed integer with bytes in ARGB order.
+        /// Default: <c>#57A64A</c> (the default Visual Studio comment green).
+        /// </summary>
+        public int CommentBoxTextColor { get; set; } = unchecked((int)0xFF57A64A);
+
+        /// <summary>
+        /// Gets or sets the font family name used for comment box text.
+        /// An empty or whitespace value means "follow the editor font".
+        /// Requires Premium; free tier always follows the editor font.
+        /// </summary>
+        /// <remarks>
+        /// Default value: <c>string.Empty</c> (editor font).
+        /// The font family string should be a valid WPF font family name
+        /// (e.g., <c>"Consolas"</c>, <c>"Cascadia Code"</c>).
+        /// </remarks>
+        public string CommentBoxFontFamily { get; set; } = string.Empty;
 
         /// <summary>
         /// Gets or sets the font family name used for comment tag pills and cards.
@@ -595,6 +678,13 @@ namespace RenderDocComments.Options
 // ── Comment tags: effective values ────────────────────────────────────────────
 
         /// <summary>
+        /// Gets whether scroll-bar tag markers currently render, respecting the
+        /// Premium gate. Returns <c>true</c> only if Premium is unlocked AND
+        /// <see cref="ScrollMarkersEnabled"/> is enabled.
+        /// </summary>
+        public bool EffectiveScrollMarkersEnabled => Premium && ScrollMarkersEnabled;
+
+        /// <summary>
         /// Gets the effective tag colour for a canonical tag name.<br/>
         /// Returns the Premium override when unlocked and one exists; otherwise the
         /// factory default from <see cref="TagBadgeCatalog"/>.
@@ -818,6 +908,7 @@ namespace RenderDocComments.Options
 
                 // Comment tags
                 TagBadgesEnabled = ReadBool(store, nameof(TagBadgesEnabled), TagBadgesEnabled);
+                ScrollMarkersEnabled = ReadBool(store, nameof(ScrollMarkersEnabled), ScrollMarkersEnabled);
                 TagStyle = store.PropertyExists(CollectionPath, nameof(TagStyle))
                                    ? store.GetString(CollectionPath, nameof(TagStyle))
                                    : TagStyle;
@@ -906,6 +997,7 @@ namespace RenderDocComments.Options
 
                 // Comment tags
                 store.SetBoolean(CollectionPath, nameof(TagBadgesEnabled), TagBadgesEnabled);
+                store.SetBoolean(CollectionPath, nameof(ScrollMarkersEnabled), ScrollMarkersEnabled);
                 store.SetString(CollectionPath, nameof(TagStyle), TagStyle ?? string.Empty);
                 store.SetString(CollectionPath, nameof(TagColorOverrides), TagColorOverrides ?? string.Empty);
                 store.SetString(CollectionPath, nameof(TagsDisabled), TagsDisabled ?? string.Empty);
