@@ -16,12 +16,14 @@
 ---
 
 ## ✨ The Interactive Experience
-Writing documentation shouldn't feel like looking at a configuration file. Our extension offers two distinct ways to manage your workflow:
+Writing documentation shouldn't feel like looking at a configuration file. Our extension offers powerful, flexible ways to manage your workflow:
 
 1.  **Caret-Based Mode (Default):** The second you click into the comment, it reverts to raw XML for zero-friction editing. Move your cursor away to see the polished preview.
 2.  **Margin Glyph Mode (Premium):** Prefer manual control? Use the dedicated Margin Glyph toggle to switch between raw XML and rendered docs regardless of where your cursor is.
 3.  **Comment Tag Rendering:** Drop a `TODO`, `FIXME`, or `WARN` into any comment and it's instantly rendered as a colour-coded badge inline — no more scanning walls of text for the flags that actually matter.
 4.  **Comment Tags Explorer:** A dedicated tool window rolls up every tagged comment across your solution into one searchable view, grouped by tag or by file, so you can jump straight to any TODO without hunting through the codebase.
+5.  **Scroll Bar Tag Markers (Premium):** Coloured indicator tick marks appear on the editor scroll bar for comment tags, allowing instant visual navigation with a single click.
+6.  **Comment Boxes & Section Banners (Premium):** Wrap plain `//` comments into styled boxes or collapse section divider comments and `#region` blocks into clean, modern visual header bars.
 
 ---
 
@@ -69,7 +71,7 @@ Access all your settings and Premium features via:
 Access Comment Tags Explorer via:
 **View > Other Windows > Comment Tags Explorer**
 
-From here, you can toggle between **Caret-based hiding** and **Margin Glyph control**, customize your typography, and adjust your accent bar styles.
+From here, you can toggle between **Caret-based hiding** and **Margin Glyph control**, customize your typography, configure scrollbar markers, adjust your accent bar styles, and configure comment boxes and header banners.
 
 ---
 
@@ -80,21 +82,27 @@ From here, you can toggle between **Caret-based hiding** and **Margin Glyph cont
 | **Multi-Language Support (C#, F#, C++, VB.NET)** | ✅ | ✅ |
 | **High-Fidelity Rendering** | ✅ | ✅ |
 | **Interactive `cref` Links** | ✅ | ✅ |
+| **Per-File Toggle (Toolbar Button & Context Menu)** | ✅ | ✅ |
+| **Viewport Pre-Rendering (Large File Performance)** | ✅ | ✅ |
 | **Caret-Based Auto-Hide** | ✅ (Always On) | **🔘 Selectable** |
 | **Margin Glyph Toggle** | ❌ | **🔘 Selectable** |
-| **Per-File Toggle (Toolbar Button & Context Menu)** | ✅ | ✅ |
-| **Comment Tag Render** | ✅ | ✅ |
-| **Comment Tag Render Style(Pill/Card)** | 🔘 Selectable | 🔘 Selectable |
-| **Comment Tags Explorer** | Tag Explorer | Tag + File Explorer |
 | **Theme Synchronization** | Manual (Reopen File) | **⚡ Instant Auto-Sync** |
 | **Rendered Comment Fixed Width** | Only Auto-width | **🔘 Selectable** |
-| **Rendered Comment Use Custom Fixed Width** | ❌ | **⚙️Customizable** |
-| **Typography** | Segoe UI (Fixed) | **🎨 Fully Custom** |
+| **Rendered Comment Use Custom Fixed Width** | ❌ | **⚙️ Customizable** |
+| **Typography (Doc Comments)** | Segoe UI (Fixed) | **🎨 Fully Custom** |
 | **Accent Bars** | Left Side Only | **🔥 Multi-side Layout** |
-| **Color Profiles** | Default | **🌈 Full Customization** |
+| **Color Profiles & Gradient Presets** | Default | **🌈 Full Customization & Presets** |
+| **Comment Tag Render** | ✅ | ✅ |
+| **Comment Tag Render Style (Pill/Card)** | 🔘 Selectable | 🔘 Selectable |
+| **Comment Tag Typography** | Editor Font (Fixed) | **🎨 Fully Custom** |
 | **Tag Comments Render Color** | Default | **🌈 Full Customization** |
+| **Per-Tag Visibility Toggle** | All Tags Enabled | **🔘 Selectable** |
+| **Scroll Bar Tag Markers** | ❌ | **✅ Interactive Markers** |
+| **Comment Tags Explorer** | Tag Explorer | Tag + File Explorer |
 | **Comment Boxes (plain `//` comments)** | ❌ | **✅ Premium** |
 | **Banner Comments (section header bars)** | ❌ | **✅ Premium** |
+| **`#region` Directive Banners** | ❌ | **✅ Premium** |
+| **Box & Banner Styling (Fonts, Rules, Heights, Colors)** | ❌ | **⚙️ Fully Customizable** |
 
 ---
 
@@ -120,3 +128,4 @@ This project is proudly licensed under **GNU GPL v3**. We believe in open-source
 ---
 
 **Elevate your code readability today — across every language in your solution.**
+
