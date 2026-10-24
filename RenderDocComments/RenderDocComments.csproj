@@ -82,9 +82,9 @@
     </Compile>
     <Compile Include="RenderDocCommentsPackage.cs" />
     <Compile Include="Options\RenderDocOptions.cs" />
-    <Compile Include="SettingsChangedBroadcast.cs" />
+    <Compile Include="Options\SettingsChangedBroadcast.cs" />
     <Compile Include="Options\RenderDocOptionsCommand.cs" />
-    <Compile Include="RenderDocToggleCommand.cs" />
+    <Compile Include="DocCommentRenderer\RenderDocToggleCommand.cs" />
     <Compile Include="UI\ReviewPromptBar.cs" />
     <Compile Include="UI\WelcomeBar.cs" />
     <Compile Include="Options\RenderDocOptionsWindow.xaml.cs">

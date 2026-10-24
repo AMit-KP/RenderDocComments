@@ -236,9 +236,13 @@ namespace RenderDocComments.DocCommentRenderer
 
             var snapshot = spans[0].Snapshot;
             int lineCount = snapshot.LineCount;
-            int i = 0;
+            if (spans.Count == 0) yield break;
+            int queryStartLine = spans[0].Start.GetContainingLine().LineNumber;
+            int queryEndLine = spans[spans.Count - 1].End.GetContainingLine().LineNumber;
+            int i = Math.Max(0, queryStartLine);
+            int maxLine = Math.Min(lineCount - 1, queryEndLine);
 
-            while (i < lineCount)
+            while (i <= maxLine)
             {
                 var line = snapshot.GetLineFromLineNumber(i);
                 var lineText = line.GetText();
@@ -264,6 +268,11 @@ namespace RenderDocComments.DocCommentRenderer
                 else if (LineDocRegex.IsMatch(lineText))
                 {
                     // ── Line-doc comment  ///  //!  or  ''' ─────────────────────
+                    if (i > 0 && LineDocRegex.IsMatch(snapshot.GetLineFromLineNumber(i - 1).GetText()))
+                    {
+                        i++;
+                        continue;
+                    }
                     firstLine = line;
                     int blockStart = i;
                     while (i < lineCount &&

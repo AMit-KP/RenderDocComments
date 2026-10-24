@@ -58,6 +58,9 @@ namespace RenderDocComments.Options
         /// <summary>Backing field for the fixed width setting.</summary>
         private double _fixedWidth = 700.0;
 
+        /// <summary>Backing field for the pre-render buffer lines setting.</summary>
+        private int _viewportBufferLines = 100;
+
         /// <summary>Backing fields for the banner size settings (0 = auto).</summary>
         private double _bannerFontSize = 0.0;
         private double _bannerRuleThickness = 1.0;
@@ -171,6 +174,10 @@ namespace RenderDocComments.Options
             var o = RenderDocOptions.Instance;
 
             RenderEnabledCheck.IsChecked = o.RenderEnabled;
+            ViewportWindowingCheck.IsChecked = o.ViewportWindowingEnabled;
+            _viewportBufferLines = o.ClampedViewportBufferLines;
+            PreRenderLinesText.Text = _viewportBufferLines.ToString();
+            UpdateViewportWindowingEnabled();
             AutoRefreshCheck.IsChecked = o.AutoRefreshOnThemeChange;
             GlyphModeRadio.IsChecked = o.GlyphToggleEnabled;
             CaretModeRadio.IsChecked = !o.GlyphToggleEnabled;
@@ -311,6 +318,11 @@ namespace RenderDocComments.Options
 
             // Doc-comment sections — require the master toggle; additionally
             // Premium-gated.
+            ViewportWindowingSectionPanel.IsEnabled = docRenderEnabled;
+            ViewportWindowingSectionPanel.Opacity = docRenderEnabled ? 1.0 : 0.45;
+            if (docRenderEnabled)
+                UpdateViewportWindowingEnabled();
+
             SetSectionState(GlyphSectionPanel, docRenderEnabled && premium);
             SetSectionState(AutoRefreshSectionPanel, docRenderEnabled && premium);
             SetSectionState(WidthSectionPanel, docRenderEnabled && premium);
@@ -490,6 +502,10 @@ namespace RenderDocComments.Options
         {
             var o = RenderDocOptions.Instance;
             o.RenderEnabled = RenderEnabledCheck.IsChecked == true;
+            o.ViewportWindowingEnabled = ViewportWindowingCheck.IsChecked == true;
+            if (int.TryParse(PreRenderLinesText.Text, out int linesVal))
+                _viewportBufferLines = Math.Max(50, Math.Min(500, linesVal));
+            o.ViewportBufferLines = _viewportBufferLines;
             o.AutoRefreshOnThemeChange = AutoRefreshCheck.IsChecked == true;
             o.GlyphToggleEnabled = GlyphModeRadio.IsChecked == true;
             // Index 0 ("(Editor font)") stores an empty family.
@@ -881,6 +897,34 @@ namespace RenderDocComments.Options
             }
         }
 
+        // ── Viewport windowing / Pre-render lines ──────────────────────────────────
+
+        private void OnViewportWindowingChanged(object sender, RoutedEventArgs e)
+        {
+            if (_loading) return;
+            UpdateViewportWindowingEnabled();
+            OnSettingChanged(sender, e);
+        }
+
+        private void OnPreRenderLinesTextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (_loading) return;
+            var text = PreRenderLinesText.Text.Trim();
+            if (int.TryParse(text, out int val))
+            {
+                val = Math.Max(50, Math.Min(500, val));
+                _viewportBufferLines = val;
+                OnSettingChanged(sender, null);
+            }
+        }
+
+        private void UpdateViewportWindowingEnabled()
+        {
+            bool enabled = ViewportWindowingCheck.IsChecked == true && RenderEnabledCheck.IsChecked == true;
+            PreRenderLinesText.IsEnabled = enabled;
+            PreRenderLinesText.Opacity = enabled ? 1.0 : 0.45;
+        }
+
         // ── Fixed width ───────────────────────────────────────────────────────────
 
         /// <summary>
@@ -1132,6 +1176,11 @@ namespace RenderDocComments.Options
         /// <item><description><b>Sunset:</b> Orange → Red → Dark Red.</description></item>
         /// <item><description><b>Forest:</b> Green → Dark Green → Very Dark Green.</description></item>
         /// <item><description><b>RoseGold:</b> Rose → Warm Brown → Dark Brown.</description></item>
+        /// <item><description><b>Cyberpunk:</b> Electric Cyan → Vivid Magenta → Deep Violet.</description></item>
+        /// <item><description><b>Aurora:</b> Neon Mint → Electric Cyan → Deep Midnight.</description></item>
+        /// <item><description><b>SolarFlare:</b> Amber Gold → Fiery Coral → Royal Wine.</description></item>
+        /// <item><description><b>NeonGlow:</b> Hot Pink → Electric Violet → Aqua Blue.</description></item>
+        /// <item><description><b>Cosmic:</b> Electric Violet → Indigo → Midnight Blue.</description></item>
         /// </list>
         /// <para>After applying the preset, the method refreshes all swatches and triggers a settings change.</para>
         /// </remarks>
@@ -1164,6 +1213,31 @@ namespace RenderDocComments.Options
                     _colorGrad0 = unchecked((int)0xFFE8A598);
                     _colorGrad1 = unchecked((int)0xC8C07060);
                     _colorGrad2 = unchecked((int)0x50703020);
+                    break;
+                case "Cyberpunk":
+                    _colorGrad0 = unchecked((int)0xFF00F0FF);
+                    _colorGrad1 = unchecked((int)0xC8D946EF);
+                    _colorGrad2 = unchecked((int)0x503B0764);
+                    break;
+                case "Aurora":
+                    _colorGrad0 = unchecked((int)0xFF00FF87);
+                    _colorGrad1 = unchecked((int)0xC800D2FF);
+                    _colorGrad2 = unchecked((int)0x500A192F);
+                    break;
+                case "SolarFlare":
+                    _colorGrad0 = unchecked((int)0xFFFFB800);
+                    _colorGrad1 = unchecked((int)0xC8FF3366);
+                    _colorGrad2 = unchecked((int)0x504A0E4E);
+                    break;
+                case "NeonGlow":
+                    _colorGrad0 = unchecked((int)0xFFFF007F);
+                    _colorGrad1 = unchecked((int)0xC87928CA);
+                    _colorGrad2 = unchecked((int)0x5000DFD8);
+                    break;
+                case "Cosmic":
+                    _colorGrad0 = unchecked((int)0xFFA855F7);
+                    _colorGrad1 = unchecked((int)0xC84F46E5);
+                    _colorGrad2 = unchecked((int)0x500F172A);
                     break;
             }
             RefreshAllSwatches();
@@ -1395,6 +1469,8 @@ namespace RenderDocComments.Options
 
             var o = RenderDocOptions.Instance;
             o.RenderEnabled = true;
+            o.ViewportWindowingEnabled = true;
+            o.ViewportBufferLines = 100;
             o.AutoRefreshOnThemeChange = false;
             o.GlyphToggleEnabled = false;
             o.CustomFontFamily = "Segoe UI";

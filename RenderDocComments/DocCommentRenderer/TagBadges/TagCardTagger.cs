@@ -128,13 +128,31 @@ namespace RenderDocComments.DocCommentRenderer.TagBadges
             var snapshot = spans[0].Snapshot;
             var tags = GetOrBuildTags(snapshot);
 
+            int winStart = 0;
+            int winEnd = snapshot.LineCount - 1;
+            bool windowing = RenderDocOptions.Instance.ViewportWindowingEnabled;
+            if (windowing)
+            {
+                var lines = _view.TextViewLines;
+                if (lines != null && lines.Count > 0 && lines.IsValid)
+                {
+                    int first = lines.FirstVisibleLine.Start.GetContainingLine().LineNumber;
+                    int last = lines.LastVisibleLine.End.GetContainingLine().LineNumber;
+                    int buffer = RenderDocOptions.Instance.ClampedViewportBufferLines;
+                    winStart = Math.Max(0, first - buffer);
+                    winEnd = Math.Min(snapshot.LineCount - 1, last + buffer);
+                }
+            }
+
             foreach (var tag in tags)
             {
+                int s = snapshot.GetLineNumberFromPosition(tag.Span.Start);
+                int e = snapshot.GetLineNumberFromPosition(tag.Span.End);
+                if (windowing && (e < winStart || s > winEnd)) continue;
+
                 // Caret-based hide: raw text returns while the user edits the line.
                 if (_caretLine >= 0)
                 {
-                    int s = snapshot.GetLineNumberFromPosition(tag.Span.Start);
-                    int e = snapshot.GetLineNumberFromPosition(tag.Span.End);
                     if (_caretLine >= s && _caretLine <= e) continue;
                 }
 

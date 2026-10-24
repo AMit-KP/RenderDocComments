@@ -78,9 +78,25 @@ namespace RenderDocComments.DocCommentRenderer
         private readonly ITextBuffer _buffer;
         private readonly IWpfTextView _view;
 
+        private sealed class DocCommentBlock
+        {
+            public SnapshotSpan Span { get; set; }
+            public ParsedDocComment Parsed { get; set; }
+            public string FirstLineText { get; set; }
+            public int StartLine { get; set; }
+            public int EndLine { get; set; }
+        }
+
         private ITextSnapshot _cachedSnapshot;
         private int _cachedSettingsGen = -1;
-        private IReadOnlyList<TagSpan<IntraTextAdornmentTag>> _cachedTags;
+        private IReadOnlyList<DocCommentBlock> _cachedBlocks;
+        private readonly Dictionary<int, TagSpan<IntraTextAdornmentTag>> _activeTagCache =
+            new Dictionary<int, TagSpan<IntraTextAdornmentTag>>();
+
+        private int _activeWindowStartLine = -1;
+        private int _activeWindowEndLine = -1;
+        private int _lastFirstVisibleLine = -1;
+        private int _lastLastVisibleLine = -1;
 
         private static int _settingsGeneration = 0;
         private bool _forceEmpty = false;
@@ -182,6 +198,24 @@ namespace RenderDocComments.DocCommentRenderer
             return GetTagsCore(spans);
         }
 
+        private (int startLine, int endLine) GetActiveWindow(ITextSnapshot snapshot)
+        {
+            if (!RenderDocOptions.Instance.ViewportWindowingEnabled)
+                return (0, snapshot.LineCount - 1);
+
+            var lines = _view.TextViewLines;
+            if (lines == null || lines.Count == 0 || !lines.IsValid)
+            {
+                return (0, Math.Min(snapshot.LineCount - 1, 200));
+            }
+
+            int first = lines.FirstVisibleLine.Start.GetContainingLine().LineNumber;
+            int last = lines.LastVisibleLine.End.GetContainingLine().LineNumber;
+            int buffer = RenderDocOptions.Instance.ClampedViewportBufferLines;
+
+            return (Math.Max(0, first - buffer), Math.Min(snapshot.LineCount - 1, last + buffer));
+        }
+
         private IEnumerable<ITagSpan<IntraTextAdornmentTag>> GetTagsCore(
             NormalizedSnapshotSpanCollection spans)
         {
@@ -195,64 +229,85 @@ namespace RenderDocComments.DocCommentRenderer
                 yield break;
 
             var snapshot = spans[0].Snapshot;
-            var tags = GetOrBuildTags(snapshot);
+            var blocks = GetOrBuildBlocks(snapshot);
+            if (blocks == null || blocks.Count == 0) yield break;
 
-            foreach (var tag in tags)
+            bool windowingEnabled = RenderDocOptions.Instance.ViewportWindowingEnabled;
+            int winStart = 0;
+            int winEnd = snapshot.LineCount - 1;
+
+            if (windowingEnabled)
             {
+                var (ws, we) = GetActiveWindow(snapshot);
+                winStart = ws;
+                winEnd = we;
+                _activeWindowStartLine = winStart;
+                _activeWindowEndLine = winEnd;
+            }
+
+            foreach (var block in blocks)
+            {
+                // Viewport window filtering: skip comments outside active window
+                if (windowingEnabled)
+                {
+                    if (block.EndLine < winStart || block.StartLine > winEnd)
+                        continue;
+                }
+
                 if (RenderDocOptions.Instance.EffectiveGlyphToggle)
                 {
-                    if (DocCommentToggleState.IsHidden(new SnapshotSpan(snapshot, tag.Span)))
+                    if (DocCommentToggleState.IsHidden(new SnapshotSpan(snapshot, block.Span)))
                         continue;
                 }
                 else
                 {
                     if (_caretLine >= 0)
                     {
-                        int s = snapshot.GetLineNumberFromPosition(tag.Span.Start);
-                        int e = snapshot.GetLineNumberFromPosition(tag.Span.End);
-                        if (_caretLine >= s && _caretLine <= e) continue;
+                        if (_caretLine >= block.StartLine && _caretLine <= block.EndLine)
+                            continue;
                     }
                 }
 
-                if (spans.IntersectsWith(new NormalizedSnapshotSpanCollection(tag.Span)))
-                    yield return tag;
+                if (spans.IntersectsWith(new NormalizedSnapshotSpanCollection(block.Span)))
+                {
+                    int key = block.Span.Start.Position;
+                    if (!_activeTagCache.TryGetValue(key, out var tagSpan))
+                    {
+                        var tag = new DocCommentAdornmentTag(block.Parsed, _view, MeasureIndent(block.FirstLineText));
+                        tagSpan = new TagSpan<IntraTextAdornmentTag>(block.Span, tag);
+                        _activeTagCache[key] = tagSpan;
+                    }
+
+                    yield return tagSpan;
+                }
             }
         }
 
         /// <summary>
-        /// Retrieves cached tags for the given snapshot or builds them if the cache is stale.<br/>
+        /// Retrieves cached parsed documentation blocks for the given snapshot or builds them if the cache is stale.<br/>
         /// This method implements a two-level cache invalidation strategy based on snapshot identity<br/>
         /// and settings generation counter.
         /// </summary>
         /// <param name="snapshot">
-        /// The <see cref="ITextSnapshot"/> to retrieve tags for. Snapshots are immutable;<br/>
-        /// a new snapshot indicates buffer content has changed.
+        /// The <see cref="ITextSnapshot"/> to retrieve blocks for.
         /// </param>
         /// <returns>
-        /// A read-only list of <see cref="TagSpan{IntraTextAdornmentTag}"/> representing all<br/>
-        /// documentation comment adornments in the snapshot.
+        /// A read-only list of <see cref="DocCommentBlock"/> representing all<br/>
+        /// parsed documentation comments in the snapshot.
         /// </returns>
-        /// <remarks>
-        /// <para>Cache invalidation occurs when:</para>
-        /// <list type="bullet">
-        /// <item><description><b>Snapshot mismatch:</b> The cached snapshot differs from the requested one (content edited).</description></item>
-        /// <item><description><b>Settings generation change:</b> The static <see cref="_settingsGeneration"/> counter has been incremented by <see cref="OnSettingsChanged"/>.</description></item>
-        /// </list>
-        /// <para>When either condition is detected, <see cref="BuildTags"/> is invoked to reconstruct<br/>
-        /// all tags with current buffer content and settings.</para>
-        /// </remarks>
-        private IReadOnlyList<TagSpan<IntraTextAdornmentTag>> GetOrBuildTags(ITextSnapshot snapshot)
+        private IReadOnlyList<DocCommentBlock> GetOrBuildBlocks(ITextSnapshot snapshot)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
             if (_cachedSnapshot == snapshot &&
                 _cachedSettingsGen == _settingsGeneration &&
-                _cachedTags != null)
-                return _cachedTags;
+                _cachedBlocks != null)
+                return _cachedBlocks;
 
             _cachedSnapshot = snapshot;
             _cachedSettingsGen = _settingsGeneration;
-            _cachedTags = BuildTags(snapshot);
-            return _cachedTags;
+            _activeTagCache.Clear();
+            _cachedBlocks = BuildBlocks(snapshot);
+            return _cachedBlocks;
         }
 
         // ── Doc-comment line detection ─────────────────────────────────────────────
@@ -553,10 +608,10 @@ namespace RenderDocComments.DocCommentRenderer
         /// <para>The method resolves source file paths to support <c>&lt;include&gt;</c> and cross-file<br/>
         /// <c>&lt;inheritdoc&gt;</c> lookups via the <see cref="ITextDocument"/> property of the buffer.</para>
         /// </remarks>
-        private IReadOnlyList<TagSpan<IntraTextAdornmentTag>> BuildTags(ITextSnapshot snapshot)
+        private IReadOnlyList<DocCommentBlock> BuildBlocks(ITextSnapshot snapshot)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
-            var result = new List<TagSpan<IntraTextAdornmentTag>>();
+            var result = new List<DocCommentBlock>();
             int lineCount = snapshot.LineCount;
             var bufLang = GetLanguage(_buffer);
             bool isCpp = bufLang == BufferLanguage.Cpp;
@@ -581,7 +636,7 @@ namespace RenderDocComments.DocCommentRenderer
                                : CsDocLineRegex;
 
             // ── Pass 1: collect doc blocks + member name after each ───────────────
-            var allBlocks = new List<(string raw, string memberName, SnapshotSpan span, string firstLine)>();
+            var allBlocks = new List<(string raw, string memberName, SnapshotSpan span, string firstLine, int startLine, int endLine)>();
 
             int i = 0;
             while (i < lineCount)
@@ -594,6 +649,7 @@ namespace RenderDocComments.DocCommentRenderer
                     // ── C++ block comments /** ... */ or /*! ... */ ─────────────────
                     if (CppBlockOpenRegex.IsMatch(lineText))
                     {
+                        int blockStartLine = i;
                         var blockLines = new List<ITextSnapshotLine> { line };
                         bool closed = lineText.Contains("*/");
                         i++;
@@ -605,28 +661,31 @@ namespace RenderDocComments.DocCommentRenderer
                                 closed = true;
                             i++;
                         }
+                        int blockEndLine = i - 1;
                         var memberName = PeekMemberName(snapshot, i, lineCount, bufLang);
                         var rawBlock = string.Join("\n", blockLines.Select(l => l.GetText()));
                         var blockSpan = new SnapshotSpan(snapshot,
                             Span.FromBounds(blockLines[0].Start,
                                             blockLines[blockLines.Count - 1].End));
-                        allBlocks.Add((rawBlock, memberName, blockSpan, blockLines[0].GetText()));
+                        allBlocks.Add((rawBlock, memberName, blockSpan, blockLines[0].GetText(), blockStartLine, blockEndLine));
                         continue;
                     }
 
                     // ── C++ line comments /// or //! ───────────────────────────────
                     if (CppLineDocRegex.IsMatch(lineText))
                     {
+                        int blockStartLine = i;
                         var blockLines = new List<ITextSnapshotLine>();
                         while (i < lineCount && CppLineDocRegex.IsMatch(
                                    snapshot.GetLineFromLineNumber(i).GetText()))
                             blockLines.Add(snapshot.GetLineFromLineNumber(i++));
+                        int blockEndLine = i - 1;
                         var memberName = PeekMemberName(snapshot, i, lineCount, bufLang);
                         var rawBlock = string.Join("\n", blockLines.Select(l => l.GetText()));
                         var blockSpan = new SnapshotSpan(snapshot,
                             Span.FromBounds(blockLines[0].Start,
                                             blockLines[blockLines.Count - 1].End));
-                        allBlocks.Add((rawBlock, memberName, blockSpan, blockLines[0].GetText()));
+                        allBlocks.Add((rawBlock, memberName, blockSpan, blockLines[0].GetText(), blockStartLine, blockEndLine));
                         continue;
                     }
 
@@ -637,17 +696,19 @@ namespace RenderDocComments.DocCommentRenderer
                     // ── C# / F# (///) or VB.NET triple-apostrophe line comments ────
                     if (!lineDocRegex.IsMatch(lineText)) { i++; continue; }
 
+                    int blockStartLine = i;
                     var blockLines = new List<ITextSnapshotLine>();
                     while (i < lineCount && lineDocRegex.IsMatch(
                                snapshot.GetLineFromLineNumber(i).GetText()))
                         blockLines.Add(snapshot.GetLineFromLineNumber(i++));
+                    int blockEndLine = i - 1;
 
                     var memberName = PeekMemberName(snapshot, i, lineCount, bufLang);
                     var rawBlock = string.Join("\n", blockLines.Select(l => l.GetText()));
                     var blockSpan = new SnapshotSpan(snapshot,
                         Span.FromBounds(blockLines[0].Start,
                                         blockLines[blockLines.Count - 1].End));
-                    allBlocks.Add((rawBlock, memberName, blockSpan, blockLines[0].GetText()));
+                    allBlocks.Add((rawBlock, memberName, blockSpan, blockLines[0].GetText(), blockStartLine, blockEndLine));
                 }
             }
 
@@ -657,7 +718,7 @@ namespace RenderDocComments.DocCommentRenderer
             // VB / F# / C# all use the XML-doc parser. C++ auto-detects XML vs Doxygen.
             var parseLang = isCpp ? DocCommentLanguage.Cpp : DocCommentLanguage.CSharp;
 
-            foreach (var (raw, memberName, _, _) in allBlocks)
+            foreach (var (raw, memberName, _, _, _, _) in allBlocks)
             {
                 var parsed = DocCommentParser.Parse(raw, parseLang);
                 parsedList.Add(parsed);
@@ -666,10 +727,10 @@ namespace RenderDocComments.DocCommentRenderer
                         parsedByName[memberName] = parsed;
             }
 
-            // ── Pass 3: resolve and emit tags ─────────────────────────────────────
+            // ── Pass 3: resolve and build lightweight blocks (controls created lazily)
             for (int idx = 0; idx < allBlocks.Count; idx++)
             {
-                var (_, ownName, blockSpan, firstLine) = allBlocks[idx];
+                var (_, ownName, blockSpan, firstLine, startLine, endLine) = allBlocks[idx];
                 var parsed = parsedList[idx];
                 if (parsed == null || !parsed.IsValid) continue;
 
@@ -682,8 +743,14 @@ namespace RenderDocComments.DocCommentRenderer
 
                 if (parsed == null || !parsed.IsValid) continue;
 
-                var tag = new DocCommentAdornmentTag(parsed, _view, MeasureIndent(firstLine));
-                result.Add(new TagSpan<IntraTextAdornmentTag>(blockSpan, tag));
+                result.Add(new DocCommentBlock
+                {
+                    Span = blockSpan,
+                    Parsed = parsed,
+                    FirstLineText = firstLine,
+                    StartLine = startLine,
+                    EndLine = endLine
+                });
             }
 
             return result;
@@ -1977,15 +2044,20 @@ namespace RenderDocComments.DocCommentRenderer
         private void OnBufferChanged(object sender, TextContentChangedEventArgs e)
         {
             _cachedSnapshot = null;
-            _cachedTags = null;
+            _cachedBlocks = null;
+            _activeTagCache.Clear();
+            _activeWindowStartLine = -1;
+            _activeWindowEndLine = -1;
+            _lastFirstVisibleLine = -1;
+            _lastLastVisibleLine = -1;
             var snap = e.After;
             TagsChanged?.Invoke(this,
                 new SnapshotSpanEventArgs(new SnapshotSpan(snap, 0, snap.Length)));
         }
 
         /// <summary>
-        /// Handles layout change events, invalidating the tag cache when viewport dimensions change.<br/>
-        /// This ensures documentation rendering adapts to window resizes and zoom operations.
+        /// Handles layout change events, invalidating the tag cache when viewport dimensions change,<br/>
+        /// and updating the active rendered window as the user scrolls.
         /// </summary>
         /// <param name="sender">
         /// The <see cref="IWpfTextView"/> that raised the event (unused).
@@ -1994,16 +2066,6 @@ namespace RenderDocComments.DocCommentRenderer
         /// A <see cref="TextViewLayoutChangedEventArgs"/> containing the old and new view state<br/>
         /// including viewport width and height.
         /// </param>
-        /// <remarks>
-        /// The handler only invalidates the cache when viewport width or height changes occur,<br/>
-        /// ignoring scroll-only or selection changes. This optimization prevents unnecessary<br/>
-        /// rebuilds during routine editor navigation.
-        /// <para>When invalidated, the handler:</para>
-        /// <list type="number">
-        /// <item><description>Clears the cached snapshot and tag list.</description></item>
-        /// <item><description>Raises <see cref="TagsChanged"/> for the entire buffer to trigger re-layout of adornments.</description></item>
-        /// </list>
-        /// </remarks>
         private void OnLayoutChanged(object sender, Microsoft.VisualStudio.Text.Editor.TextViewLayoutChangedEventArgs e)
         {
             bool widthChanged = e.NewViewState.ViewportWidth != e.OldViewState.ViewportWidth;
@@ -2016,10 +2078,104 @@ namespace RenderDocComments.DocCommentRenderer
             if (widthChanged || heightChanged)
             {
                 _cachedSnapshot = null;
-                _cachedTags = null;
+                _cachedBlocks = null;
+                _activeTagCache.Clear();
+                _activeWindowStartLine = -1;
+                _activeWindowEndLine = -1;
+                _lastFirstVisibleLine = -1;
+                _lastLastVisibleLine = -1;
                 var snap = _buffer.CurrentSnapshot;
                 TagsChanged?.Invoke(this,
                     new SnapshotSpanEventArgs(new SnapshotSpan(snap, 0, snap.Length)));
+                return;
+            }
+
+            // Viewport windowing scroll tracking
+            if (!RenderDocOptions.Instance.ViewportWindowingEnabled) return;
+
+            var lines = _view.TextViewLines;
+            if (lines == null || lines.Count == 0 || !lines.IsValid) return;
+
+            int firstVis = lines.FirstVisibleLine.Start.GetContainingLine().LineNumber;
+            int lastVis = lines.LastVisibleLine.End.GetContainingLine().LineNumber;
+
+            if (_lastFirstVisibleLine < 0 || _lastLastVisibleLine < 0)
+            {
+                _lastFirstVisibleLine = firstVis;
+                _lastLastVisibleLine = lastVis;
+                return;
+            }
+
+            int shiftTop = Math.Abs(firstVis - _lastFirstVisibleLine);
+            int shiftBottom = Math.Abs(lastVis - _lastLastVisibleLine);
+            int shift = Math.Max(shiftTop, shiftBottom);
+
+            int buffer = RenderDocOptions.Instance.ClampedViewportBufferLines;
+            bool nearEdge = (_activeWindowStartLine >= 0 && (firstVis - _activeWindowStartLine < 20)) ||
+                            (_activeWindowEndLine >= 0 && (_activeWindowEndLine - lastVis < 20));
+
+            // Shift threshold: update when scrolling >= 25 lines or approaching the buffer edge
+            if (shift >= 25 || nearEdge)
+            {
+                int oldStart = _activeWindowStartLine;
+                int oldEnd = _activeWindowEndLine;
+
+                var snap = _buffer.CurrentSnapshot;
+                int newStart = Math.Max(0, firstVis - buffer);
+                int newEnd = Math.Min(snap.LineCount - 1, lastVis + buffer);
+
+                if (newStart != oldStart || newEnd != oldEnd)
+                {
+                    _lastFirstVisibleLine = firstVis;
+                    _lastLastVisibleLine = lastVis;
+                    _activeWindowStartLine = newStart;
+                    _activeWindowEndLine = newEnd;
+
+                    // Evict tags outside the new active window from _activeTagCache to free memory
+                    if (_activeTagCache.Count > 0 && _cachedBlocks != null)
+                    {
+                        var toRemove = new List<int>();
+                        foreach (var block in _cachedBlocks)
+                        {
+                            if (block.EndLine < newStart || block.StartLine > newEnd)
+                            {
+                                int key = block.Span.Start.Position;
+                                if (_activeTagCache.ContainsKey(key))
+                                    toRemove.Add(key);
+                            }
+                        }
+                        foreach (int key in toRemove)
+                            _activeTagCache.Remove(key);
+                    }
+
+                    // Invalidate delta spans so VS editor de-renders exited lines and renders entered lines
+                    if (oldStart < 0 || oldEnd < 0)
+                    {
+                        var startPos = snap.GetLineFromLineNumber(newStart).Start;
+                        var endPos = snap.GetLineFromLineNumber(newEnd).End;
+                        TagsChanged?.Invoke(this, new SnapshotSpanEventArgs(new SnapshotSpan(snap, Span.FromBounds(startPos, endPos))));
+                    }
+                    else
+                    {
+                        int s1 = Math.Min(oldStart, newStart);
+                        int e1 = Math.Max(oldStart, newStart);
+                        if (s1 < e1)
+                        {
+                            var p1 = snap.GetLineFromLineNumber(s1).Start;
+                            var p2 = snap.GetLineFromLineNumber(Math.Min(snap.LineCount - 1, e1)).End;
+                            TagsChanged?.Invoke(this, new SnapshotSpanEventArgs(new SnapshotSpan(snap, Span.FromBounds(p1, p2))));
+                        }
+
+                        int s2 = Math.Min(oldEnd, newEnd);
+                        int e2 = Math.Max(oldEnd, newEnd);
+                        if (s2 < e2)
+                        {
+                            var p1 = snap.GetLineFromLineNumber(Math.Max(0, s2)).Start;
+                            var p2 = snap.GetLineFromLineNumber(Math.Min(snap.LineCount - 1, e2)).End;
+                            TagsChanged?.Invoke(this, new SnapshotSpanEventArgs(new SnapshotSpan(snap, Span.FromBounds(p1, p2))));
+                        }
+                    }
+                }
             }
         }
 
@@ -2042,7 +2198,12 @@ namespace RenderDocComments.DocCommentRenderer
         {
             _caretLine = -1;
             _cachedSnapshot = null;
-            _cachedTags = null;
+            _cachedBlocks = null;
+            _activeTagCache.Clear();
+            _activeWindowStartLine = -1;
+            _activeWindowEndLine = -1;
+            _lastFirstVisibleLine = -1;
+            _lastLastVisibleLine = -1;
         }
 
         /// <summary>
@@ -2056,19 +2217,6 @@ namespace RenderDocComments.DocCommentRenderer
         /// <param name="e">
         /// A <see cref="CaretPositionChangedEventArgs"/> containing the old and new caret positions.
         /// </param>
-        /// <remarks>
-        /// <para>The handler is inactive when glyph toggle mode is enabled (<see cref="RenderDocOptions.EffectiveGlyphToggle"/>
-        /// is <c>true</c>), as visibility is then controlled by user interaction with margin glyphs.</para>
-        /// <para>When active, the handler:</para>
-        /// <list type="number">
-        /// <item><description>Extracts the new caret line number from the buffer position.</description></item>
-        /// <item><description>Skips processing if the line number hasn't changed.</description></item>
-        /// <item><description>Invokes the local <c>Invalidate</c> function for both the old and new lines.</description></item>
-        /// </list>
-        /// <para>The <c>Invalidate</c> function searches the cached tags for any documentation block<br/>
-        /// spanning the specified line number and raises <see cref="TagsChanged"/> for the affected span.<br/>
-        /// This targeted invalidation is more efficient than rebuilding the entire buffer.</para>
-        /// </remarks>
         private void OnCaretPositionChanged(object sender, CaretPositionChangedEventArgs e)
         {
             if (RenderDocOptions.Instance.EffectiveGlyphToggle) return;
@@ -2079,20 +2227,18 @@ namespace RenderDocComments.DocCommentRenderer
             _caretLine = newLine;
 
             var snap = _buffer.CurrentSnapshot;
-            var cached = _cachedTags;
+            var cached = _cachedBlocks;
 
             void Invalidate(int ln)
             {
                 if (ln < 0 || ln >= snap.LineCount) return;
                 if (cached != null)
                 {
-                    foreach (var ts in cached)
+                    foreach (var blk in cached)
                     {
-                        int s = snap.GetLineNumberFromPosition(ts.Span.Start);
-                        int en = snap.GetLineNumberFromPosition(ts.Span.End);
-                        if (ln >= s && ln <= en)
+                        if (ln >= blk.StartLine && ln <= blk.EndLine)
                         {
-                            TagsChanged?.Invoke(this, new SnapshotSpanEventArgs(ts.Span));
+                            TagsChanged?.Invoke(this, new SnapshotSpanEventArgs(blk.Span));
                             return;
                         }
                     }
@@ -2117,37 +2263,16 @@ namespace RenderDocComments.DocCommentRenderer
         /// <param name="e">
         /// Event arguments (unused).
         /// </param>
-        /// <remarks>
-        /// <para>The handler implements a two-phase invalidation/rebuild strategy to prevent visual glitches:</para>
-        /// <list type="number">
-        /// <item>
-        /// <description><b>Phase 1 — Clear:</b>
-        ///   <list type="bullet">
-        ///   <item><description>Increments <see cref="_settingsGeneration"/> atomically via <see cref="System.Threading.Interlocked.Increment"/>.</description></item>
-        ///   <item><description>Clears the cached snapshot and tags.</description></item>
-        ///   <item><description>Sets <see cref="_forceEmpty"/> to <c>true</c> to suppress tag rendering.</description></item>
-        ///   <item><description>Raises <see cref="TagsChanged"/> for the entire buffer, causing the editor to remove all existing adornments.</description></item>
-        ///   </list>
-        /// </description>
-        /// </item>
-        /// <item>
-        /// <description><b>Phase 2 — Rebuild:</b>
-        ///   <list type="bullet">
-        ///   <item><description>Schedules a dispatcher callback at <see cref="DispatcherPriority.Normal"/>.</description></item>
-        ///   <item><description>Resets <see cref="_forceEmpty"/> to <c>false</c>.</description></item>
-        ///   <item><description>Raises <see cref="TagsChanged"/> again, triggering <see cref="GetOrBuildTags"/> to rebuild all tags with new settings.</description></item>
-        ///   </list>
-        /// </description>
-        /// </item>
-        /// </list>
-        /// <para>This two-phase approach ensures the editor first clears old adornments before<br/>
-        /// creating new ones, preventing visual artifacts during the transition.</para>
-        /// </remarks>
         private void OnSettingsChanged(object sender, EventArgs e)
         {
             System.Threading.Interlocked.Increment(ref _settingsGeneration);
             _cachedSnapshot = null;
-            _cachedTags = null;
+            _cachedBlocks = null;
+            _activeTagCache.Clear();
+            _activeWindowStartLine = -1;
+            _activeWindowEndLine = -1;
+            _lastFirstVisibleLine = -1;
+            _lastLastVisibleLine = -1;
 
             var snap = _buffer.CurrentSnapshot;
             _forceEmpty = true;
