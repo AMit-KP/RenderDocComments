@@ -85,13 +85,13 @@ namespace RenderDocComments.DocCommentRenderer
             public string FirstLineText { get; set; }
             public int StartLine { get; set; }
             public int EndLine { get; set; }
+            public TagSpan<IntraTextAdornmentTag> ActiveTagSpan { get; set; }
         }
 
         private ITextSnapshot _cachedSnapshot;
         private int _cachedSettingsGen = -1;
         private IReadOnlyList<DocCommentBlock> _cachedBlocks;
-        private readonly Dictionary<int, TagSpan<IntraTextAdornmentTag>> _activeTagCache =
-            new Dictionary<int, TagSpan<IntraTextAdornmentTag>>();
+        private readonly System.Windows.Threading.DispatcherTimer _debounceTimer;
 
         private int _activeWindowStartLine = -1;
         private int _activeWindowEndLine = -1;
@@ -149,6 +149,12 @@ namespace RenderDocComments.DocCommentRenderer
         {
             _buffer = buffer;
             _view = view;
+
+            _debounceTimer = new System.Windows.Threading.DispatcherTimer(System.Windows.Threading.DispatcherPriority.Background)
+            {
+                Interval = TimeSpan.FromMilliseconds(300)
+            };
+            _debounceTimer.Tick += OnDebounceTimerTick;
 
             _buffer.Changed += OnBufferChanged;
             _view.Caret.PositionChanged += OnCaretPositionChanged;
@@ -270,15 +276,18 @@ namespace RenderDocComments.DocCommentRenderer
 
                 if (spans.IntersectsWith(new NormalizedSnapshotSpanCollection(block.Span)))
                 {
-                    int key = block.Span.Start.Position;
-                    if (!_activeTagCache.TryGetValue(key, out var tagSpan))
+                    if (block.ActiveTagSpan == null)
                     {
                         var tag = new DocCommentAdornmentTag(block.Parsed, _view, MeasureIndent(block.FirstLineText));
-                        tagSpan = new TagSpan<IntraTextAdornmentTag>(block.Span, tag);
-                        _activeTagCache[key] = tagSpan;
+                        block.ActiveTagSpan = new TagSpan<IntraTextAdornmentTag>(block.Span, tag);
+                    }
+                    else if (block.ActiveTagSpan.Span.Snapshot != snapshot)
+                    {
+                        var translatedSpan = block.ActiveTagSpan.Span.TranslateTo(snapshot, SpanTrackingMode.EdgeExclusive);
+                        block.ActiveTagSpan = new TagSpan<IntraTextAdornmentTag>(translatedSpan, block.ActiveTagSpan.Tag);
                     }
 
-                    yield return tagSpan;
+                    yield return block.ActiveTagSpan;
                 }
             }
         }
@@ -303,9 +312,28 @@ namespace RenderDocComments.DocCommentRenderer
                 _cachedBlocks != null)
                 return _cachedBlocks;
 
+            if (_cachedBlocks != null && _cachedSettingsGen == _settingsGeneration)
+            {
+                // Translate cached blocks and existing tags to the current snapshot
+                for (int i = 0; i < _cachedBlocks.Count; i++)
+                {
+                    var block = _cachedBlocks[i];
+                    var newSpan = block.Span.TranslateTo(snapshot, SpanTrackingMode.EdgeExclusive);
+                    block.Span = newSpan;
+                    block.StartLine = newSpan.Start.GetContainingLine().LineNumber;
+                    block.EndLine = newSpan.End.GetContainingLine().LineNumber;
+                    if (block.ActiveTagSpan != null)
+                    {
+                        var newTagSpan = block.ActiveTagSpan.Span.TranslateTo(snapshot, SpanTrackingMode.EdgeExclusive);
+                        block.ActiveTagSpan = new TagSpan<IntraTextAdornmentTag>(newTagSpan, block.ActiveTagSpan.Tag);
+                    }
+                }
+                _cachedSnapshot = snapshot;
+                return _cachedBlocks;
+            }
+
             _cachedSnapshot = snapshot;
             _cachedSettingsGen = _settingsGeneration;
-            _activeTagCache.Clear();
             _cachedBlocks = BuildBlocks(snapshot);
             return _cachedBlocks;
         }
@@ -1052,47 +1080,70 @@ namespace RenderDocComments.DocCommentRenderer
         /// </list>
         /// <para>For each discovered file, <see cref="ScanManagedFileForMember"/> is called to search for the target member.</para>
         /// </remarks>
+        private static readonly Dictionary<string, (DateTime timestamp, ParsedDocComment doc)> _crossFileDocCache =
+            new Dictionary<string, (DateTime, ParsedDocComment)>(StringComparer.OrdinalIgnoreCase);
+
+        private static (DateTime timestamp, List<string> files) _cachedSolutionFiles;
+
         private static ParsedDocComment FindInCsFiles(string fileDir, string targetName)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
+            string cacheKey = (fileDir ?? string.Empty) + "|" + targetName;
+            if (_crossFileDocCache.TryGetValue(cacheKey, out var cached))
+            {
+                if ((DateTime.UtcNow - cached.timestamp).TotalSeconds < 60)
+                    return cached.doc;
+            }
+
+            ParsedDocComment result = null;
             var files = GetSolutionManagedFiles();
 
             if (files == null || files.Count == 0)
             {
-                if (fileDir == null) return null;
-                try
+                if (fileDir != null)
                 {
-                    string root = fileDir;
-                    for (int up = 0; up < 5; up++)
+                    try
                     {
-                        if (Directory.GetFiles(root, "*.sln").Length > 0 ||
-                            Directory.GetFiles(root, "*.csproj").Length > 0 ||
-                            Directory.GetFiles(root, "*.vbproj").Length > 0 ||
-                            Directory.GetFiles(root, "*.fsproj").Length > 0)
-                            break;
-                        var parent = Path.GetDirectoryName(root);
-                        if (parent == null) break;
-                        root = parent;
+                        string root = fileDir;
+                        for (int up = 0; up < 5; up++)
+                        {
+                            if (Directory.GetFiles(root, "*.sln").Length > 0 ||
+                                Directory.GetFiles(root, "*.csproj").Length > 0 ||
+                                Directory.GetFiles(root, "*.vbproj").Length > 0 ||
+                                Directory.GetFiles(root, "*.fsproj").Length > 0)
+                                break;
+                            var parent = Path.GetDirectoryName(root);
+                            if (parent == null) break;
+                            root = parent;
+                        }
+                        files = new List<string>();
+                        foreach (var ext in new[] { "*.cs", "*.vb", "*.fs", "*.fsi" })
+                            try { files.AddRange(Directory.GetFiles(root, ext, SearchOption.AllDirectories)); }
+                            catch { }
                     }
-                    files = new List<string>();
-                    foreach (var ext in new[] { "*.cs", "*.vb", "*.fs", "*.fsi" })
-                        try { files.AddRange(Directory.GetFiles(root, ext, SearchOption.AllDirectories)); }
-                        catch { }
+                    catch { }
                 }
-                catch { return null; }
             }
 
-            foreach (var file in files)
+            if (files != null)
             {
-                try
+                foreach (var file in files)
                 {
-                    var doc = ScanManagedFileForMember(file, targetName);
-                    if (doc != null) return doc;
+                    try
+                    {
+                        var doc = ScanManagedFileForMember(file, targetName);
+                        if (doc != null)
+                        {
+                            result = doc;
+                            break;
+                        }
+                    }
+                    catch { }
                 }
-                catch { }
             }
 
-            return null;
+            _crossFileDocCache[cacheKey] = (DateTime.UtcNow, result);
+            return result;
         }
 
         /// <summary>
@@ -1115,10 +1166,16 @@ namespace RenderDocComments.DocCommentRenderer
         /// </remarks>
         private static List<string> GetSolutionManagedFiles()
         {
+            if (_cachedSolutionFiles.files != null &&
+                (DateTime.UtcNow - _cachedSolutionFiles.timestamp).TotalSeconds < 30)
+            {
+                return _cachedSolutionFiles.files;
+            }
+
             try
             {
                 // DTE is main-thread-affine; join the main thread for the enumeration.
-                return ThreadHelper.JoinableTaskFactory.Run(async () =>
+                var files = ThreadHelper.JoinableTaskFactory.Run(async () =>
                 {
                     await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 
@@ -1126,10 +1183,16 @@ namespace RenderDocComments.DocCommentRenderer
                         .GetGlobalService(typeof(EnvDTE.DTE)) as EnvDTE80.DTE2;
                     if (dte?.Solution == null) return null;
 
-                    var files = new List<string>();
-                    CollectProjectItems(dte.Solution.Projects, files);
-                    return files;
+                    var list = new List<string>();
+                    CollectProjectItems(dte.Solution.Projects, list);
+                    return list;
                 });
+
+                if (files != null)
+                {
+                    _cachedSolutionFiles = (DateTime.UtcNow, files);
+                }
+                return files;
             }
             catch { return null; }
         }
@@ -1651,6 +1714,13 @@ namespace RenderDocComments.DocCommentRenderer
         {
             if (fileDir == null) return null;
 
+            string cacheKey = fileDir + "|xml|" + (targetSimpleName ?? string.Empty) + "|" + (fullCref ?? string.Empty);
+            if (_crossFileDocCache.TryGetValue(cacheKey, out var cached))
+            {
+                if ((DateTime.UtcNow - cached.timestamp).TotalSeconds < 60)
+                    return cached.doc;
+            }
+
             var dirs = new List<string> { fileDir };
             try
             {
@@ -1697,12 +1767,17 @@ namespace RenderDocComments.DocCommentRenderer
                             var parsed = DocCommentParser.Parse(fakeBlock, DocCommentLanguage.CSharp);
                             if (parsed != null && parsed.IsValid &&
                                 !string.IsNullOrWhiteSpace(parsed.Summary))
+                            {
+                                _crossFileDocCache[cacheKey] = (DateTime.UtcNow, parsed);
                                 return parsed;
+                            }
                         }
                     }
                     catch { }
                 }
             }
+
+            _crossFileDocCache[cacheKey] = (DateTime.UtcNow, null);
             return null;
         }
 
@@ -2041,18 +2116,131 @@ namespace RenderDocComments.DocCommentRenderer
         /// <para>The editor will subsequently call <see cref="GetTags"/> which will rebuild all tags<br/>
         /// with the updated buffer content.</para>
         /// </remarks>
+        private static bool ContainsDocCommentSyntax(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return false;
+            return text.Contains("///") || text.Contains("'''") ||
+                   text.Contains("/**") || text.Contains("/*!") ||
+                   text.Contains("*/")  || text.Contains("//!");
+        }
+
+        private void OnDebounceTimerTick(object sender, EventArgs e)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            _debounceTimer.Stop();
+
+            var snap = _buffer.CurrentSnapshot;
+            _cachedSnapshot = snap;
+
+            var oldBlocks = _cachedBlocks;
+            var newBlocks = BuildBlocks(snap);
+
+            // Reuse existing WPF controls if comment content and first line haven't changed
+            if (oldBlocks != null && oldBlocks.Count > 0)
+            {
+                foreach (var nb in newBlocks)
+                {
+                    var match = oldBlocks.FirstOrDefault(ob =>
+                        ob.Span.Length == nb.Span.Length &&
+                        ob.FirstLineText == nb.FirstLineText &&
+                        ob.Span.GetText() == nb.Span.GetText());
+
+                    if (match?.ActiveTagSpan != null)
+                    {
+                        var translated = match.ActiveTagSpan.Span.TranslateTo(snap, SpanTrackingMode.EdgeExclusive);
+                        nb.ActiveTagSpan = new TagSpan<IntraTextAdornmentTag>(translated, match.ActiveTagSpan.Tag);
+                    }
+                }
+            }
+
+            _cachedBlocks = newBlocks;
+
+            TagsChanged?.Invoke(this, new SnapshotSpanEventArgs(new SnapshotSpan(snap, 0, snap.Length)));
+        }
+
         private void OnBufferChanged(object sender, TextContentChangedEventArgs e)
         {
-            _cachedSnapshot = null;
-            _cachedBlocks = null;
-            _activeTagCache.Clear();
-            _activeWindowStartLine = -1;
-            _activeWindowEndLine = -1;
-            _lastFirstVisibleLine = -1;
-            _lastLastVisibleLine = -1;
             var snap = e.After;
-            TagsChanged?.Invoke(this,
-                new SnapshotSpanEventArgs(new SnapshotSpan(snap, 0, snap.Length)));
+
+            // Immediately translate all existing blocks and active tags to e.After snapshot
+            if (_cachedBlocks != null)
+            {
+                for (int i = 0; i < _cachedBlocks.Count; i++)
+                {
+                    var block = _cachedBlocks[i];
+                    var newSpan = block.Span.TranslateTo(snap, SpanTrackingMode.EdgeExclusive);
+                    block.Span = newSpan;
+                    block.StartLine = newSpan.Start.GetContainingLine().LineNumber;
+                    block.EndLine = newSpan.End.GetContainingLine().LineNumber;
+                    if (block.ActiveTagSpan != null)
+                    {
+                        var newTagSpan = block.ActiveTagSpan.Span.TranslateTo(snap, SpanTrackingMode.EdgeExclusive);
+                        block.ActiveTagSpan = new TagSpan<IntraTextAdornmentTag>(newTagSpan, block.ActiveTagSpan.Tag);
+                    }
+                }
+                _cachedSnapshot = snap;
+            }
+
+            bool touchesDocComment = false;
+            if (_cachedBlocks != null && _cachedBlocks.Count > 0)
+            {
+                foreach (var change in e.Changes)
+                {
+                    int changeStart = change.OldPosition;
+                    int changeEnd = change.OldEnd;
+
+                    foreach (var block in _cachedBlocks)
+                    {
+                        if (changeStart <= block.Span.End.Position && changeEnd >= block.Span.Start.Position)
+                        {
+                            touchesDocComment = true;
+                            break;
+                        }
+                    }
+                    if (touchesDocComment) break;
+
+                    if (ContainsDocCommentSyntax(change.OldText) || ContainsDocCommentSyntax(change.NewText))
+                    {
+                        touchesDocComment = true;
+                        break;
+                    }
+
+                    if (change.NewPosition < snap.Length)
+                    {
+                        var afterLine = snap.GetLineFromPosition(change.NewPosition);
+                        if (ContainsDocCommentSyntax(afterLine.GetText()))
+                        {
+                            touchesDocComment = true;
+                            break;
+                        }
+                    }
+                    if (change.OldPosition < e.Before.Length)
+                    {
+                        var beforeLine = e.Before.GetLineFromPosition(change.OldPosition);
+                        if (ContainsDocCommentSyntax(beforeLine.GetText()))
+                        {
+                            touchesDocComment = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            else
+            {
+                touchesDocComment = true;
+            }
+
+            if (!touchesDocComment)
+            {
+                // Typing is strictly outside comments.
+                // Blocks and tags have already been translated.
+                // Do NOT fire TagsChanged. Zero lag.
+                return;
+            }
+
+            // Edit modified or introduced doc comments: debounce re-parsing
+            _debounceTimer.Stop();
+            _debounceTimer.Start();
         }
 
         /// <summary>
@@ -2079,7 +2267,6 @@ namespace RenderDocComments.DocCommentRenderer
             {
                 _cachedSnapshot = null;
                 _cachedBlocks = null;
-                _activeTagCache.Clear();
                 _activeWindowStartLine = -1;
                 _activeWindowEndLine = -1;
                 _lastFirstVisibleLine = -1;
@@ -2131,21 +2318,16 @@ namespace RenderDocComments.DocCommentRenderer
                     _activeWindowStartLine = newStart;
                     _activeWindowEndLine = newEnd;
 
-                    // Evict tags outside the new active window from _activeTagCache to free memory
-                    if (_activeTagCache.Count > 0 && _cachedBlocks != null)
+                    // Evict tags outside the new active window from _cachedBlocks to free memory
+                    if (_cachedBlocks != null)
                     {
-                        var toRemove = new List<int>();
                         foreach (var block in _cachedBlocks)
                         {
                             if (block.EndLine < newStart || block.StartLine > newEnd)
                             {
-                                int key = block.Span.Start.Position;
-                                if (_activeTagCache.ContainsKey(key))
-                                    toRemove.Add(key);
+                                block.ActiveTagSpan = null;
                             }
                         }
-                        foreach (int key in toRemove)
-                            _activeTagCache.Remove(key);
                     }
 
                     // Invalidate delta spans so VS editor de-renders exited lines and renders entered lines
@@ -2196,10 +2378,10 @@ namespace RenderDocComments.DocCommentRenderer
         /// </remarks>
         private void OnViewClosed(object sender, EventArgs e)
         {
+            _debounceTimer?.Stop();
             _caretLine = -1;
             _cachedSnapshot = null;
             _cachedBlocks = null;
-            _activeTagCache.Clear();
             _activeWindowStartLine = -1;
             _activeWindowEndLine = -1;
             _lastFirstVisibleLine = -1;
@@ -2265,10 +2447,10 @@ namespace RenderDocComments.DocCommentRenderer
         /// </param>
         private void OnSettingsChanged(object sender, EventArgs e)
         {
+            _debounceTimer?.Stop();
             System.Threading.Interlocked.Increment(ref _settingsGeneration);
             _cachedSnapshot = null;
             _cachedBlocks = null;
-            _activeTagCache.Clear();
             _activeWindowStartLine = -1;
             _activeWindowEndLine = -1;
             _lastFirstVisibleLine = -1;
@@ -2313,6 +2495,11 @@ namespace RenderDocComments.DocCommentRenderer
         /// </remarks>
         public void Dispose()
         {
+            if (_debounceTimer != null)
+            {
+                _debounceTimer.Stop();
+                _debounceTimer.Tick -= OnDebounceTimerTick;
+            }
             _buffer.Changed -= OnBufferChanged;
             _view.Caret.PositionChanged -= OnCaretPositionChanged;
             _view.LayoutChanged -= OnLayoutChanged;

@@ -166,9 +166,22 @@ namespace RenderDocComments.DocCommentRenderer
         /// <param name="buffer">
         /// The <see cref="ITextBuffer"/> to monitor for documentation comment blocks.
         /// </param>
+        private readonly System.Windows.Threading.DispatcherTimer _glyphDebounceTimer;
+
         public DocCommentGlyphTagger(ITextBuffer buffer)
         {
             _buffer = buffer;
+            _glyphDebounceTimer = new System.Windows.Threading.DispatcherTimer(System.Windows.Threading.DispatcherPriority.Background)
+            {
+                Interval = TimeSpan.FromMilliseconds(300)
+            };
+            _glyphDebounceTimer.Tick += (s, ev) =>
+            {
+                _glyphDebounceTimer.Stop();
+                var snap = _buffer.CurrentSnapshot;
+                TagsChanged?.Invoke(this, new SnapshotSpanEventArgs(new SnapshotSpan(snap, 0, snap.Length)));
+            };
+
             _buffer.Changed += OnBufferChanged;
             SettingsChangedBroadcast.SettingsChanged += OnSettingsChanged;
         }
@@ -311,9 +324,52 @@ namespace RenderDocComments.DocCommentRenderer
         /// Raises <see cref="TagsChanged"/> for the entire buffer length to force the editor<br/>
         /// to re-query glyph tags with the updated content.
         /// </remarks>
+        private static bool ContainsDocSyntax(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return false;
+            return text.Contains("///") || text.Contains("'''") ||
+                   text.Contains("/**") || text.Contains("/*!") ||
+                   text.Contains("*/")  || text.Contains("//!");
+        }
+
         private void OnBufferChanged(object sender, TextContentChangedEventArgs e)
-            => TagsChanged?.Invoke(this, new SnapshotSpanEventArgs(
-                new SnapshotSpan(e.After, 0, e.After.Length)));
+        {
+            if (!RenderDocOptions.Instance.RenderEnabled || !RenderDocOptions.Instance.EffectiveGlyphToggle)
+                return;
+
+            bool touchesDoc = false;
+            foreach (var change in e.Changes)
+            {
+                if (ContainsDocSyntax(change.OldText) || ContainsDocSyntax(change.NewText))
+                {
+                    touchesDoc = true;
+                    break;
+                }
+                if (change.NewPosition < e.After.Length)
+                {
+                    var afterLine = e.After.GetLineFromPosition(change.NewPosition);
+                    if (ContainsDocSyntax(afterLine.GetText()))
+                    {
+                        touchesDoc = true;
+                        break;
+                    }
+                }
+                if (change.OldPosition < e.Before.Length)
+                {
+                    var beforeLine = e.Before.GetLineFromPosition(change.OldPosition);
+                    if (ContainsDocSyntax(beforeLine.GetText()))
+                    {
+                        touchesDoc = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!touchesDoc) return;
+
+            _glyphDebounceTimer.Stop();
+            _glyphDebounceTimer.Start();
+        }
 
         /// <summary>
         /// Handles settings change notifications, invalidating all glyph tags when the<br/>
@@ -346,6 +402,7 @@ namespace RenderDocComments.DocCommentRenderer
         /// </remarks>
         public void Dispose()
         {
+            _glyphDebounceTimer?.Stop();
             _buffer.Changed -= OnBufferChanged;
             SettingsChangedBroadcast.SettingsChanged -= OnSettingsChanged;
         }

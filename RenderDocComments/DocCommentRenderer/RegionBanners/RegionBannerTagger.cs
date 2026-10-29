@@ -55,6 +55,7 @@ namespace RenderDocComments.DocCommentRenderer.RegionBanners
         private readonly IWpfTextView _view;
         private readonly IOutliningManagerService _outliningManagerService;
         private IOutliningManager _outlining;
+        private readonly System.Windows.Threading.DispatcherTimer _debounceTimer;
 
         private ITextSnapshot _cachedSnapshot;
         private int _cachedSettingsGen = -1;
@@ -128,6 +129,19 @@ namespace RenderDocComments.DocCommentRenderer.RegionBanners
                 }
             }
             catch { }
+
+            _debounceTimer = new System.Windows.Threading.DispatcherTimer(System.Windows.Threading.DispatcherPriority.Background)
+            {
+                Interval = TimeSpan.FromMilliseconds(300)
+            };
+            _debounceTimer.Tick += (s, ev) =>
+            {
+                _debounceTimer.Stop();
+                _cachedSnapshot = null;
+                _cachedTags = null;
+                var snap = _buffer.CurrentSnapshot;
+                TagsChanged?.Invoke(this, new SnapshotSpanEventArgs(new SnapshotSpan(snap, 0, snap.Length)));
+            };
 
             _buffer.Changed += OnBufferChanged;
             _view.Caret.PositionChanged += OnCaretPositionChanged;
@@ -562,11 +576,59 @@ namespace RenderDocComments.DocCommentRenderer.RegionBanners
         /// <summary>Invalidates the cache and re-queries tags after any edit.</summary>
         private void OnBufferChanged(object sender, TextContentChangedEventArgs e)
         {
-            _cachedSnapshot = null;
-            _cachedTags = null;
+            if (!RenderDocOptions.Instance.EffectiveRegionBannersEnabled)
+            {
+                _cachedSnapshot = null;
+                _cachedTags = null;
+                return;
+            }
+
             var snap = e.After;
-            TagsChanged?.Invoke(this,
-                new SnapshotSpanEventArgs(new SnapshotSpan(snap, 0, snap.Length)));
+            if (_cachedTags != null)
+            {
+                var translated = new List<TagSpan<IntraTextAdornmentTag>>(_cachedTags.Count);
+                foreach (var tag in _cachedTags)
+                {
+                    var newSpan = tag.Span.TranslateTo(snap, SpanTrackingMode.EdgeExclusive);
+                    if (newSpan.Length > 0)
+                        translated.Add(new TagSpan<IntraTextAdornmentTag>(newSpan, tag.Tag));
+                }
+                _cachedTags = translated;
+                _cachedSnapshot = snap;
+            }
+
+            bool touchesRegion = false;
+            foreach (var change in e.Changes)
+            {
+                if (change.OldText.Contains("#") || change.NewText.Contains("#"))
+                {
+                    touchesRegion = true;
+                    break;
+                }
+                if (change.NewPosition < snap.Length)
+                {
+                    var line = snap.GetLineFromPosition(change.NewPosition);
+                    if (line.GetText().Contains("#"))
+                    {
+                        touchesRegion = true;
+                        break;
+                    }
+                }
+                if (change.OldPosition < e.Before.Length)
+                {
+                    var line = e.Before.GetLineFromPosition(change.OldPosition);
+                    if (line.GetText().Contains("#"))
+                    {
+                        touchesRegion = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!touchesRegion) return;
+
+            _debounceTimer.Stop();
+            _debounceTimer.Start();
         }
 
         /// <summary>Re-queries tags when the viewport resizes.</summary>
@@ -661,6 +723,7 @@ namespace RenderDocComments.DocCommentRenderer.RegionBanners
         /// tagger.</summary>
         public void Dispose()
         {
+            _debounceTimer?.Stop();
             if (_outlining != null)
             {
                 _outlining.RegionsCollapsed -= OnRegionsChanged;

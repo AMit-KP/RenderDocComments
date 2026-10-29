@@ -104,6 +104,7 @@ namespace RenderDocComments.DocCommentRenderer.CommentBoxes
     {
         private readonly ITextBuffer _buffer;
         private readonly IWpfTextView _view;
+        private readonly System.Windows.Threading.DispatcherTimer _debounceTimer;
 
         private ITextSnapshot _cachedSnapshot;
         private int _cachedSettingsGen = -1;
@@ -129,6 +130,19 @@ namespace RenderDocComments.DocCommentRenderer.CommentBoxes
         {
             _buffer = buffer;
             _view = view;
+
+            _debounceTimer = new System.Windows.Threading.DispatcherTimer(System.Windows.Threading.DispatcherPriority.Background)
+            {
+                Interval = TimeSpan.FromMilliseconds(300)
+            };
+            _debounceTimer.Tick += (s, ev) =>
+            {
+                _debounceTimer.Stop();
+                _cachedSnapshot = null;
+                _cachedTags = null;
+                var snap = _buffer.CurrentSnapshot;
+                TagsChanged?.Invoke(this, new SnapshotSpanEventArgs(new SnapshotSpan(snap, 0, snap.Length)));
+            };
 
             _buffer.Changed += OnBufferChanged;
             _view.Caret.PositionChanged += OnCaretPositionChanged;
@@ -1612,11 +1626,65 @@ namespace RenderDocComments.DocCommentRenderer.CommentBoxes
         /// <summary>Invalidates the cache and re-queries tags after any edit.</summary>
         private void OnBufferChanged(object sender, TextContentChangedEventArgs e)
         {
-            _cachedSnapshot = null;
-            _cachedTags = null;
+            if (!RenderDocOptions.Instance.EffectiveCommentBoxesEnabled &&
+                !RenderDocOptions.Instance.EffectiveBannerCommentsEnabled)
+            {
+                _cachedSnapshot = null;
+                _cachedTags = null;
+                return;
+            }
+
             var snap = e.After;
-            TagsChanged?.Invoke(this,
-                new SnapshotSpanEventArgs(new SnapshotSpan(snap, 0, snap.Length)));
+            if (_cachedTags != null)
+            {
+                var translated = new List<TagSpan<IntraTextAdornmentTag>>(_cachedTags.Count);
+                foreach (var tag in _cachedTags)
+                {
+                    var newSpan = tag.Span.TranslateTo(snap, SpanTrackingMode.EdgeExclusive);
+                    if (newSpan.Length > 0)
+                        translated.Add(new TagSpan<IntraTextAdornmentTag>(newSpan, tag.Tag));
+                }
+                _cachedTags = translated;
+                _cachedSnapshot = snap;
+            }
+
+            bool touchesComments = false;
+            foreach (var change in e.Changes)
+            {
+                if (change.OldText.Contains("//") || change.NewText.Contains("//") ||
+                    change.OldText.Contains("/*") || change.NewText.Contains("/*") ||
+                    change.OldText.Contains("*/") || change.NewText.Contains("*/") ||
+                    change.OldText.Contains("'")  || change.NewText.Contains("'"))
+                {
+                    touchesComments = true;
+                    break;
+                }
+                if (change.NewPosition < snap.Length)
+                {
+                    var line = snap.GetLineFromPosition(change.NewPosition);
+                    var t = line.GetText();
+                    if (t.Contains("//") || t.Contains("/*") || t.Contains("*/") || t.Contains("'"))
+                    {
+                        touchesComments = true;
+                        break;
+                    }
+                }
+                if (change.OldPosition < e.Before.Length)
+                {
+                    var line = e.Before.GetLineFromPosition(change.OldPosition);
+                    var t = line.GetText();
+                    if (t.Contains("//") || t.Contains("/*") || t.Contains("*/") || t.Contains("'"))
+                    {
+                        touchesComments = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!touchesComments) return;
+
+            _debounceTimer.Stop();
+            _debounceTimer.Start();
         }
 
         /// <summary>
@@ -1715,6 +1783,7 @@ namespace RenderDocComments.DocCommentRenderer.CommentBoxes
         /// <summary>Unsubscribes all events; called when the editor disposes the tagger.</summary>
         public void Dispose()
         {
+            _debounceTimer?.Stop();
             _buffer.Changed -= OnBufferChanged;
             _view.Caret.PositionChanged -= OnCaretPositionChanged;
             _view.LayoutChanged -= OnLayoutChanged;

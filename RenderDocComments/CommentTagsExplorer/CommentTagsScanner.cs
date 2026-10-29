@@ -238,32 +238,28 @@ namespace RenderDocComments.CommentTagsExplorer
             }
 
             // Debounce live typing updates (250ms)
-            ThreadHelper.JoinableTaskFactory.Run(async () =>
+            lock (_debounceTimers)
             {
-                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-
-                lock (_debounceTimers)
+                if (_debounceTimers.TryGetValue(filePath, out var existingTimer))
                 {
-                    if (_debounceTimers.TryGetValue(filePath, out var existingTimer))
-                    {
-                        existingTimer.Stop();
-                    }
-                    else
-                    {
-                        var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
-                        timer.Tick += (s, args) =>
-                        {
-                            timer.Stop();
-                            lock (_debounceTimers) { _debounceTimers.Remove(filePath); }
-                            RescanBuffer(buffer, filePath);
-                        };
-                        _debounceTimers[filePath] = timer;
-                        existingTimer = timer;
-                    }
-
-                    existingTimer.Start();
+                    existingTimer.Stop();
                 }
-            });
+                else
+                {
+                    var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
+                    timer.Tick += (s, args) =>
+                    {
+                        ThreadHelper.ThrowIfNotOnUIThread();
+                        timer.Stop();
+                        lock (_debounceTimers) { _debounceTimers.Remove(filePath); }
+                        RescanBuffer(buffer, filePath);
+                    };
+                    _debounceTimers[filePath] = timer;
+                    existingTimer = timer;
+                }
+
+                existingTimer.Start();
+            }
         }
 
         private void RescanBuffer(ITextBuffer buffer, string filePath)
