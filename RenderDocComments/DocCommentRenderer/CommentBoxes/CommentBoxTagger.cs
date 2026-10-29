@@ -546,7 +546,7 @@ namespace RenderDocComments.DocCommentRenderer.CommentBoxes
 
         /// <summary>
         /// Rule 2 — flanked text: the line starts and ends with a fill run and the
-        /// embedded text between the rails is 1–40 characters containing no fill
+        /// embedded text between the rails is 1–250 characters containing no fill
         /// characters. Rails may be as short as two characters — real-world
         /// headings like <c>── Title ────────</c> open with a short left rail —
         /// except that asterisk rails in line comments still need three so
@@ -588,7 +588,7 @@ namespace RenderDocComments.DocCommentRenderer.CommentBoxes
                 }
             }
             text = middle.Trim();
-            if (text.Length == 0 || text.Length > 40)
+            if (text.Length == 0 || text.Length > 250)
             {
                 text = null;
                 return false;
@@ -649,7 +649,7 @@ namespace RenderDocComments.DocCommentRenderer.CommentBoxes
         /// <summary>
         /// Recognises the degenerate one-line asterisk box: an opening <c>/**</c>
         /// whose line closes with the block closer at end of line and whose content
-        /// is asterisk rails around 1–40 plain characters (three stars, spaces, a
+        /// is asterisk rails around 1–250 plain characters (three stars, spaces, a
         /// section name, spaces, three stars). Such lines are decorative banners,
         /// not XML doc comments, so the box/banner feature may own them.
         /// </summary>
@@ -666,7 +666,7 @@ namespace RenderDocComments.DocCommentRenderer.CommentBoxes
                 return false;
 
             string core = content.Trim('*').Trim();
-            if (core.Length == 0 || core.Length > 40) return false;
+            if (core.Length == 0 || core.Length > 250) return false;
             foreach (char c in core)
             {
                 if (IsRunChar(c)) return false;
